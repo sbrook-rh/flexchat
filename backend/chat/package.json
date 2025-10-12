@@ -1,0 +1,20 @@
+{
+  "name": "chat-starter-backend",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "dotenv -e .env node server.js",
+    "dev": "dotenv -e .env nodemon server.js"
+  },
+  "keywords": ["chat", "ai", "assistant"],
+  "author": "",
+  "license": "ISC",
+  "description": "Generic chat API with intent detection and RAG capabilities",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "body-parser": "^1.20.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1"
+  }
+}
