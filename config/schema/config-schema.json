@@ -1,0 +1,157 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Chat Configuration Schema",
+  "description": "Schema for configuring chat strategies, providers, and knowledge bases",
+  "type": "object",
+  "properties": {
+    "detection_provider": {
+      "type": "object",
+      "description": "Provider configuration for intent detection (required unless only one strategy with type 'default')",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Provider name (must match a key in providers)"
+        },
+        "model": {
+          "type": "string",
+          "description": "Model to use for intent detection"
+        }
+      },
+      "required": ["provider", "model"]
+    },
+    "providers": {
+      "type": "object",
+      "description": "AI provider configurations",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["openai", "ollama", "gemini", "anthropic"],
+            "description": "Provider type"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "API key for the provider (optional for local providers like Ollama)"
+          },
+          "base_url": {
+            "type": "string",
+            "description": "Base URL for the provider API"
+          }
+        },
+        "required": ["type"]
+      }
+    },
+    "knowledge_bases": {
+      "type": "object",
+      "description": "Knowledge base configurations",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["chromadb", "milvus", "postgres", "pinecone"],
+            "description": "Vector database type"
+          },
+          "url": {
+            "type": "string",
+            "description": "URL for the vector database"
+          },
+          "collection": {
+            "type": "string",
+            "description": "Collection/table name"
+          },
+          "embedding_provider": {
+            "type": "string",
+            "description": "Provider to use for embeddings (must match a key in providers)"
+          },
+          "embedding_model": {
+            "type": "string",
+            "description": "Model to use for embeddings"
+          },
+          "api_key": {
+            "type": "string",
+            "description": "API key for the vector database (if required)"
+          }
+        },
+        "required": ["type", "url", "collection", "embedding_provider", "embedding_model"]
+      }
+    },
+    "strategies": {
+      "type": "array",
+      "description": "Array of strategy configurations",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Unique name for the strategy (e.g., 'OPENSHIFT', 'CODING')",
+            "pattern": "^[A-Z_]+$"
+          },
+          "detection": {
+            "type": "object",
+            "description": "Detection configuration for this strategy",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["rag", "llm", "default"],
+                "description": "Detection method: 'rag' for knowledge base, 'llm' for LLM classification, 'default' for catch-all"
+              },
+              "knowledge_base": {
+                "type": "string",
+                "description": "Knowledge base name (required for 'rag' type)"
+              },
+              "threshold": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Distance threshold for RAG detection"
+              },
+              "fallback_threshold": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1,
+                "description": "Optional upper threshold for hybrid detection"
+              },
+              "description": {
+                "type": "string",
+                "description": "Description used in LLM intent detection prompts"
+              }
+            },
+            "required": ["type"]
+          },
+          "response": {
+            "type": "object",
+            "description": "Response generation configuration",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "description": "Provider name (must match a key in providers)"
+              },
+              "model": {
+                "type": "string",
+                "description": "Model to use for response generation"
+              },
+              "max_tokens": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "Maximum tokens for response generation"
+              },
+              "system_prompt": {
+                "type": "string",
+                "description": "System prompt template for response generation"
+              },
+              "static_response": {
+                "type": "string",
+                "description": "Static response text (alternative to using LLM)"
+              }
+            },
+            "required": ["max_tokens"]
+          }
+        },
+        "required": ["name", "detection", "response"]
+      }
+    }
+  },
+  "required": ["strategies"]
+}

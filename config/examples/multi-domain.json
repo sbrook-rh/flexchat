@@ -1,0 +1,101 @@
+{
+  "detection_provider": {
+    "provider": "openai",
+    "model": "gpt-3.5-turbo"
+  },
+  "providers": {
+    "openai": {
+      "type": "openai",
+      "api_key": "${OPENAI_API_KEY}",
+      "base_url": "https://api.openai.com/v1"
+    }
+  },
+  "knowledge_bases": {
+    "cooking_recipes": {
+      "type": "chromadb",
+      "url": "http://localhost:5006",
+      "collection": "cooking_recipes",
+      "embedding_provider": "openai",
+      "embedding_model": "text-embedding-3-small"
+    },
+    "travel_guides": {
+      "type": "chromadb",
+      "url": "http://localhost:5006",
+      "collection": "travel_guides",
+      "embedding_provider": "openai",
+      "embedding_model": "text-embedding-3-small"
+    }
+  },
+  "strategies": [
+    {
+      "name": "COOKING",
+      "detection": {
+        "type": "rag",
+        "knowledge_base": "cooking_recipes",
+        "threshold": 0.2,
+        "fallback_threshold": 0.45,
+        "description": "if it's a question about cooking, recipes, or food preparation"
+      },
+      "response": {
+        "provider": "openai",
+        "model": "gpt-3.5-turbo",
+        "max_tokens": 300,
+        "system_prompt": "You are a helpful cooking assistant. Use the provided recipe context to give accurate cooking advice, ingredient substitutions, and cooking techniques."
+      }
+    },
+    {
+      "name": "TRAVEL",
+      "detection": {
+        "type": "rag",
+        "knowledge_base": "travel_guides",
+        "threshold": 0.2,
+        "fallback_threshold": 0.45,
+        "description": "if it's a question about travel, destinations, or trip planning"
+      },
+      "response": {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "max_tokens": 400,
+        "system_prompt": "You are a helpful travel assistant. Use the provided travel context to give accurate information about destinations, attractions, and travel tips."
+      }
+    },
+    {
+      "name": "TECH_SUPPORT",
+      "detection": {
+        "type": "llm",
+        "description": "if it's a question about technical support, troubleshooting, or help with software"
+      },
+      "response": {
+        "provider": "openai",
+        "model": "gpt-3.5-turbo",
+        "max_tokens": 250,
+        "system_prompt": "You are a helpful technical support assistant. Provide clear, step-by-step troubleshooting guidance and technical assistance."
+      }
+    },
+    {
+      "name": "WEATHER",
+      "detection": {
+        "type": "llm",
+        "description": "if it's a question about weather, climate, or current conditions"
+      },
+      "response": {
+        "provider": "openai",
+        "model": "gpt-3.5-turbo",
+        "max_tokens": 150,
+        "system_prompt": "You are a helpful weather assistant. Provide current weather information and forecasts. Note that you should recommend checking a reliable weather service for real-time data."
+      }
+    },
+    {
+      "name": "GENERAL",
+      "detection": {
+        "type": "default"
+      },
+      "response": {
+        "provider": "openai",
+        "model": "gpt-3.5-turbo",
+        "max_tokens": 100,
+        "system_prompt": "You are a helpful assistant. I can help with cooking, travel, tech support, and weather questions. What would you like to know about?"
+      }
+    }
+  ]
+}
