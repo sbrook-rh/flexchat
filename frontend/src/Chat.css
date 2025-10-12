@@ -1,0 +1,22 @@
+@reference "tailwindcss";
+
+/* Chat.css */
+.bot-message {
+  @apply bg-gray-100 text-black px-4 py-2 rounded-lg max-w-[75%] break-words inline-block;
+}
+
+.user-message {
+  @apply bg-blue-500 text-white px-4 py-2 rounded-lg max-w-[75%] break-words inline-block text-right;
+}
+
+.message-container {
+  @apply my-4 flex;
+}
+
+.bot {
+  @apply justify-start; /* Bot messages align left */
+}
+
+.user {
+  @apply justify-end; /* User messages align right */
+}
