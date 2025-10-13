@@ -1,0 +1,81 @@
+{
+  "$schema": "../schema/config-schema.json",
+  "comment": "RAG configuration using ChromaDB wrapper with local Ollama for both chat and embeddings",
+  
+  "providers": {
+    "ollama": {
+      "type": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "models": {
+        "chat": "qwen2.5:7b-instruct"
+      },
+      "embedding_model": "nomic-embed-text",
+      "comment": "Install models with: ollama pull qwen2.5:7b-instruct && ollama pull nomic-embed-text"
+    }
+  },
+  
+  "knowledge_bases": {
+    "dynamic": {
+      "type": "chromadb-wrapper",
+      "url": "http://localhost:5006",
+      "embedding_provider": "ollama",
+      "comment": [
+        "ChromaDB wrapper is a Python FastAPI service that handles embeddings and storage.",
+        "Start it with: cd backend/rag && python server.py",
+        "The wrapper's .env file should have: EMBEDDING_PROVIDER=ollama, EMBEDDING_MODEL=nomic-embed-text",
+        "Collections are created via the UI at http://localhost:5173/collections"
+      ]
+    }
+  },
+  
+  "detection_provider": {
+    "provider": "ollama",
+    "model": "qwen2.5:7b-instruct",
+    "comment": "Used for LLM-based intent detection when RAG fallback threshold is triggered"
+  },
+  
+  "strategies": [
+    {
+      "name": "DYNAMIC_RAG",
+      "comment": [
+        "Matches any collection from the 'dynamic' knowledge base.",
+        "Each collection can have its own metadata (system_prompt, thresholds, etc.)",
+        "created via the UI. This strategy provides defaults that collections can override."
+      ],
+      "detection": {
+        "type": "rag",
+        "knowledge_base": "dynamic",
+        "threshold": 0.3,
+        "fallback_threshold": 0.5,
+        "comment": [
+          "threshold: Direct match - uses RAG context immediately",
+          "fallback_threshold: Maybe relevant - asks LLM to decide, then uses RAG if LLM picks this",
+          "Collections can override these thresholds in their metadata"
+        ]
+      },
+      "response": {
+        "provider": "ollama",
+        "model": "qwen2.5:7b-instruct",
+        "system_prompt": "You are a knowledgeable assistant. Answer based on the provided context.",
+        "max_tokens": 800,
+        "temperature": 0.7,
+        "comment": "Collections can override system_prompt, max_tokens, and temperature in their metadata"
+      }
+    },
+    {
+      "name": "GENERAL",
+      "comment": "Fallback for off-topic or unmatched queries",
+      "detection": {
+        "type": "default"
+      },
+      "response": {
+        "provider": "ollama",
+        "model": "qwen2.5:7b-instruct",
+        "system_prompt": "You are a helpful assistant. This query appears to be outside your knowledge base. Politely indicate that you specialize in specific topics and suggest they ask relevant questions.",
+        "max_tokens": 150,
+        "temperature": 0.7
+      }
+    }
+  ]
+}
+

@@ -27,11 +27,24 @@ The main configuration file defines:
 
 ### Example Configurations
 
-- **`redhat-complex.json`** - Complex multi-domain Red Hat support bot
+**Simple Examples:**
 - **`chat-only.json`** - Simple conversational bot without RAG
+- **`ollama-chat-only.json`** - Local Ollama models (no cloud APIs)
+
+**RAG Examples:**
 - **`rag-only-llm-fallback.json`** - RAG-only with LLM fallback
 - **`rag-only-static-fallback.json`** - RAG-only with static fallback
+
+**ChromaDB Wrapper (Python service on port 5006):**
+- **`redhat-complex.json`** - Complex multi-domain Red Hat support bot
+- **`chromadb-wrapper-example.json`** - Using Python wrapper with fixed collections
 - **`multi-domain.json`** - Multi-domain bot (cooking, travel, tech, weather)
+
+**Direct ChromaDB (HTTP server on port 8000):**
+- **`chromadb-direct-server.json`** - Direct ChromaDB HTTP server connections
+
+**Mixed Providers:**
+- **`mixed-chromadb-providers.json`** - Mix of wrapper (5006) and direct (8000) ChromaDB
 
 ## Configuration Structure
 
@@ -74,6 +87,83 @@ Each strategy has:
 ### Default (`"default"`)
 - Catch-all strategy when nothing else matches
 - No detection needed
+
+## Knowledge Base Providers
+
+**Important:** The two ChromaDB provider types use **different ports** by default:
+- **`chromadb-wrapper`** → Port **5006** (Python wrapper service)
+- **`chromadb`** (direct) → Port **8000** (ChromaDB HTTP server)
+
+### ChromaDB Wrapper (`"chromadb-wrapper"`)
+
+Connects to a Python FastAPI wrapper service that handles embeddings and ChromaDB access.
+
+**When to use:**
+- Development/testing environments
+- Don't want to run full ChromaDB server
+- Simple setup with persistent ChromaDB
+- Want dynamic collection management via UI
+
+**Configuration:**
+```json
+{
+  "type": "chromadb-wrapper",
+  "url": "http://localhost:5006",
+  "collection": "my_docs",     // Optional: omit for dynamic collections
+  "top_k": 3,                   // Optional: default results to return
+  "timeout": 30000,             // Optional: request timeout (ms)
+  "default_threshold": 0.3,     // Optional: distance threshold
+  "max_distance": 1.0           // Optional: max distance to consider
+}
+```
+
+**Start wrapper service:**
+```bash
+cd backend/rag
+python server.py  # Runs on port 5006
+```
+
+**Required wrapper endpoints:**
+- `POST /query` - Query with text (wrapper handles embeddings)
+- `GET /collections` - List collections (for UI)
+- `POST /collections` - Create collections (for UI)
+
+### Direct ChromaDB (`"chromadb"`)
+
+Connects directly to ChromaDB HTTP server (requires embeddings in Node.js).
+
+**When to use:**
+- Production environments
+- Separate ChromaDB server deployment
+- Full control over embedding generation
+- No Python wrapper dependency
+
+**Configuration:**
+```json
+{
+  "type": "chromadb",
+  "url": "http://localhost:8000",
+  "collection": "my_docs",
+  "embedding_provider": "openai",
+  "embedding_model": "text-embedding-3-small",
+  "top_k": 3,
+  "timeout": 30000
+}
+```
+
+**Start ChromaDB server:**
+```bash
+chroma run --path ./chroma_db --port 8000
+```
+
+### Future Providers
+
+The system is designed to support additional providers:
+- **Milvus** - High-performance vector database
+- **Postgres + pgvector** - PostgreSQL with vector extensions
+- **Pinecone** - Managed vector database
+- **Elasticsearch** - Full-text + vector search
+- **Custom APIs** - Any REST API that returns context
 
 ## Environment Variables
 
