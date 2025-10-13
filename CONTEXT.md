@@ -2,8 +2,9 @@
 - Discuss → Confirm → Run: we talk through intent first, then I make changes only after your explicit go-ahead.
 - Transparency: I announce planned commands and summarize expected effects before running them.
 - Safety: anything requiring network or privileged access is requested before execution.
-- Scope control: changes are surgical and focused; I won’t fix unrelated issues without agreement.
+- Scope control: changes are surgical and focused; I won't fix unrelated issues without agreement.
 - Logging: impactful commands and changes are recorded in `SESSION_LOG.md`.
+- Documentation: Keep only README.md in root; all other documentation goes in `docs/` folder.
 
 ## Change Planning
 - Simplicity first: prefer the minimal, robust fix over broader refactors.

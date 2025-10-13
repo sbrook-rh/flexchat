@@ -95,3 +95,5 @@
 - [ ] Conversation summarization
 - [ ] Multiple vector database support
 - [ ] Performance monitoring and metrics
+- [ ] Smart document chunking/ingestion (integrate LangChain/LlamaIndex for JSON arrays, PDFs, etc.)
+- [ ] Embedding model selection helper/UI (guide users on choosing compatible models per provider)
