@@ -20,6 +20,7 @@ env/
 ENV/
 *.egg-info/
 .pytest_cache/
+.python-version
 
 # ChromaDB data
 backend/rag/chroma_db/
