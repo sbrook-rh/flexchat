@@ -1,0 +1,13 @@
+# Core dependencies
+chromadb         # Vector database for storing embeddings
+fastapi          # API framework for serving queries
+uvicorn         # ASGI server to run FastAPI
+python-dotenv   # For loading environment variables from .env
+pydantic        # Data validation for API requests
+requests        # For HTTP requests (Ollama embeddings)
+
+# Optional embedding providers (install based on EMBEDDING_PROVIDER in .env)
+# For OpenAI: pip install openai
+# For Gemini: pip install google-generativeai
+openai           # OpenAI embeddings (optional)
+google-generativeai  # Gemini embeddings (optional)
