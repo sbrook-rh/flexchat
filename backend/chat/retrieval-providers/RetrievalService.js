@@ -12,11 +12,23 @@ class RetrievalService {
   /**
    * Initialize knowledge bases from configuration
    * @param {Object} knowledgeBasesConfig - Knowledge bases configuration
+   * @param {Object} providersConfig - AI providers configuration (for embedding resolution)
    */
-  async initializeKnowledgeBases(knowledgeBasesConfig) {
+  async initializeKnowledgeBases(knowledgeBasesConfig, providersConfig = {}) {
+    this.providersConfig = providersConfig;
+    
     for (const [name, config] of Object.entries(knowledgeBasesConfig)) {
       try {
-        await this.addKnowledgeBase(name, config);
+        // Resolve embedding provider if specified
+        const enrichedConfig = { ...config };
+        
+        if (config.embedding_provider && providersConfig[config.embedding_provider]) {
+          enrichedConfig.embedding_model = providersConfig[config.embedding_provider].embedding_model;
+          enrichedConfig.embedding_provider_type = providersConfig[config.embedding_provider].type;
+          enrichedConfig.embedding_provider_config = providersConfig[config.embedding_provider];
+        }
+        
+        await this.addKnowledgeBase(name, enrichedConfig);
         console.log(`✅ Initialized knowledge base: ${name}`);
       } catch (error) {
         console.error(`❌ Failed to initialize knowledge base ${name}:`, error.message);

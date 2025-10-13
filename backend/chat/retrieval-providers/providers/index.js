@@ -1,4 +1,5 @@
 const ChromaDBProvider = require('./ChromaDBProvider');
+const ChromaDBWrapperProvider = require('./ChromaDBWrapperProvider');
 
 /**
  * RetrievalProviderRegistry - Central registry for all retrieval providers
@@ -46,6 +47,7 @@ class RetrievalProviderRegistry {
    */
   registerDefaultProviders() {
     this.register('chromadb', ChromaDBProvider);
+    this.register('chromadb-wrapper', ChromaDBWrapperProvider);
     // Future providers will be registered here
     // this.register('milvus', MilvusProvider);
     // this.register('postgres', PostgresProvider);
@@ -60,6 +62,7 @@ const registry = new RetrievalProviderRegistry();
 module.exports = {
   RetrievalProviderRegistry,
   registry,
-  ChromaDBProvider
+  ChromaDBProvider,
+  ChromaDBWrapperProvider
 };
 
