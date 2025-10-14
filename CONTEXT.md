@@ -24,12 +24,46 @@
   - Small (≤15 lines, 1 file): proceed with a brief heads-up
   - Medium (16–50 lines or 2 files): propose options and wait for confirmation
   - Large (>50 lines or 3+ files): discuss approach and alternatives first
-- Proposal template I’ll use:
+- Proposal template I'll use:
   - Evidence (1–2 observations)
   - Options (A: smallest, B: robust, C: longer-term)
-  - Expected outcome (what we’ll see if it works)
-  - Rollback (what to revert if it doesn’t)
+  - Expected outcome (what we'll see if it works)
+  - Rollback (what to revert if it doesn't)
 
+## Debugging Complex Logic Flows
+When investigating or changing complex multi-step logic (e.g., strategy detection, RAG flows):
+
+1. **Walk Through Current Flow**
+   - Trace the actual code execution path step-by-step
+   - Document what happens at each decision point
+   - Identify where the current behavior diverges from expected
+
+2. **Real-World Scenario Analysis**
+   - Create a concrete, realistic example scenario
+   - Walk through what WOULD happen with actual data
+   - Identify bugs, gaps, or inefficiencies in the flow
+
+3. **Design Optimal Outcome**
+   - Discuss what the IDEAL behavior should be from a user/business perspective
+   - Consider edge cases (e.g., multiple matches, no matches, partial matches)
+   - Define what the final result should look like (data structure, context, etc.)
+   
+4. **Plot Implementation Steps**
+   - Break down the changes needed to achieve the optimal outcome
+   - Identify which functions/sections need modification
+   - Confirm the approach before coding
+
+5. **Implement & Validate**
+   - Make the changes systematically
+   - Update related documentation (TODO, comments, etc.)
+   - Commit with clear explanation of the problem solved and approach taken
+
+**Example:** When fixing multi-collection RAG context combining, we:
+- Traced current flow and found it returned after first candidate (bug)
+- Analyzed real scenario: 2 collections both have relevant context
+- Designed optimal outcome: combine context from all relevant collections
+- Plotted steps: collect all candidates → dedupe prompt → combine context
+- Implemented and committed with comprehensive explanation
 
 ## Key Scripts and Config
 
