@@ -65,6 +65,19 @@ When investigating or changing complex multi-step logic (e.g., strategy detectio
 - Plotted steps: collect all candidates → dedupe prompt → combine context
 - Implemented and committed with comprehensive explanation
 
+## Testing Strategy
+- **Mock external dependencies**: LLM responses, RAG query results, embeddings
+- **Test the flow logic**: Strategy detection, threshold logic, context combining
+- **Unit tests first**: Test individual functions with mocked dependencies
+- **Integration tests**: Test full chat flow end-to-end with mocks
+- **E2E tests optional**: With real services for validation, not required for CI
+- **Coverage priorities**:
+  1. Strategy detection logic (highest complexity)
+  2. Multi-collection context combining
+  3. Threshold and fallback logic
+  4. Error handling and edge cases
+  5. Provider abstraction interfaces
+
 ## Key Scripts and Config
 
 

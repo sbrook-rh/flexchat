@@ -125,14 +125,53 @@
 - [ ] Add strategy selection/management UI (future)
 
 ## Testing & Validation
-- [x] Test chat-only configuration
-- [x] Test RAG-only configuration (LLM fallback)
-- [x] Test dynamic collections with various embedding providers
-- [ ] Test RAG-only configuration (static fallback)
-- [ ] Test multi-domain configuration
-- [ ] Unit tests for provider abstraction
-- [ ] Integration tests with multiple providers
-- [ ] Comprehensive error handling and fallback testing
+- [x] Test chat-only configuration (manual)
+- [x] Test RAG-only configuration (LLM fallback) (manual)
+- [x] Test dynamic collections with various embedding providers (manual)
+- [ ] Test RAG-only configuration (static fallback) (manual)
+- [ ] Test multi-domain configuration (manual)
+
+### Automated Testing (HIGH PRIORITY)
+- [ ] Set up testing framework (Jest/Mocha for Node.js, pytest for Python)
+- [ ] Unit Tests - AI Provider Abstraction
+  - [ ] Test each provider interface (OpenAI, Gemini, Ollama)
+  - [ ] Test model discovery
+  - [ ] Test health checks
+  - [ ] Test error handling and retries
+- [ ] Unit Tests - Retrieval Providers
+  - [ ] Test ChromaDB wrapper provider
+  - [ ] Test query functionality
+  - [ ] Test collection management
+  - [ ] Test embedding generation
+- [ ] Unit Tests - Strategy Detection (with mocked LLM/RAG)
+  - [ ] Test detectStrategyWithDynamicCollections with mock provider responses
+  - [ ] Test detectStrategyWithRAG with mock retrieval results
+  - [ ] Test detectStrategyWithLLM with mock LLM responses
+  - [ ] Test multi-candidate collection and combination logic
+  - [ ] Test threshold logic (lower, upper/fallback)
+  - [ ] Test edge cases (no matches, all matches, partial matches)
+- [ ] Integration Tests - Full Chat Flow (with mocked LLM/RAG)
+  - [ ] Test chat-only flow (no RAG)
+  - [ ] Test RAG immediate match (distance < lower threshold)
+  - [ ] Test RAG with LLM fallback (lower < distance < upper threshold)
+  - [ ] Test multiple selected collections with combined context
+  - [ ] Test LLM-only intent detection
+  - [ ] Test default fallback
+  - [ ] Test static response strategies
+  - [ ] Test error scenarios (provider down, rate limits, timeouts)
+- [ ] Integration Tests - Collection Management
+  - [ ] Test collection creation via API
+  - [ ] Test document upload (JSON, plain text)
+  - [ ] Test collection listing and deletion
+  - [ ] Test embedding consistency
+- [ ] End-to-End Tests (optional, with real services)
+  - [ ] Test with actual Ollama instance
+  - [ ] Test with actual ChromaDB
+  - [ ] Test full user workflow
+- [ ] Performance/Load Testing
+  - [ ] Test concurrent requests
+  - [ ] Test large document uploads
+  - [ ] Test query performance with large collections
 
 ## Documentation
 - [x] Create CONFIGURATION.md with practical guide
