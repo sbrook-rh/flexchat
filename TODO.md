@@ -198,14 +198,42 @@
 - [ ] Document secrets management best practices
 - [ ] Add readiness/liveness probes for Kubernetes
 
-## Tool Calling System (Ambitious Feature) 🚀
-- [ ] **Backend: Tool Framework**
+## Toolbox & Workspace System (Ambitious Feature) 🚀
+
+**Concept:** Reusable "toolbox" templates that create specialized workspaces with:
+- Toolbox-specific tools and capabilities
+- Configuration wizard for setup (DB connection, OAuth, file upload, etc.)
+- Specialized UI panels (results tables, email viewer, file browser, etc.)
+- Isolated chat context per workspace
+- Human-in-the-loop approval for dangerous operations
+
+**Example Toolboxes:**
+- 🗃️ Database Explorer (SQL queries for non-technical users)
+- 📧 Email Manager (IMAP/Gmail integration, organize, search, follow-ups)
+- 📄 Document Analyzer (PDF/Word analysis, Q&A over documents)
+- 🖥️ System Admin (server management, log analysis, troubleshooting)
+
+### Backend: Core Architecture
+- [ ] **Toolbox System**
+  - [ ] Design toolbox definition schema (metadata, tools, config schema, UI components)
+  - [ ] Create toolbox registry and loading system
+  - [ ] Define toolbox marketplace structure (built-in vs custom)
+  - [ ] Support toolbox versioning and updates
+  
+- [ ] **Workspace Management**
+  - [ ] Create workspace data model (id, toolbox, config, state, chat history)
+  - [ ] Implement workspace CRUD API endpoints
+  - [ ] Add workspace state persistence (database/files)
+  - [ ] Support multiple workspaces per user
+  - [ ] Add workspace switching and navigation
+  
+- [ ] **Tool Framework**
   - [ ] Design tool definition schema (name, description, parameters, safety level)
-  - [ ] Create tool registry system
+  - [ ] Create tool registry per workspace
   - [ ] Implement tool executor with result tracking
   - [ ] Add LangChain integration for tool orchestration
   - [ ] Support function calling in AI providers (OpenAI, Gemini, Ollama)
-  - [ ] Create common built-in tools (database query, API calls, file ops, etc.)
+  - [ ] Create tool parameter validation
   
 - [ ] **Backend: Safety & Approval System**
   - [ ] Classify tools by safety level (read-only, write, destructive)
@@ -220,12 +248,32 @@
   - [ ] Add API endpoints for retrieving tool execution history
   - [ ] Support parallel tool execution where possible
   
-- [ ] **Frontend: Dual-Panel Interface**
-  - [ ] Design new layout with chat panel + tool execution panel
-  - [ ] Create tool call visualization component
-  - [ ] Show real-time tool execution status (pending, running, complete, failed)
-  - [ ] Display tool parameters and results
-  - [ ] Add approval UI (preview, approve, reject buttons)
+### Frontend: Workspace UI
+- [ ] **Workspace Management**
+  - [ ] Create workspace list/gallery view (show all workspaces)
+  - [ ] Add "New Workspace" flow (select toolbox → configure → create)
+  - [ ] Implement workspace navigation (switch between workspaces)
+  - [ ] Add workspace settings/reconfigure option
+  - [ ] Support workspace deletion with confirmation
+  
+- [ ] **Configuration Wizard**
+  - [ ] Create dynamic form generator from toolbox config schema
+  - [ ] Add connection testing (e.g., test database connection)
+  - [ ] Support file uploads for configuration (CSV, SQLite, etc.)
+  - [ ] Add OAuth flow integration (Gmail, Outlook, etc.)
+  - [ ] Validate configuration before proceeding
+  
+- [ ] **Workspace Layout (Toolbox-Specific)**
+  - [ ] Design flexible layout system (chat + custom panels)
+  - [ ] Create layout templates (2-column, 3-column, tabbed, etc.)
+  - [ ] Support panel resizing and rearranging
+  - [ ] Add toolbox-specific components registry
+  
+- [ ] **Chat Interface (Per Workspace)**
+  - [ ] Isolated chat history per workspace
+  - [ ] Show tool execution in chat (inline results, status)
+  - [ ] Display tool call cards (what was executed, with what params)
+  - [ ] Add approval prompts inline (for write/destructive operations)
   
 - [ ] **Frontend: Tool Call Visualization**
   - [ ] Integrate flowchart library (React Flow or Mermaid)
@@ -241,12 +289,37 @@
   - [ ] Display safety warnings for destructive operations
   - [ ] Support editing tool parameters before approval
   
-- [ ] **Integration & Testing**
-  - [ ] Test with example tools (database queries, API calls, file operations)
+### Built-in Toolboxes (MVP)
+- [ ] **🗃️ Database Explorer Toolbox**
+  - [ ] Define toolbox schema and tools
+  - [ ] Create configuration form (connection type, credentials, file upload)
+  - [ ] Implement tools: query_database, export_results, get_schema
+  - [ ] Create UI: results table, schema viewer, query history
+  - [ ] Add safety: read-only by default, warn on writes
+  
+- [ ] **📧 Email Manager Toolbox** (Stretch Goal)
+  - [ ] Define toolbox schema and tools
+  - [ ] Implement OAuth flows (Gmail, Outlook)
+  - [ ] Create tools: search_emails, read_email, send_email, organize, archive
+  - [ ] Create UI: email list, preview pane, folder tree
+  - [ ] Add safety: approval required for send/delete
+  
+- [ ] **📄 Document Analyzer Toolbox** (Stretch Goal)
+  - [ ] Define toolbox schema and tools
+  - [ ] Support file upload (PDF, Word, Markdown)
+  - [ ] Create tools: extract_text, search_document, qa_over_document, summarize
+  - [ ] Create UI: document viewer, highlights, Q&A panel
+  - [ ] Integrate with existing RAG system
+
+### Integration & Testing
+  - [ ] Test workspace creation and configuration flow
+  - [ ] Test Database Explorer with real database
+  - [ ] Test tool execution and result display
   - [ ] Test approval workflow with write operations
-  - [ ] Test rollback for failed operations
+  - [ ] Test workspace switching and state persistence
   - [ ] Test error handling and recovery
   - [ ] Test with complex multi-tool scenarios
+  - [ ] Test custom toolbox creation
 
 ## Future Enhancements
 - [ ] Advanced RAG features (hybrid search, query expansion, reranking)
