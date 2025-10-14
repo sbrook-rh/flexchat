@@ -132,7 +132,12 @@
 - [ ] Test multi-domain configuration (manual)
 
 ### Automated Testing (HIGH PRIORITY)
-- [ ] Set up testing framework (Jest/Mocha for Node.js, pytest for Python)
+- [x] Set up testing framework (Jest for Node.js)
+  - [x] Configure Jest with coverage reporting
+  - [x] Add test scripts (test, test:watch, test:coverage)
+  - [x] Refactor server.js to export functions for testing
+  - [x] Create comprehensive test plan (60+ test cases outlined)
+  - [x] Create example test patterns with full documentation
 - [ ] Unit Tests - AI Provider Abstraction
   - [ ] Test each provider interface (OpenAI, Gemini, Ollama)
   - [ ] Test model discovery
@@ -144,12 +149,13 @@
   - [ ] Test collection management
   - [ ] Test embedding generation
 - [ ] Unit Tests - Strategy Detection (with mocked LLM/RAG)
-  - [ ] Test detectStrategyWithDynamicCollections with mock provider responses
+  - [x] Test detectStrategyWithDynamicCollections with mock provider responses
   - [ ] Test detectStrategyWithRAG with mock retrieval results
   - [ ] Test detectStrategyWithLLM with mock LLM responses
-  - [ ] Test multi-candidate collection and combination logic
-  - [ ] Test threshold logic (lower, upper/fallback)
-  - [ ] Test edge cases (no matches, all matches, partial matches)
+  - [x] Test multi-candidate collection and combination logic (THE BUG WE FIXED!)
+  - [x] Test threshold logic (lower, upper/fallback)
+  - [x] Test edge cases (immediate match, no matches, multiple candidates)
+  - [ ] Test remaining edge cases (errors, missing metadata, etc.)
 - [ ] Integration Tests - Full Chat Flow (with mocked LLM/RAG)
   - [ ] Test chat-only flow (no RAG)
   - [ ] Test RAG immediate match (distance < lower threshold)
