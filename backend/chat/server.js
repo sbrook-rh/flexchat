@@ -190,7 +190,9 @@ async function detectStrategyWithLLM(strategies, userQuery, chatHistory, candida
   }
   
   // Build prompt
-  const intentNamesStr = strategyNames.join('", "');
+  // Deduplicate strategy names for the "Answer with only one word" part
+  const uniqueStrategyNames = [...new Set(strategyNames)];
+  const intentNamesStr = uniqueStrategyNames.join('", "');
   const historyText = chatHistory.map(m => `${m.type}: ${m.text}`).join('\n');
   
   const intentPrompt = `You are an intent classifier for a chatbot.
@@ -225,13 +227,26 @@ Answer with only one word: "${intentNamesStr}".`;
     const strategy = strategies.find(s => s.name === detectedIntent);
     if (strategy) {
       // Check if this was a RAG candidate with stored context
-      const candidate = candidates.find(c => c.strategy.name === strategy.name);
-      if (candidate) {
-        console.log(`   📚 Using RAG context from candidate: ${strategy.name}`);
+      // Find ALL candidates that match this strategy name
+      const matchedCandidates = candidates.filter(c => c.strategy.name === strategy.name);
+      
+      if (matchedCandidates.length > 0) {
+        console.log(`   📚 Using RAG context from ${matchedCandidates.length} candidate(s): ${strategy.name}`);
+        
+        // Sort candidates by distance (best first)
+        matchedCandidates.sort((a, b) => a.distance - b.distance);
+        
+        // Combine context from ALL matched candidates
+        const combinedContext = matchedCandidates.flatMap(c => c.results.map(r => r.text));
+        const combinedRagResults = matchedCandidates.flatMap(c => c.results);
+        
+        // Use the closest candidate's strategy config (for system_prompt, etc.)
+        const primaryStrategy = matchedCandidates[0].strategy;
+        
         return {
-          strategy: strategy,
-          context: candidate.results.map(r => r.text),
-          ragResults: candidate.results
+          strategy: primaryStrategy,
+          context: combinedContext,
+          ragResults: combinedRagResults
         };
       }
       
@@ -250,6 +265,8 @@ Answer with only one word: "${intentNamesStr}".`;
  */
 async function detectStrategyWithDynamicCollections(selectedCollections, userQuery) {
   console.log('   🔍 Trying selected collections...');
+  
+  const candidates = [];
   
   // Query each selected collection
   for (const selCollection of selectedCollections) {
@@ -356,16 +373,13 @@ async function detectStrategyWithDynamicCollections(selectedCollections, userQue
             response: responseConfig
           };
           
-          // Return candidate immediately for now (we'll collect multiple candidates later if needed)
-          return {
-            matched: false,
-            candidates: [{
-              strategy: candidateStrategy,
-              distance: minDistance,
-              results: results,
-              description: description
-            }]
-          };
+          // Add to candidates array and continue checking other collections
+          candidates.push({
+            strategy: candidateStrategy,
+            distance: minDistance,
+            results: results,
+            description: description
+          });
         } else {
           console.log(`      ❌ No match: ${knowledgeBase}/${collectionName}`);
         }
@@ -376,7 +390,7 @@ async function detectStrategyWithDynamicCollections(selectedCollections, userQue
     }
   }
   
-  return { matched: false, candidates: [] };
+  return { matched: false, candidates };
 }
 
 /**
