@@ -198,8 +198,57 @@
 - [ ] Document secrets management best practices
 - [ ] Add readiness/liveness probes for Kubernetes
 
+## Tool Calling System (Ambitious Feature) 🚀
+- [ ] **Backend: Tool Framework**
+  - [ ] Design tool definition schema (name, description, parameters, safety level)
+  - [ ] Create tool registry system
+  - [ ] Implement tool executor with result tracking
+  - [ ] Add LangChain integration for tool orchestration
+  - [ ] Support function calling in AI providers (OpenAI, Gemini, Ollama)
+  - [ ] Create common built-in tools (database query, API calls, file ops, etc.)
+  
+- [ ] **Backend: Safety & Approval System**
+  - [ ] Classify tools by safety level (read-only, write, destructive)
+  - [ ] Implement approval workflow (pause execution, await user confirmation)
+  - [ ] Add tool execution state management (pending, approved, rejected, completed)
+  - [ ] Create rollback/undo mechanism for failed operations
+  - [ ] Add dry-run mode (show what would happen without executing)
+  
+- [ ] **Backend: Tool Call Tracking**
+  - [ ] Store tool call history per conversation
+  - [ ] Track tool call chain (sequence, dependencies, results)
+  - [ ] Add API endpoints for retrieving tool execution history
+  - [ ] Support parallel tool execution where possible
+  
+- [ ] **Frontend: Dual-Panel Interface**
+  - [ ] Design new layout with chat panel + tool execution panel
+  - [ ] Create tool call visualization component
+  - [ ] Show real-time tool execution status (pending, running, complete, failed)
+  - [ ] Display tool parameters and results
+  - [ ] Add approval UI (preview, approve, reject buttons)
+  
+- [ ] **Frontend: Tool Call Visualization**
+  - [ ] Integrate flowchart library (React Flow or Mermaid)
+  - [ ] Generate visual diagram of tool execution flow
+  - [ ] Show tool dependencies and data flow
+  - [ ] Highlight current execution step
+  - [ ] Color code by status (success, pending, error, needs approval)
+  
+- [ ] **Frontend: Human-in-the-Loop UI**
+  - [ ] Create approval modal for dangerous operations
+  - [ ] Show tool preview (what will happen if approved)
+  - [ ] Add bulk approve/reject for multiple tools
+  - [ ] Display safety warnings for destructive operations
+  - [ ] Support editing tool parameters before approval
+  
+- [ ] **Integration & Testing**
+  - [ ] Test with example tools (database queries, API calls, file operations)
+  - [ ] Test approval workflow with write operations
+  - [ ] Test rollback for failed operations
+  - [ ] Test error handling and recovery
+  - [ ] Test with complex multi-tool scenarios
+
 ## Future Enhancements
-- [ ] Tool calling support (function calling)
 - [ ] Advanced RAG features (hybrid search, query expansion, reranking)
 - [ ] Multiple vector database support (Milvus, Postgres/pgvector, Pinecone, Weaviate)
 - [ ] Performance monitoring and metrics (Prometheus, Grafana)
