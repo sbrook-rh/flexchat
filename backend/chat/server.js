@@ -954,7 +954,21 @@ async function startServer() {
   }
 }
 
-// Start the server
-startServer();
+// Start the server only if this file is run directly (not imported for testing)
+if (require.main === module) {
+  startServer();
+}
 
-
+// Export functions for testing
+module.exports = {
+  detectStrategyWithDynamicCollections,
+  detectStrategyWithRAG,
+  detectStrategyWithLLM,
+  detectStrategy,
+  generateResponse,
+  app, // For testing HTTP endpoints
+  // Export these for mocking in tests
+  setConfigForTesting: (newConfig) => { config = newConfig; },
+  setRetrievalServiceForTesting: (newService) => { retrievalService = newService; },
+  setAIServiceForTesting: (newService) => { aiService = newService; }
+};
