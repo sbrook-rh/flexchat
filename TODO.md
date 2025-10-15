@@ -101,13 +101,33 @@
   - [ ] Bulk upload API endpoint
   - [ ] Progress tracking for large uploads
 
+## Reasoning Models (Two-Stage Pipeline)
+- [x] Design reasoning model feature architecture
+- [x] Update model classification (OllamaProvider, OpenAIProvider) to detect reasoning models
+- [x] Create `/api/config/model-selection` endpoint with reasoning model support
+- [x] Implement reasoning detection (LLM-based with keyword fallback)
+- [x] Implement two-stage generation pipeline (reasoning → response)
+- [x] Add reasoning model selector in UI (separate dropdown per provider)
+- [x] Configure dynamic timeouts for reasoning stages (2-3 minutes)
+- [x] Add prompt size logging for debugging
+- [x] Support `models` and `include_models` configuration options
+- [x] Document reasoning feature in `docs/REASONING_MODELS.md`
+- [ ] Show which models were used in chat response (display in UI)
+- [ ] Add real-time reasoning indicators ("🧠 Analyzing..." and "💬 Generating...")
+- [ ] Add expandable section to view raw reasoning output (including `<think>` tags)
+- [ ] Add configurable reasoning prompts per strategy (UI or config)
+- [ ] Implement reasoning output processing options (strip tags, extract sections, etc.)
+
 ## Frontend Updates
 - [x] Update Chat.jsx to work with new backend API
-- [x] Add model selection UI
+- [x] Add model selection UI (response models)
+- [x] Add reasoning model selection UI (separate dropdown per provider)
 - [x] Add Clear Chat button
 - [x] Fix scrolling with fixed sidebars
 - [x] Add dynamic collection management UI (Collections page)
 - [x] Smart JSON document parsing (arrays, Q&A format, etc.)
+- [x] Markdown rendering in chat messages (code blocks, lists, headers, tables, links)
+- [ ] Add "(default)" label next to default models in dropdowns
 - [ ] Integrate with backend chat history (optional, when configured)
   - [ ] Update Chat.jsx to save messages to localStorage only after successful AI response
   - [ ] Display user message optimistically (before backend response)
@@ -321,6 +341,117 @@
   - [ ] Test with complex multi-tool scenarios
   - [ ] Test custom toolbox creation
 
+## Configuration Management UI & Multi-Config Support
+
+### Stage 1: Runtime Config Selection
+- [ ] Add CLI argument support for custom config file path
+  - [ ] Update backend/chat/server.js to accept `--config` argument
+  - [ ] Update frontend package.json scripts to pass through config argument
+  - [ ] Default to `config/config.json` if not specified
+  - [ ] Add validation for config file existence and readability
+  - [ ] Document usage in README and startup scripts
+- [ ] Create config file presets directory
+  - [ ] Move example configs to a standard location
+  - [ ] Add quick-start scripts for common scenarios
+- [ ] Add config file validation on startup
+  - [ ] Schema validation against config-schema.json
+  - [ ] Clear error messages for invalid configs
+  - [ ] Suggestion system for common mistakes
+
+### Stage 2: Initial Configuration Wizard (No Config Mode)
+- [ ] Backend: Configuration API endpoints
+  - [ ] POST `/api/config/initialize` - create new config from UI form data
+  - [ ] GET `/api/config/providers/available` - list available provider types
+  - [ ] GET `/api/config/providers/:type/schema` - get provider-specific config schema
+  - [ ] POST `/api/config/validate` - validate config before saving
+  - [ ] GET `/api/config/status` - check if valid config exists
+- [ ] Frontend: Configuration Wizard UI
+  - [ ] Detect missing/invalid config on app load
+  - [ ] Show configuration wizard instead of chat interface
+  - [ ] Multi-step form with progress indicator
+  - [ ] **Step 1: Provider Setup**
+    - [ ] Select AI providers (OpenAI, Ollama, Gemini)
+    - [ ] Provider-specific forms (dynamic based on provider type)
+    - [ ] Masked input fields for API keys and secrets
+    - [ ] Connection testing (health check before proceeding)
+  - [ ] **Step 2: Embedding Provider Setup**
+    - [ ] Select embedding provider and model
+    - [ ] Test embedding generation
+  - [ ] **Step 3: Strategy Configuration**
+    - [ ] Choose strategy type (chat-only, RAG, multi-strategy)
+    - [ ] Configure strategy-specific options
+    - [ ] Set up detection provider (for multi-strategy)
+  - [ ] **Step 4: RAG Setup (if applicable)**
+    - [ ] ChromaDB configuration
+    - [ ] Initial collection setup (optional)
+    - [ ] Retrieval parameters (k, threshold)
+  - [ ] **Step 5: Review & Save**
+    - [ ] Preview generated config.json
+    - [ ] Edit JSON directly (advanced mode)
+    - [ ] Save and initialize system
+  - [ ] Form validation with helpful error messages
+  - [ ] Tooltips and help text for each field
+- [ ] Secrets Management
+  - [ ] Store sensitive data separately (never in config.json)
+  - [ ] Use environment variables or secure storage
+  - [ ] Backend handles secret injection at runtime
+  - [ ] UI indicates which fields are sensitive
+  - [ ] Option to use existing .env file or create new one
+- [ ] Configuration Templates
+  - [ ] Pre-built templates for common setups
+  - [ ] One-click configuration for simple scenarios
+  - [ ] Template customization workflow
+
+### Stage 3: Edit Existing Configuration
+- [ ] Backend: Configuration Edit API
+  - [ ] GET `/api/config/current` - load current config (sanitized, no secrets)
+  - [ ] PUT `/api/config/update` - update config (with backup)
+  - [ ] POST `/api/config/backup` - create backup of current config
+  - [ ] GET `/api/config/backups` - list available backups
+  - [ ] POST `/api/config/restore/:backup_id` - restore from backup
+  - [ ] POST `/api/config/reload` - reload config without server restart
+- [ ] Frontend: Configuration Editor UI
+  - [ ] Settings page with "Edit Configuration" option
+  - [ ] Load current config into form (same wizard structure)
+  - [ ] Allow editing of any section
+  - [ ] Real-time validation as user types
+  - [ ] Side-by-side JSON preview (show what will be saved)
+  - [ ] Diff view showing changes from current config
+  - [ ] Confirm before saving with impact warnings
+  - [ ] Option to restart services after save
+- [ ] Advanced Features
+  - [ ] Configuration versioning and rollback
+  - [ ] Import/export configurations
+  - [ ] Share configurations (sanitized, no secrets)
+  - [ ] Configuration comparison tool
+  - [ ] Hot-reload support (update without full restart)
+
+### Considerations & Challenges
+- [ ] **Secrets Handling**
+  - Decide on storage mechanism (env vars, encrypted file, system keychain)
+  - Never expose secrets in API responses
+  - Secure transmission (HTTPS in production)
+  - Password/key rotation workflow
+- [ ] **Validation Strategy**
+  - Client-side + server-side validation
+  - Provider connectivity testing
+  - Model availability checking
+  - Embedding compatibility verification
+- [ ] **State Management**
+  - Handle config changes during active chat sessions
+  - Queue management during config reload
+  - User notification of config changes
+  - Graceful degradation if provider becomes unavailable
+- [ ] **Multi-Environment Support**
+  - Development vs production configs
+  - Environment-specific overrides
+  - Config inheritance/merging
+- [ ] **Documentation**
+  - User guide for configuration wizard
+  - API documentation for config endpoints
+  - Best practices for production deployments
+  - Troubleshooting guide for common config issues
+
 ## Future Enhancements
 - [ ] Advanced RAG features (hybrid search, query expansion, reranking)
 - [ ] Multiple vector database support (Milvus, Postgres/pgvector, Pinecone, Weaviate)
@@ -347,9 +478,23 @@ The chat system is fully functional with:
 - Dynamic RAG with fallback detection
 - UI-based collection management
 - Hybrid embedding configuration
+- **User-selectable models** (response and reasoning models)
+- **Two-stage reasoning pipeline** (reasoning model → response model)
+- **Markdown rendering** in chat messages
 - Comprehensive documentation
 
+### ✨ Recent Additions
+- **Reasoning Models Feature**: Use specialized reasoning models (DeepSeek R1, etc.) for complex queries
+  - Auto-detection of reasoning needs (LLM-based with keyword fallback)
+  - Two-stage pipeline: reasoning stage → response formatting stage
+  - User-configurable reasoning models in UI
+  - Extended timeouts and prompt size monitoring
+  - Documented in `docs/REASONING_MODELS.md`
+- **Model Selection UI**: Choose both response and reasoning models per provider
+- **Markdown Support**: Rich formatting with code blocks, lists, tables, headers
+
 ### 🚧 Remaining Work
+- UI improvements (show models used, real-time indicators, expandable reasoning view)
 - Additional provider implementations (Claude, Azure)
 - Formal test suites
 - Kubernetes deployment documentation
@@ -361,3 +506,4 @@ The system is production-ready for:
 - RAG with dynamic collections
 - Multi-strategy configurations
 - Multiple AI provider setups
+- **Reasoning-enhanced responses** for complex analytical queries
