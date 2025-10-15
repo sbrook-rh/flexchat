@@ -11,6 +11,38 @@ class OllamaProvider extends AIProvider {
     this.apiUrl = config.baseUrl || config.base_url || 'http://localhost:11434';
   }
 
+
+  /**
+   * Classify model type based on its name and metadata
+   */
+  classifyModelType(model) {
+    const name = model.name.toLowerCase();
+    const family = (model.details?.family || '').toLowerCase();
+
+    // Reasoning models
+    if (name.includes('deepseek') || name.includes('r1') || name.includes('reason') || name.includes('think')) {
+      return { type: 'reasoning', capabilities: ['reasoning', 'general-llm'] };
+    }
+
+    // Embedding models
+    if (name.includes('embed') || family.includes('bert')) {
+      return { type: 'embedding', capabilities: ['embedding'] };
+    }
+
+    // Chat / instruction models
+    if (name.includes('instruct') || name.includes('chat') || name.includes('assistant')) {
+      return { type: 'chat', capabilities: ['chat'] };
+    }
+
+    // Code-specialised models
+    if (name.includes('code') || name.includes('coder') || family.includes('code')) {
+      return { type: 'code', capabilities: ['chat', 'code'] };
+    }
+
+    // Default
+    return { type: 'base', capabilities: [] };
+  }
+
   /**
    * List all available Ollama models
    */
@@ -22,13 +54,15 @@ class OllamaProvider extends AIProvider {
 
       const models = response.data.models.map(model => {
         // Ollama models can do both chat and embeddings
+        const classification = this.classifyModelType(model);
+
         return this.createModelInfo({
           id: model.name,
           name: model.name,
-          type: 'chat',  // Most models are chat models
+          type: classification.type,
           maxTokens: model.details?.parameter_size || 4096,
           description: `Ollama model: ${model.name}`,
-          capabilities: ['chat'],
+          capabilities: classification.capabilities,
           size: model.size,
           modified: model.modified_at
         });
@@ -37,7 +71,6 @@ class OllamaProvider extends AIProvider {
       return models;
     } catch (error) {
       console.error('Error fetching Ollama models:', error.message);
-      // Return empty array if can't fetch
       return [];
     }
   }
@@ -61,7 +94,7 @@ class OllamaProvider extends AIProvider {
         `${this.apiUrl}/api/chat`,
         requestData,
         {
-          timeout: this.config.timeout || 60000
+          timeout: options.timeout || this.config.timeout || 60000
         }
       );
 
@@ -83,10 +116,10 @@ class OllamaProvider extends AIProvider {
    */
   async generateEmbeddings(text, model) {
     const input = Array.isArray(text) ? text : [text];
-    
+
     return await this.withRetry(async () => {
       const embeddings = [];
-      
+
       // Ollama processes embeddings one at a time
       for (const txt of input) {
         const response = await axios.post(
@@ -99,10 +132,10 @@ class OllamaProvider extends AIProvider {
             timeout: this.config.timeout || 30000
           }
         );
-        
+
         embeddings.push(response.data.embedding);
       }
-      
+
       return embeddings;
     });
   }
@@ -190,7 +223,7 @@ class OllamaProvider extends AIProvider {
    */
   validateConfig(config) {
     const errors = [];
-    
+
     if (config.baseUrl) {
       try {
         new URL(config.baseUrl);
@@ -198,7 +231,7 @@ class OllamaProvider extends AIProvider {
         errors.push('Invalid base URL format');
       }
     }
-    
+
     if (config.base_url) {
       try {
         new URL(config.base_url);
@@ -206,11 +239,11 @@ class OllamaProvider extends AIProvider {
         errors.push('Invalid base_url format');
       }
     }
-    
+
     if (config.temperature && (config.temperature < 0 || config.temperature > 2)) {
       errors.push('Temperature must be between 0 and 2');
     }
-    
+
     return {
       isValid: errors.length === 0,
       errors

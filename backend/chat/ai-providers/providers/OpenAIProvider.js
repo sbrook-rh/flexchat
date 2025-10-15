@@ -13,6 +13,55 @@ class OpenAIProvider extends AIProvider {
   }
 
   /**
+   * Classify OpenAI model type and capabilities
+   */
+  classifyModelType(modelId) {
+    const id = modelId.toLowerCase();
+
+    // Reasoning models (OpenAI o-series or deep research)
+    if (id.startsWith('o1') || id.startsWith('o3') || id.startsWith('o4') || id.includes('reason') || id.includes('deep-research')) {
+      return { type: 'reasoning', capabilities: ['reasoning', 'planning', 'reflection'] };
+    }
+
+    // Embedding
+    if (id.includes('embed')) {
+      return { type: 'embedding', capabilities: ['embedding'] };
+    }
+
+    // Chat / general
+    if (id.startsWith('gpt-') || id.includes('chatgpt') || id.includes('turbo')) {
+      return { type: 'chat', capabilities: ['chat', 'function-calling'] };
+    }
+
+    // Code
+    if (id.includes('code') || id.includes('codex')) {
+      return { type: 'code', capabilities: ['chat', 'code'] };
+    }
+
+    // Audio / Speech
+    if (id.startsWith('tts-') || id.includes('audio') || id.includes('whisper')) {
+      return { type: 'audio', capabilities: ['audio', 'speech'] };
+    }
+
+    // Image
+    if (id.startsWith('dall-e') || id.includes('image')) {
+      return { type: 'image', capabilities: ['image'] };
+    }
+
+    // Video
+    if (id.startsWith('sora')) {
+      return { type: 'video', capabilities: ['video'] };
+    }
+
+    // Moderation
+    if (id.includes('moderation')) {
+      return { type: 'moderation', capabilities: ['classification'] };
+    }
+
+    return { type: 'base', capabilities: [] };
+  }
+  
+    /**
    * List all available OpenAI models
    */
   async listModels() {
@@ -26,27 +75,22 @@ class OpenAIProvider extends AIProvider {
       });
 
       const models = response.data.data.map(model => {
-        const isChatModel = model.id.startsWith('gpt-') || model.id.includes('chat');
-        const isEmbeddingModel = model.id.includes('embedding') || model.id.includes('ada');
-        
-        let type = 'chat';
-        if (isEmbeddingModel && !isChatModel) type = 'embedding';
-        else if (isEmbeddingModel && isChatModel) type = 'both';
+        const classification = this.classifyModelType(model.id);
 
         return this.createModelInfo({
           id: model.id,
           name: model.id,
-          type: type,
+          type: classification.type,
           maxTokens: this.getMaxTokensForModel(model.id),
           description: this.getModelDescription(model.id),
-          capabilities: this.getModelCapabilities(model.id)
+          capabilities: classification.capabilities,
+          modified: model.created
         });
       });
 
       return models;
     } catch (error) {
       console.error('Error fetching OpenAI models:', error.message);
-      // Return default models if API call fails
       return this.getDefaultModelsList();
     }
   }
@@ -72,7 +116,7 @@ class OpenAIProvider extends AIProvider {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json'
           },
-          timeout: this.config.timeout
+          timeout: options.timeout || this.config.timeout
         }
       );
 
@@ -90,7 +134,7 @@ class OpenAIProvider extends AIProvider {
    */
   async generateEmbeddings(text, model) {
     const input = Array.isArray(text) ? text : [text];
-    
+
     return await this.withRetry(async () => {
       const response = await axios.post(
         `${this.apiUrl}/embeddings`,
@@ -203,19 +247,19 @@ class OpenAIProvider extends AIProvider {
    */
   validateConfig(config) {
     const errors = [];
-    
+
     if (!config.apiKey) {
       errors.push('OpenAI API key is required');
     }
-    
+
     if (config.baseUrl && !this.isValidUrl(config.baseUrl)) {
       errors.push('Invalid base URL format');
     }
-    
+
     if (config.temperature && (config.temperature < 0 || config.temperature > 2)) {
       errors.push('Temperature must be between 0 and 2');
     }
-    
+
     return {
       isValid: errors.length === 0,
       errors
@@ -292,7 +336,7 @@ class OpenAIProvider extends AIProvider {
       'text-embedding-3-large': 8191,
       'text-embedding-ada-002': 8191
     };
-    
+
     return tokenLimits[modelId] || 4096;
   }
 
@@ -310,7 +354,7 @@ class OpenAIProvider extends AIProvider {
       'text-embedding-3-large': 'Latest embedding model, large and powerful',
       'text-embedding-ada-002': 'Previous generation embedding model'
     };
-    
+
     return descriptions[modelId] || 'OpenAI model';
   }
 
@@ -325,7 +369,7 @@ class OpenAIProvider extends AIProvider {
       'gpt-4': ['function-calling', 'json-mode'],
       'gpt-3.5-turbo': ['function-calling']
     };
-    
+
     return capabilities[modelId] || [];
   }
 

@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import './Chat.css';
 import NavBar from './NavBar';
 import LogoSection from './LogoSection';
@@ -20,6 +22,11 @@ const Chat = () => {
   const [collections, setCollections] = useState([]);
   const [selectedCollections, setSelectedCollections] = useState(new Set());
   const [showCollections, setShowCollections] = useState(false);
+
+  // Model selection
+  const [availableModels, setAvailableModels] = useState({});
+  const [selectedModels, setSelectedModels] = useState({});
+  const [loadingModels, setLoadingModels] = useState(false);
 
   useEffect(() => {
     if (retryTracker === -1) {
@@ -47,6 +54,50 @@ const Chat = () => {
       .catch(err => console.error('Error loading collections:', err));
   }, []);
 
+  // Load model selection configuration on mount
+  useEffect(() => {
+    const loadModelSelection = async () => {
+      try {
+        setLoadingModels(true);
+        
+        const res = await fetch('/api/config/model-selection');
+        const data = await res.json();
+        
+        if (!data.enabled || Object.keys(data.providers).length === 0) {
+          setLoadingModels(false);
+          return; // No model selection enabled
+        }
+        
+        // Extract defaults and available models from response
+        const defaults = {};
+        const models = {};
+        
+        for (const [provider, info] of Object.entries(data.providers)) {
+          // Response models
+          if (info.defaultModel) {
+            defaults[provider] = info.defaultModel;
+            models[provider] = info.models;
+          }
+          
+          // Reasoning models
+          if (info.reasoningEnabled) {
+            defaults[`${provider}_reasoning`] = ''; // Empty string = (None)
+            models[`${provider}_reasoning`] = info.reasoningModels;
+          }
+        }
+        
+        setSelectedModels(defaults);
+        setAvailableModels(models);
+        setLoadingModels(false);
+      } catch (error) {
+        console.error('Error loading model selection:', error);
+        setLoadingModels(false);
+      }
+    };
+    
+    loadModelSelection();
+  }, []);
+
   const handleSend = async (retryCount = 0, event) => {
     if (input.trim()) {
       const inputText = input.trim();
@@ -69,7 +120,8 @@ const Chat = () => {
           prompt: inputText,
           previousMessages,
           retryCount,
-          selectedCollections: selectedCollectionsArray
+          selectedCollections: selectedCollectionsArray,
+          selectedModels
         };
 
         const response = await fetch(chatApiUrl, {
@@ -119,12 +171,87 @@ const Chat = () => {
       <LogoSection />
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Sidebar - Collections */}
+        {/* Left Sidebar - Settings & Collections */}
         <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
           <div className="p-4 border-b border-gray-200 flex-shrink-0">
-            <h2 className="text-lg font-semibold text-gray-800">Collections</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Settings</h2>
           </div>
           <div className="flex-1 overflow-y-auto p-4 pb-64">
+            {/* Model Selection */}
+            {Object.keys(selectedModels).length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Model Selection</h3>
+                {Object.keys(selectedModels)
+                  .filter(key => !key.includes('_reasoning'))
+                  .map(provider => {
+                    const reasoningKey = `${provider}_reasoning`;
+                    const hasReasoning = selectedModels[reasoningKey] !== undefined;
+                    
+                    return (
+                      <div key={provider} className="mb-4">
+                        {/* Response Model */}
+                        <label className="block text-xs text-gray-600 mb-1 capitalize">
+                          {provider} - Response Model
+                        </label>
+                        <select
+                          value={selectedModels[provider]}
+                          onChange={(e) => {
+                            setSelectedModels({
+                              ...selectedModels,
+                              [provider]: e.target.value
+                            });
+                          }}
+                          className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
+                          disabled={loadingModels}
+                        >
+                          {availableModels[provider]?.map(model => (
+                            <option key={model.id} value={model.id}>
+                              {model.name}
+                            </option>
+                          )) || (
+                            <option value={selectedModels[provider]}>
+                              {selectedModels[provider]}
+                            </option>
+                          )}
+                        </select>
+                        
+                        {/* Reasoning Model (if enabled) */}
+                        {hasReasoning && (
+                          <>
+                            <label className="block text-xs text-gray-600 mb-1 capitalize">
+                              {provider} - Reasoning Model
+                            </label>
+                            <select
+                              value={selectedModels[reasoningKey]}
+                              onChange={(e) => {
+                                setSelectedModels({
+                                  ...selectedModels,
+                                  [reasoningKey]: e.target.value
+                                });
+                              }}
+                              className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              disabled={loadingModels}
+                            >
+                              <option value="">(None - use response model)</option>
+                              {availableModels[reasoningKey]?.map(model => (
+                                <option key={model.id} value={model.id}>
+                                  {model.name}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-xs text-gray-500 mt-1 italic">
+                              🧠 Used for complex queries
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+
+            {/* Collections */}
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Collections</h3>
             {showCollections && collections.length > 0 ? (
               <>
                 <div className="flex items-center justify-between mb-3">
@@ -192,12 +319,39 @@ const Chat = () => {
               {messages.map((message, index) => (
                 <div key={index} className={`message-container ${message.type}`}>
                   <div className={`${message.type}-message`}>
-                    {message.text.split('\n').map((line, idx) => (
-                      <span key={idx}>
-                        {line}
-                        <br />
-                      </span>
-                    ))}
+                    {message.type === 'bot' ? (
+                      <div className="markdown-content">
+                        <ReactMarkdown 
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            code: ({node, inline, className, children, ...props}) => {
+                              return inline ? (
+                                <code className="inline-code" {...props}>{children}</code>
+                              ) : (
+                                <code className="block-code" {...props}>{children}</code>
+                              );
+                            },
+                            pre: ({children}) => <pre className="code-block">{children}</pre>,
+                            ul: ({children}) => <ul className="markdown-list">{children}</ul>,
+                            ol: ({children}) => <ol className="markdown-ordered-list">{children}</ol>,
+                            li: ({children}) => <li className="markdown-list-item">{children}</li>,
+                            h1: ({children}) => <h1 className="markdown-h1">{children}</h1>,
+                            h2: ({children}) => <h2 className="markdown-h2">{children}</h2>,
+                            h3: ({children}) => <h3 className="markdown-h3">{children}</h3>,
+                            p: ({children}) => <p className="markdown-paragraph">{children}</p>,
+                          }}
+                        >
+                          {message.text}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      message.text.split('\n').map((line, idx) => (
+                        <span key={idx}>
+                          {line}
+                          <br />
+                        </span>
+                      ))
+                    )}
                   </div>
                 </div>
               ))}

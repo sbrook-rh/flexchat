@@ -59,10 +59,11 @@
       "response": {
         "provider": "ollama",
         "model": "qwen2.5:7b-instruct",
+        "allow_model_selection": true,
         "system_prompt": "You are an expert assistant. Use the provided context to answer accurately. If the context doesn't contain the answer, say so.",
         "max_tokens": 1000,
         "temperature": 0.7,
-        "comment": "Collections override this with their own specialized prompts"
+        "comment": "Collections override this with their own specialized prompts. Users can select different models via UI."
       }
     },
     {

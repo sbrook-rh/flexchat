@@ -481,9 +481,48 @@ async function detectStrategy(userQuery, chatHistory, selectedCollections = []) 
 }
 
 /**
+ * Detect if reasoning should be used for this query
+ */
+async function detectReasoningNeeded(userQuery) {
+  // If detection_provider configured, use LLM detection
+  if (config.detection_provider) {
+    try {
+      const detectionPrompt = 
+        "Does this query require deep reasoning, step-by-step analysis, or " +
+        "complex problem-solving? Answer only YES or NO.\n\n" +
+        `Query: ${userQuery}`;
+      
+      await aiService.setActiveProvider(config.detection_provider.provider);
+      const response = await aiService.generateChat([
+        { role: 'system', content: 'You are a query classifier.' },
+        { role: 'user', content: detectionPrompt }
+      ], {
+        model: config.detection_provider.model,
+        max_tokens: 10
+      });
+      
+      const result = response.content.trim().toUpperCase().includes('YES');
+      console.log(`   🔍 Reasoning detection: ${result ? 'YES' : 'NO'} (LLM-based)`);
+      return result;
+    } catch (error) {
+      console.error(`   ❌ Error in reasoning detection:`, error.message);
+      // Fall through to keyword detection
+    }
+  }
+  
+  // Fallback: keyword detection
+  const keywords = ['explain', 'why', 'how does', 'how do', 'how can', 'guide me', 
+                    'walk me through', 'analyze', 'step by step', 'reasoning', 
+                    'what are the steps', 'teach me'];
+  const result = keywords.some(kw => userQuery.toLowerCase().includes(kw));
+  console.log(`   🔍 Reasoning detection: ${result ? 'YES' : 'NO'} (keyword-based)`);
+  return result;
+}
+
+/**
  * Generate response using detected strategy
  */
-async function generateResponse(strategy, userQuery, chatHistory, context = null) {
+async function generateResponse(strategy, userQuery, chatHistory, context = null, selectedModels = {}) {
   console.log(`💬 Generating response with strategy: ${strategy.name}`);
   
   // Check for static response
@@ -492,14 +531,68 @@ async function generateResponse(strategy, userQuery, chatHistory, context = null
     return strategy.response.static_response;
   }
   
+  const responseProvider = strategy.response.provider;
+  
+  // Check if reasoning should be used
+  const reasoningKey = `${responseProvider}_reasoning`;
+  const reasoningModel = selectedModels[reasoningKey];
+  const reasoningEnabled = strategy.response.reasoning?.enabled && reasoningModel && reasoningModel !== '';
+  const needsReasoning = reasoningEnabled && await detectReasoningNeeded(userQuery);
+  
+  let reasoningOutput = null;
+  let finalResponseModel = strategy.response.model;
+  
+  // Override response model if user selected one
+  if (strategy.response.allow_model_selection && selectedModels[responseProvider]) {
+    finalResponseModel = selectedModels[responseProvider];
+    console.log(`   🎯 User-selected response model: ${finalResponseModel}`);
+  }
+  
+  // ===== STAGE 1: REASONING (if needed) =====
+  if (needsReasoning) {
+    console.log(`   🧠 Starting reasoning stage with model: ${reasoningModel}`);
+    
+    const reasoningPrompt = strategy.response.reasoning.system_prompt ||
+      "Think through this step-by-step. Break down the problem, analyze each part, " +
+      "and show your reasoning process clearly.";
+    
+    const reasoningMessages = [
+      { role: 'system', content: reasoningPrompt },
+      { role: 'user', content: userQuery }
+    ];
+    
+    await aiService.setActiveProvider(responseProvider);
+    
+    try {
+      const reasoningResponse = await aiService.generateChat(reasoningMessages, {
+        model: reasoningModel,
+        max_tokens: 2000,
+        timeout: 120000  // 2 minutes for reasoning stage
+      });
+      
+      reasoningOutput = reasoningResponse.content.trim();
+      console.log(`   ✅ Reasoning complete (${reasoningResponse.usage?.total_tokens || 'unknown'} tokens)`);
+      console.log(`\n   📋 REASONING OUTPUT:\n${'-'.repeat(80)}`);
+      console.log(reasoningOutput);
+      console.log(`${'-'.repeat(80)}\n`);
+    } catch (error) {
+      console.error('   ❌ Error in reasoning stage:', error.message);
+      // Continue without reasoning
+      needsReasoning = false;
+    }
+  }
+  
+  // ===== STAGE 2: RESPONSE GENERATION =====
+  console.log(`   💬 Generating final response with model: ${finalResponseModel}`);
+  
   // Build system prompt
   let systemPrompt = strategy.response.system_prompt;
   
-  // Inject context if available
+  // Inject RAG context if available
   if (context && context.length > 0) {
     const contextText = context.join('\n\n');
     systemPrompt = `${systemPrompt}\n\nContext from knowledge base:\n${contextText}`;
-    console.log(`   📚 Injected ${context.length} context chunks`);
+    console.log(`   📚 Injected ${context.length} RAG context chunks`);
   }
   
   // Build messages array
@@ -515,26 +608,59 @@ async function generateResponse(strategy, userQuery, chatHistory, context = null
     });
   });
   
-  // Add current query
-  messages.push({
-    role: 'user',
-    content: userQuery
-  });
-  
-  // Set the response provider
-  const responseProvider = strategy.response.provider;
-  const responseModel = strategy.response.model;
-  const maxTokens = strategy.response.max_tokens;
-  
-  console.log(`   🤖 Using provider: ${responseProvider}, model: ${responseModel}`);
+  // If we have reasoning output, use special template
+  if (needsReasoning && reasoningOutput) {
+    const responseTemplate = strategy.response.reasoning.response_prompt_template ||
+      "Based on the following analysis:\n\n{reasoning}\n\n" +
+      "Provide a clear, concise answer to the user's question: {query}";
+    
+    const promptWithReasoning = responseTemplate
+      .replace('{reasoning}', reasoningOutput)
+      .replace('{query}', userQuery);
+    
+    messages.push({
+      role: 'user',
+      content: promptWithReasoning
+    });
+    
+    // Log prompt size for debugging
+    const totalChars = messages.reduce((sum, m) => sum + m.content.length, 0);
+    const estimatedTokens = Math.ceil(totalChars / 4); // Rough estimate: 1 token ≈ 4 chars
+    console.log(`   🔗 Chaining reasoning output to response generation`);
+    console.log(`   📊 Prompt size: ${totalChars} chars (~${estimatedTokens} tokens estimated)`);
+    console.log(`   📝 Reasoning output: ${reasoningOutput.length} chars`);
+  } else {
+    // Normal query without reasoning
+    messages.push({
+      role: 'user',
+      content: userQuery
+    });
+    
+    const totalChars = messages.reduce((sum, m) => sum + m.content.length, 0);
+    const estimatedTokens = Math.ceil(totalChars / 4);
+    console.log(`   📊 Prompt size: ${totalChars} chars (~${estimatedTokens} tokens estimated)`);
+  }
   
   await aiService.setActiveProvider(responseProvider);
   
-  // Generate response
+  // Generate final response
   try {
+    // Use longer timeout for reasoning responses (they take longer due to larger context)
+    const timeout = needsReasoning ? 180000 : 60000; // 3 minutes vs 1 minute
+    
+    // Use more tokens for reasoning responses (need space for detailed answer based on reasoning)
+    const maxTokens = needsReasoning && reasoningOutput 
+      ? (strategy.response.reasoning?.response_max_tokens || strategy.response.max_tokens * 2 || 1600)
+      : strategy.response.max_tokens;
+    
+    if (needsReasoning && reasoningOutput) {
+      console.log(`   📏 Using extended max_tokens: ${maxTokens} (reasoning mode)`);
+    }
+    
     const response = await aiService.generateChat(messages, {
-      model: responseModel,
-      max_tokens: maxTokens
+      model: finalResponseModel,
+      max_tokens: maxTokens,
+      timeout: timeout
     });
     
     console.log(`   ✅ Response generated (${response.usage?.total_tokens || 'unknown'} tokens)`);
@@ -566,6 +692,7 @@ app.post('/chat/api', async (req, res) => {
   const userInput = req.body.prompt;
   const retryCount = req.body.retryCount || 0;
   const selectedCollections = req.body.selectedCollections || [];
+  const selectedModels = req.body.selectedModels || {};
   
   if (!userInput || typeof userInput !== 'string') {
     return res.status(400).json({ success: false, message: 'Invalid input.' });
@@ -578,6 +705,9 @@ app.post('/chat/api', async (req, res) => {
   if (selectedCollections.length > 0) {
     console.log(`   Collections: [${selectedCollections.map(c => `${c.knowledgeBase}/${c.collection}`).join(', ')}]`);
   }
+  if (Object.keys(selectedModels).length > 0) {
+    console.log(`   Selected models: ${JSON.stringify(selectedModels)}`);
+  }
   
   try {
     // Detect strategy
@@ -588,7 +718,8 @@ app.post('/chat/api', async (req, res) => {
       detection.strategy,
       userInput,
       previousMessages,
-      detection.context
+      detection.context,
+      selectedModels
     );
     
     console.log('✅ Request completed successfully');
@@ -626,6 +757,131 @@ app.post('/chat/api', async (req, res) => {
 });
 
 // Collection management endpoints
+
+// Get model selection configuration with available models
+app.get('/api/config/model-selection', async (req, res) => {
+  try {
+    const selectableProviders = {};
+    
+    // Find all providers with strategies that allow model selection
+    for (const strategy of config.strategies) {
+      const provider = strategy.response.provider;
+      
+      // Initialize provider object if not exists
+      if (!selectableProviders[provider]) {
+        selectableProviders[provider] = {
+          defaultModel: null,
+          models: [],
+          reasoningModels: [],
+          reasoningEnabled: false
+        };
+      }
+      
+      // Check for response model selection
+      if (strategy.response.allow_model_selection === true) {
+        if (!selectableProviders[provider].defaultModel) {
+          selectableProviders[provider].defaultModel = strategy.response.model;
+        }
+      }
+      
+      // Check for reasoning model selection
+      if (strategy.response.reasoning?.enabled === true) {
+        selectableProviders[provider].reasoningEnabled = true;
+        // No default - user must select or leave as (None)
+      }
+    }
+    
+    // Remove providers that have neither selection enabled
+    Object.keys(selectableProviders).forEach(provider => {
+      const config = selectableProviders[provider];
+      if (!config.defaultModel && !config.reasoningDefaultModel) {
+        delete selectableProviders[provider];
+      }
+    });
+    
+    // If no providers allow selection, return early
+    if (Object.keys(selectableProviders).length === 0) {
+      return res.json({ enabled: false, providers: {} });
+    }
+    
+    // Fetch available models for each provider
+    for (const provider of Object.keys(selectableProviders)) {
+      try {
+        const models = await aiService.getModels(provider);
+        console.log(`   🤖 Retrieved ${models.length} models for ${provider}`);
+        
+        // Separate chat and reasoning models
+        const providerConfig = selectableProviders[provider];
+        
+        if (providerConfig.defaultModel) {
+          // Filter models that have chat capability
+          providerConfig.models = models
+            .filter(m => m.type === 'chat' || (m.capabilities && m.capabilities.includes('chat')))
+            .map(m => ({
+              id: m.id,
+              name: m.name,
+              type: m.type,
+              capabilities: m.capabilities,
+              maxTokens: m.maxTokens
+            }));
+          console.log(`   💬 Found ${providerConfig.models.length} chat-capable models for ${provider}`);
+        }
+        
+        if (providerConfig.reasoningEnabled) {
+          // Get reasoning config from first strategy that has it enabled
+          const reasoningConfig = config.strategies
+            .find(s => s.response.provider === provider && s.response.reasoning?.enabled)
+            ?.response.reasoning;
+          
+          let reasoningModels = [];
+          
+          if (reasoningConfig?.models) {
+            // Explicit list overrides auto-detection
+            reasoningModels = models.filter(m => reasoningConfig.models.includes(m.id));
+            console.log(`   🧠 Using explicit reasoning models list (${reasoningModels.length} models)`);
+          } else {
+            // Auto-detect reasoning models
+            reasoningModels = models.filter(m => 
+              m.type === 'reasoning' || (m.capabilities && m.capabilities.includes('reasoning'))
+            );
+            console.log(`   🧠 Auto-detected ${reasoningModels.length} reasoning-capable models`);
+            
+            // Add include_models if specified
+            if (reasoningConfig?.include_models) {
+              const additionalModels = models.filter(m => 
+                reasoningConfig.include_models.includes(m.id) && 
+                !reasoningModels.find(rm => rm.id === m.id)
+              );
+              reasoningModels.push(...additionalModels);
+              console.log(`   ➕ Added ${additionalModels.length} explicitly included models`);
+            }
+          }
+          
+          providerConfig.reasoningModels = reasoningModels.map(m => ({
+            id: m.id,
+            name: m.name,
+            type: m.type,
+            capabilities: m.capabilities,
+            maxTokens: m.maxTokens
+          }));
+          
+          console.log(`   🧠 Total reasoning models for ${provider}: ${providerConfig.reasoningModels.length}`);
+        }
+      } catch (error) {
+        console.error(`   ❌ Error fetching models for provider ${provider}:`, error.message);
+        // Keep empty arrays on error
+      }
+    }
+    
+    res.json({
+      enabled: true,
+      providers: selectableProviders
+    });
+  } catch (error) {
+    console.error('Error getting model selection config:', error);
+    res.status(500).json({ error: error.message, enabled: false, providers: {} });
+  }
+});
 
 // Check if wrapper providers are available
 app.get('/api/collections/available', (req, res) => {
