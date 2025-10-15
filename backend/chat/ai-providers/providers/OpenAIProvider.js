@@ -18,26 +18,6 @@ class OpenAIProvider extends AIProvider {
   classifyModelType(modelId) {
     const id = modelId.toLowerCase();
 
-    // Reasoning models (OpenAI o-series or deep research)
-    if (id.startsWith('o1') || id.startsWith('o3') || id.startsWith('o4') || id.includes('reason') || id.includes('deep-research')) {
-      return { type: 'reasoning', capabilities: ['reasoning', 'planning', 'reflection'] };
-    }
-
-    // Embedding
-    if (id.includes('embed')) {
-      return { type: 'embedding', capabilities: ['embedding'] };
-    }
-
-    // Chat / general
-    if (id.startsWith('gpt-') || id.includes('chatgpt') || id.includes('turbo')) {
-      return { type: 'chat', capabilities: ['chat', 'function-calling'] };
-    }
-
-    // Code
-    if (id.includes('code') || id.includes('codex')) {
-      return { type: 'code', capabilities: ['chat', 'code'] };
-    }
-
     // Audio / Speech
     if (id.startsWith('tts-') || id.includes('audio') || id.includes('whisper')) {
       return { type: 'audio', capabilities: ['audio', 'speech'] };
@@ -56,6 +36,26 @@ class OpenAIProvider extends AIProvider {
     // Moderation
     if (id.includes('moderation')) {
       return { type: 'moderation', capabilities: ['classification'] };
+    }
+
+    // Embedding
+    if (id.includes('embed')) {
+      return { type: 'embedding', capabilities: ['embedding'] };
+    }
+
+    // Code
+    if (id.includes('code') || id.includes('codex')) {
+      return { type: 'code', capabilities: ['chat', 'code'] };
+    }
+
+    // Reasoning models (OpenAI o-series or deep research)
+    if (id.startsWith('o1') || id.startsWith('o3') || id.startsWith('o4') || id.includes('reason') || id.includes('deep-research')) {
+      return { type: 'reasoning', capabilities: ['reasoning', 'planning', 'reflection'] };
+    }
+
+    // Chat / general
+    if (id.startsWith('gpt-') || id.includes('chatgpt') || id.includes('turbo')) {
+      return { type: 'chat', capabilities: ['chat', 'function-calling'] };
     }
 
     return { type: 'base', capabilities: [] };
@@ -88,7 +88,8 @@ class OpenAIProvider extends AIProvider {
         });
       });
 
-      return models;
+      return models.filter(m => !m.id.match(/\d{4}\-\d{2}\-\d{2}$/))
+                   .filter(m => !m.id.match(/\d{4}$/));
     } catch (error) {
       console.error('Error fetching OpenAI models:', error.message);
       return this.getDefaultModelsList();
