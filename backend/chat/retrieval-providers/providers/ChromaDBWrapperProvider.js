@@ -49,7 +49,8 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
       }
       
       this.isInitialized = true;
-      console.log(`✅ ChromaDB Wrapper Provider initialized: ${this.baseUrl} (collection: ${this.collection})`);
+      const collectionInfo = this.collection || 'multiple collections';
+      console.log(`✅ ChromaDB Wrapper Provider initialized: ${this.baseUrl} (${collectionInfo})`);
     } catch (error) {
       console.error(`❌ Failed to initialize ChromaDB Wrapper Provider: ${error.message}`);
       throw error;

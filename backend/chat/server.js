@@ -5,6 +5,9 @@ const path = require('path');
 const { AIService } = require('./ai-providers');
 const { RetrievalService } = require('./retrieval-providers');
 
+// Load environment variables from .env file
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+
 const app = express();
 app.use(bodyParser.json());
 
@@ -128,12 +131,12 @@ async function initializeAIProviders(config) {
   
   // Initialize all configured providers
   for (const [name, providerConfig] of Object.entries(config.providers || {})) {
-    try {
-      await aiService.setActiveProvider(name, providerConfig);
-      console.log(`   ✅ Initialized AI provider: ${name}`);
-    } catch (error) {
-      console.error(`   ❌ Failed to initialize provider ${name}:`, error.message);
+    const success = await aiService.setActiveProvider(name, providerConfig);
+    if (!success) {
+      console.error(`\n❌ Cannot start server with failed provider configuration\n`);
+      process.exit(1);
     }
+    console.log(`   ✅ Initialized AI provider: ${name}`);
   }
   
   // Set detection provider as active if specified

@@ -8,8 +8,8 @@ const ModelInfo = require('../base/ModelInfo');
 class OpenAIProvider extends AIProvider {
   constructor(config) {
     super(config);
-    this.apiUrl = config.baseUrl || 'https://api.openai.com/v1';
-    this.apiKey = config.apiKey;
+    this.apiUrl = config.base_url || config.baseUrl || 'https://api.openai.com/v1';
+    this.apiKey = config.api_key || config.apiKey;
   }
 
   /**
@@ -191,13 +191,13 @@ class OpenAIProvider extends AIProvider {
     return {
       type: 'object',
       properties: {
-        apiKey: {
+        api_key: {
           type: 'string',
-          description: 'OpenAI API key'
+          description: 'OpenAI API key (also accepts apiKey for backwards compatibility)'
         },
-        baseUrl: {
+        base_url: {
           type: 'string',
-          description: 'OpenAI API base URL',
+          description: 'OpenAI API base URL (also accepts baseUrl)',
           default: 'https://api.openai.com/v1'
         },
         timeout: {
@@ -210,12 +210,12 @@ class OpenAIProvider extends AIProvider {
           description: 'Number of retries for failed requests',
           default: 3
         },
-        retryDelay: {
+        retry_delay: {
           type: 'number',
           description: 'Delay between retries in milliseconds',
           default: 1000
         },
-        maxTokens: {
+        max_tokens: {
           type: 'number',
           description: 'Maximum tokens for responses',
           default: 1000
@@ -228,7 +228,7 @@ class OpenAIProvider extends AIProvider {
           default: 0.7
         }
       },
-      required: ['apiKey']
+      required: ['api_key']
     };
   }
 
@@ -248,11 +248,12 @@ class OpenAIProvider extends AIProvider {
   validateConfig(config) {
     const errors = [];
 
-    if (!config.apiKey) {
+    if (!config.api_key && !config.apiKey) {
       errors.push('OpenAI API key is required');
     }
 
-    if (config.baseUrl && !this.isValidUrl(config.baseUrl)) {
+    const baseUrl = config.base_url || config.baseUrl;
+    if (baseUrl && !this.isValidUrl(baseUrl)) {
       errors.push('Invalid base URL format');
     }
 
