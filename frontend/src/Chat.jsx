@@ -84,6 +84,22 @@ const Chat = () => {
       try {
         setLoadingModels(true);
         
+        // Check sessionStorage for cached model data
+        const cachedData = sessionStorage.getItem('modelSelectionData');
+        if (cachedData) {
+          try {
+            const { defaults, models } = JSON.parse(cachedData);
+            setSelectedModels(defaults);
+            setAvailableModels(models);
+            setLoadingModels(false);
+            console.log('📦 Using cached model selection data');
+            return;
+          } catch (e) {
+            console.warn('Failed to parse cached model data, refetching...');
+          }
+        }
+        
+        // Fetch from API if not cached
         const res = await fetch('/api/config/model-selection');
         const data = await res.json();
         
@@ -109,6 +125,9 @@ const Chat = () => {
             models[`${provider}_reasoning`] = info.reasoningModels;
           }
         }
+        
+        // Cache the data in sessionStorage
+        sessionStorage.setItem('modelSelectionData', JSON.stringify({ defaults, models }));
         
         setSelectedModels(defaults);
         setAvailableModels(models);
