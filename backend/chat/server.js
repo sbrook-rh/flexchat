@@ -306,7 +306,7 @@ Answer with only one word: "${intentNamesStr}".`;
       { model: detectionModel, max_tokens: 10 }
     );
     
-    const detectedIntent = response.content.trim().toUpperCase();
+    const detectedIntent = response.content.trim().replace(/^["']|["']$/g, '').toUpperCase();
     console.log(`   🎯 LLM detected: ${detectedIntent}`);
     
     // Find the strategy
