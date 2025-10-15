@@ -64,6 +64,20 @@ export OPENAI_API_KEY="your-key-here"
 
 ### 3. Start Services
 
+**Option A - All-in-One (Recommended):**
+```bash
+# Start with default config
+./start.sh
+
+# Or with custom config
+./start.sh --config config/examples/chat-only-ollama.json
+
+# Get help
+./start.sh --help
+```
+
+**Option B - Individual Services:**
+
 **Terminal 1 - RAG Wrapper (if using chromadb-wrapper):**
 ```bash
 cd backend/rag
@@ -76,6 +90,12 @@ python server.py
 cd backend/chat
 node server.js
 # Runs on http://localhost:5005
+
+# Or with custom config:
+node server.js --config ../../config/examples/chat-only-ollama.json
+
+# Get help:
+node server.js --help
 ```
 
 **Terminal 3 - Frontend:**

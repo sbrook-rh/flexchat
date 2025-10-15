@@ -1,7 +1,46 @@
 #!/bin/bash
 
 # Flexible Chat System - Start Script
+# Usage: ./start.sh [--config <path>]
+# Example: ./start.sh --config config/examples/chat-only-ollama.json
+
+# Parse arguments
+CONFIG_ARG=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --config)
+            CONFIG_ARG="--config $2"
+            CONFIG_FILE="$2"
+            shift 2
+            ;;
+        --help|-h)
+            echo "Usage: ./start.sh [options]"
+            echo ""
+            echo "Options:"
+            echo "  --config <path>    Path to configuration file (default: config/config.json)"
+            echo "  --help, -h         Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  ./start.sh"
+            echo "  ./start.sh --config config/examples/chat-only-ollama.json"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Run ./start.sh --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# Set default config if not specified
+if [ -z "$CONFIG_FILE" ]; then
+    CONFIG_FILE="config/config.json"
+fi
+
 echo "🚀 Starting Flexible Chat System..."
+echo "📝 Using config: $CONFIG_FILE"
+echo ""
 
 # Function to check if a port is in use
 check_port() {
@@ -21,10 +60,14 @@ check_port 5005 || exit 1
 check_port 5006 || exit 1
 
 # Check if config file exists
-if [ ! -f "config/config.json" ]; then
-    echo "❌ Missing config/config.json file"
-    echo "📝 Please copy an example config:"
-    echo "   cp config/examples/chromadb-wrapper-example.json config/config.json"
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "❌ Missing configuration file: $CONFIG_FILE"
+    echo ""
+    echo "📝 Available example configs:"
+    ls -1 config/examples/*.json 2>/dev/null | sed 's/^/   - /' || echo "   (none found)"
+    echo ""
+    echo "💡 To get started:"
+    echo "   cp config/examples/chat-only-ollama.json config/config.json"
     echo "   Then edit it to add your API keys"
     exit 1
 fi
@@ -33,7 +76,7 @@ echo "✅ Configuration file found"
 
 # Check if wrapper is needed (optional)
 WRAPPER_NEEDED=false
-if grep -q "chromadb-wrapper" config/config.json 2>/dev/null; then
+if grep -q "chromadb-wrapper" "$CONFIG_FILE" 2>/dev/null; then
     WRAPPER_NEEDED=true
 fi
 
@@ -70,7 +113,7 @@ fi
 # Start Chat Server
 echo "🟢 Starting chat server (port 5005)..."
 cd backend/chat
-node server.js &
+node server.js $CONFIG_ARG &
 CHAT_PID=$!
 echo "✅ Chat server started (PID: $CHAT_PID)"
 cd ../..

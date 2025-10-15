@@ -343,20 +343,20 @@
 
 ## Configuration Management UI & Multi-Config Support
 
-### Stage 1: Runtime Config Selection
-- [ ] Add CLI argument support for custom config file path
-  - [ ] Update backend/chat/server.js to accept `--config` argument
-  - [ ] Update frontend package.json scripts to pass through config argument
-  - [ ] Default to `config/config.json` if not specified
-  - [ ] Add validation for config file existence and readability
-  - [ ] Document usage in README and startup scripts
-- [ ] Create config file presets directory
-  - [ ] Move example configs to a standard location
-  - [ ] Add quick-start scripts for common scenarios
-- [ ] Add config file validation on startup
-  - [ ] Schema validation against config-schema.json
-  - [ ] Clear error messages for invalid configs
-  - [ ] Suggestion system for common mistakes
+### Stage 1: Runtime Config Selection ✅
+- [x] Add CLI argument support for custom config file path
+  - [x] Update backend/chat/server.js to accept `--config` argument
+  - [x] Update start.sh to pass through config argument
+  - [x] Default to `config/config.json` if not specified
+  - [x] Add validation for config file existence and readability
+  - [x] Document usage in README and startup scripts
+- [x] Create config file presets directory (already exists in config/examples/)
+- [x] Add config file validation on startup
+  - [x] Clear error messages for invalid configs
+  - [x] Suggestion system showing available example configs
+- [ ] Additional enhancements (optional)
+  - [ ] JSON schema validation against config-schema.json
+  - [ ] Add quick-start wrapper scripts for common scenarios
 
 ### Stage 2: Initial Configuration Wizard (No Config Mode)
 - [ ] Backend: Configuration API endpoints

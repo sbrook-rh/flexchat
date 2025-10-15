@@ -14,25 +14,108 @@ let aiService = null;
 let retrievalService = null;
 
 /**
- * Load and parse configuration file
+ * Parse command line arguments
  */
-function loadConfiguration() {
-  const configPath = process.env.CHAT_CONFIG_PATH || path.join(__dirname, '../../config/config.json');
+function parseArguments() {
+  const args = process.argv.slice(2);
+  const options = {
+    configPath: null
+  };
   
-  console.log(`📝 Loading configuration from: ${configPath}`);
-  
-  if (!fs.existsSync(configPath)) {
-    throw new Error(`Configuration file not found: ${configPath}`);
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--config' && i + 1 < args.length) {
+      options.configPath = args[i + 1];
+      i++; // Skip next arg since we consumed it
+    } else if (args[i] === '--help' || args[i] === '-h') {
+      console.log(`
+Usage: node server.js [options]
+
+Options:
+  --config <path>    Path to configuration file (default: config/config.json)
+  --help, -h         Show this help message
+
+Examples:
+  node server.js
+  node server.js --config config/examples/chat-only-ollama.json
+  node server.js --config /absolute/path/to/config.json
+      `);
+      process.exit(0);
+    }
   }
   
-  const configContent = fs.readFileSync(configPath, 'utf8');
+  return options;
+}
+
+/**
+ * Resolve and validate configuration file path
+ */
+function resolveConfigPath(providedPath) {
+  // Priority: CLI arg > ENV var > Default
+  let configPath;
+  
+  if (providedPath) {
+    // CLI argument provided
+    configPath = path.isAbsolute(providedPath) 
+      ? providedPath 
+      : path.join(__dirname, '../../', providedPath);
+    console.log(`📝 Using config from CLI argument: ${providedPath}`);
+  } else if (process.env.CHAT_CONFIG_PATH) {
+    // Environment variable
+    configPath = process.env.CHAT_CONFIG_PATH;
+    console.log(`📝 Using config from CHAT_CONFIG_PATH env var: ${configPath}`);
+  } else {
+    // Default
+    configPath = path.join(__dirname, '../../config/config.json');
+    console.log(`📝 Using default config: config/config.json`);
+  }
+  
+  return configPath;
+}
+
+/**
+ * Load and parse configuration file
+ */
+function loadConfiguration(configPath) {
+  console.log(`📂 Loading configuration from: ${configPath}`);
+  
+  // Validate file exists
+  if (!fs.existsSync(configPath)) {
+    console.error(`\n❌ Error: Configuration file not found: ${configPath}`);
+    console.error(`\n💡 Available example configs:`);
+    const examplesDir = path.join(__dirname, '../../config/examples');
+    if (fs.existsSync(examplesDir)) {
+      const examples = fs.readdirSync(examplesDir).filter(f => f.endsWith('.json'));
+      examples.forEach(ex => console.error(`   - config/examples/${ex}`));
+    }
+    console.error(`\n💡 Run with: node server.js --config <path-to-config>\n`);
+    process.exit(1);
+  }
+  
+  // Validate it's readable
+  let configContent;
+  try {
+    configContent = fs.readFileSync(configPath, 'utf8');
+  } catch (error) {
+    console.error(`\n❌ Error: Cannot read configuration file: ${configPath}`);
+    console.error(`   ${error.message}\n`);
+    process.exit(1);
+  }
   
   // Replace environment variables in config
   const processedContent = configContent.replace(/\$\{([^}]+)\}/g, (match, varName) => {
     return process.env[varName] || match;
   });
   
-  return JSON.parse(processedContent);
+  // Validate it's valid JSON
+  try {
+    const parsedConfig = JSON.parse(processedContent);
+    console.log(`✅ Configuration loaded successfully`);
+    return parsedConfig;
+  } catch (error) {
+    console.error(`\n❌ Error: Invalid JSON in configuration file: ${configPath}`);
+    console.error(`   ${error.message}\n`);
+    process.exit(1);
+  }
 }
 
 /**
@@ -1184,8 +1267,14 @@ async function startServer() {
   try {
     console.log('🚀 Starting Chat Server...\n');
     
+    // Parse command line arguments
+    const options = parseArguments();
+    
+    // Resolve configuration file path
+    const configPath = resolveConfigPath(options.configPath);
+    
     // Load configuration
-    config = loadConfiguration();
+    config = loadConfiguration(configPath);
     console.log(`   ✅ Configuration loaded: ${config.strategies.length} strategies\n`);
     
     // Initialize AI providers
