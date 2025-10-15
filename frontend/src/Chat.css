@@ -1,16 +1,30 @@
 @reference "tailwindcss";
 
 /* Chat.css */
-.bot-message {
+/*.bot-message {
   @apply bg-gray-100 text-black px-4 py-3 rounded-lg max-w-[75%] break-words inline-block;
 }
 
 .user-message {
   @apply bg-blue-500 text-white px-4 py-2 rounded-lg max-w-[75%] break-words inline-block text-right;
 }
+*/
+
+.user-message {
+  @apply bg-blue-600 text-white px-4 py-2 rounded-2xl shadow-md;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.bot-message {
+  @apply bg-gray-100 text-gray-900 px-4 py-3 rounded-2xl shadow-sm;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
 
 .message-container {
   @apply my-4 flex;
+  min-width: 0;
 }
 
 .bot {
@@ -21,77 +35,49 @@
   @apply justify-end; /* User messages align right */
 }
 
-/* Markdown Styling */
-.markdown-content {
-  @apply text-sm leading-relaxed;
-}
-
-.markdown-paragraph {
-  @apply mb-3 last:mb-0;
-}
-
-.markdown-h1 {
-  @apply text-xl font-bold mb-3 mt-4 first:mt-0;
-}
-
-.markdown-h2 {
-  @apply text-lg font-bold mb-2 mt-3 first:mt-0;
-}
-
-.markdown-h3 {
-  @apply text-base font-semibold mb-2 mt-3 first:mt-0;
-}
-
-/* Lists */
-.markdown-list {
-  @apply list-disc list-inside mb-3 space-y-1;
-}
-
-.markdown-ordered-list {
-  @apply list-decimal list-inside mb-3 space-y-1;
-}
-
-.markdown-list-item {
-  @apply ml-0;
-}
-
 /* Code Styling */
 .inline-code {
   @apply bg-gray-200 text-red-600 px-1.5 py-0.5 rounded text-sm font-mono;
 }
 
 .code-block {
-  @apply block bg-gray-800 text-green-300 p-3 rounded-md overflow-x-auto text-sm font-mono my-3;
+  @apply relative bg-gray-900 text-green-300 p-4 rounded-lg overflow-x-auto my-3;
 }
 
 .block-code {
-  @apply block text-green-300 font-mono text-sm;
+  @apply font-mono text-sm leading-relaxed whitespace-pre text-green-200;
 }
 
-/* Tables (GFM support) */
-.markdown-content table {
-  @apply w-full border-collapse mb-3;
+.block-code span.keyword { @apply text-purple-400; }
+.block-code span.string { @apply text-amber-400; }
+
+/* Adjust Tailwind Typography (prose) inside chat bubbles */
+
+.markdown-content {
+  min-width: 0;
+  width: 100%;
 }
 
-.markdown-content th {
-  @apply bg-gray-200 font-semibold p-2 border border-gray-300 text-left;
+/* Compact prose for chat */
+.prose {
+  @apply leading-relaxed text-[15px];
+  min-width: 0;
+  width: 100%;
 }
+.prose p { @apply mb-3 last:mb-0; }
+.prose ul, .prose ol { @apply mb-3 ml-5 space-y-1; }
 
-.markdown-content td {
-  @apply p-2 border border-gray-300;
+/* Code blocks */
+.prose pre {
+  @apply bg-transparent p-0 my-3 overflow-x-auto;
+  min-width: 0;
+  max-width: 100%;
 }
-
-/* Links */
-.markdown-content a {
-  @apply text-blue-600 underline hover:text-blue-800;
+.prose pre code.hljs {
+  @apply block bg-[#1e1e1e] text-gray-100 rounded-lg px-4 py-3 font-mono text-[14px] leading-snug;
+  min-width: 0;
 }
-
-/* Blockquotes */
-.markdown-content blockquote {
-  @apply border-l-4 border-gray-400 pl-4 italic my-3 text-gray-700;
-}
-
-/* Horizontal Rules */
-.markdown-content hr {
-  @apply my-4 border-gray-300;
+.prose :not(pre) > code {
+  @apply bg-gray-100 text-gray-800 px-1.5 py-0.5 rounded font-mono text-[13px];
+  overflow-wrap: break-word;
 }

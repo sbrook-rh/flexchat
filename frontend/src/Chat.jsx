@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeHighlight from 'rehype-highlight';
+import 'highlight.js/styles/github-dark.css';
+// import 'highlight.js/styles/github.css';
 import './Chat.css';
 import NavBar from './NavBar';
 import LogoSection from './LogoSection';
@@ -28,6 +31,14 @@ const Chat = () => {
   const [selectedModels, setSelectedModels] = useState({});
   const [loadingModels, setLoadingModels] = useState(false);
 
+  // Sidebar collapse state
+  const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(
+    localStorage.getItem('leftSidebarCollapsed') === 'true'
+  );
+  const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(
+    localStorage.getItem('rightSidebarCollapsed') === 'true'
+  );
+
   useEffect(() => {
     if (retryTracker === -1) {
       setIsLoading(false);
@@ -39,6 +50,19 @@ const Chat = () => {
       setSendButtonText(buttonStates[retryTracker]);
     }
   }, [retryTracker]);
+
+  // Toggle sidebar functions
+  const toggleLeftSidebar = () => {
+    const newState = !leftSidebarCollapsed;
+    setLeftSidebarCollapsed(newState);
+    localStorage.setItem('leftSidebarCollapsed', newState.toString());
+  };
+
+  const toggleRightSidebar = () => {
+    const newState = !rightSidebarCollapsed;
+    setRightSidebarCollapsed(newState);
+    localStorage.setItem('rightSidebarCollapsed', newState.toString());
+  };
 
   // Load available collections on mount
   useEffect(() => {
@@ -172,11 +196,22 @@ const Chat = () => {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Left Sidebar - Settings & Collections */}
-        <div className="w-64 bg-white border-r border-gray-200 flex flex-col h-full">
-          <div className="p-4 border-b border-gray-200 flex-shrink-0">
-            <h2 className="text-lg font-semibold text-gray-800">Settings</h2>
+        <div className={`bg-white border-r border-gray-200 flex flex-col h-full transition-all duration-300 ${
+          leftSidebarCollapsed ? 'w-12' : 'w-64'
+        }`}>
+          <div className="p-4 border-b border-gray-200 flex-shrink-0 flex items-center justify-between">
+            {!leftSidebarCollapsed && (
+              <h2 className="text-lg font-semibold text-gray-800">Settings</h2>
+            )}
+            <button
+              onClick={toggleLeftSidebar}
+              className="text-gray-600 hover:text-gray-800 transition-colors"
+              title={leftSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {leftSidebarCollapsed ? '→' : '←'}
+            </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 pb-64">
+          <div className={`flex-1 overflow-y-auto pb-64 ${leftSidebarCollapsed ? 'hidden' : 'p-4'}`}>
             {/* Model Selection */}
             {Object.keys(selectedModels).length > 0 && (
               <div className="mb-6">
@@ -312,34 +347,18 @@ const Chat = () => {
         </div>
 
         {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col h-full">
+        <div className="flex-1 flex flex-col h-full min-w-0">
           {/* Chat messages container */}
-          <div className="flex-1 overflow-y-auto p-6 pb-64">
-            <div className="max-w-4xl mx-auto">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-64">
+            <div className="max-w-6xl mx-auto px-4">
               {messages.map((message, index) => (
                 <div key={index} className={`message-container ${message.type}`}>
                   <div className={`${message.type}-message`}>
                     {message.type === 'bot' ? (
-                      <div className="markdown-content">
-                        <ReactMarkdown 
+                      <div className="prose prose-sm dark:prose-invert max-w-none markdown-content">
+                        <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
-                          components={{
-                            code: ({node, inline, className, children, ...props}) => {
-                              return inline ? (
-                                <code className="inline-code" {...props}>{children}</code>
-                              ) : (
-                                <code className="block-code" {...props}>{children}</code>
-                              );
-                            },
-                            pre: ({children}) => <pre className="code-block">{children}</pre>,
-                            ul: ({children}) => <ul className="markdown-list">{children}</ul>,
-                            ol: ({children}) => <ol className="markdown-ordered-list">{children}</ol>,
-                            li: ({children}) => <li className="markdown-list-item">{children}</li>,
-                            h1: ({children}) => <h1 className="markdown-h1">{children}</h1>,
-                            h2: ({children}) => <h2 className="markdown-h2">{children}</h2>,
-                            h3: ({children}) => <h3 className="markdown-h3">{children}</h3>,
-                            p: ({children}) => <p className="markdown-paragraph">{children}</p>,
-                          }}
+                          rehypePlugins={[rehypeHighlight]}
                         >
                           {message.text}
                         </ReactMarkdown>
@@ -367,11 +386,24 @@ const Chat = () => {
         </div>
 
         {/* Right Sidebar - Chat History */}
-        <div className="w-64 bg-white border-l border-gray-200 flex flex-col h-full">
-          <div className="p-4 border-b border-gray-200 flex-shrink-0">
-            <h2 className="text-lg font-semibold text-gray-800">Chat History</h2>
+        <div className={`bg-white border-l border-gray-200 flex flex-col h-full transition-all duration-300 ${
+          rightSidebarCollapsed ? 'w-12' : 'w-64'
+        }`}>
+          <div className="p-4 border-b border-gray-200 flex-shrink-0 flex items-center justify-between">
+            <button
+              onClick={toggleRightSidebar}
+              className="text-gray-600 hover:text-gray-800 transition-colors"
+              title={rightSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
+              {rightSidebarCollapsed ? '←' : '→'}
+            </button>
+            {!rightSidebarCollapsed && (
+              <h2 className="text-lg font-semibold text-gray-800">Chat History</h2>
+            )}
           </div>
-          <div className="flex-1 flex items-center justify-center p-4 pb-64 overflow-y-auto">
+          <div className={`flex-1 flex items-center justify-center pb-64 overflow-y-auto ${
+            rightSidebarCollapsed ? 'hidden' : 'p-4'
+          }`}>
             <p className="text-sm text-gray-400 italic">Coming soon...</p>
           </div>
         </div>
@@ -379,7 +411,7 @@ const Chat = () => {
 
       {/* Chat input and send button */}
       <div className="fixed bottom-16 left-0 right-0 bg-gray-50">
-        <div className="max-w-4xl mx-auto p-4">
+        <div className="max-w-6xl mx-auto p-4">
           <div className="flex gap-3 mb-2">
             <button
               onClick={() => {
