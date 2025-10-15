@@ -2,7 +2,7 @@
 
 /* Chat.css */
 .bot-message {
-  @apply bg-gray-100 text-black px-4 py-2 rounded-lg max-w-[75%] break-words inline-block;
+  @apply bg-gray-100 text-black px-4 py-3 rounded-lg max-w-[75%] break-words inline-block;
 }
 
 .user-message {
@@ -19,4 +19,79 @@
 
 .user {
   @apply justify-end; /* User messages align right */
+}
+
+/* Markdown Styling */
+.markdown-content {
+  @apply text-sm leading-relaxed;
+}
+
+.markdown-paragraph {
+  @apply mb-3 last:mb-0;
+}
+
+.markdown-h1 {
+  @apply text-xl font-bold mb-3 mt-4 first:mt-0;
+}
+
+.markdown-h2 {
+  @apply text-lg font-bold mb-2 mt-3 first:mt-0;
+}
+
+.markdown-h3 {
+  @apply text-base font-semibold mb-2 mt-3 first:mt-0;
+}
+
+/* Lists */
+.markdown-list {
+  @apply list-disc list-inside mb-3 space-y-1;
+}
+
+.markdown-ordered-list {
+  @apply list-decimal list-inside mb-3 space-y-1;
+}
+
+.markdown-list-item {
+  @apply ml-0;
+}
+
+/* Code Styling */
+.inline-code {
+  @apply bg-gray-200 text-red-600 px-1.5 py-0.5 rounded text-sm font-mono;
+}
+
+.code-block {
+  @apply block bg-gray-800 text-green-300 p-3 rounded-md overflow-x-auto text-sm font-mono my-3;
+}
+
+.block-code {
+  @apply block text-green-300 font-mono text-sm;
+}
+
+/* Tables (GFM support) */
+.markdown-content table {
+  @apply w-full border-collapse mb-3;
+}
+
+.markdown-content th {
+  @apply bg-gray-200 font-semibold p-2 border border-gray-300 text-left;
+}
+
+.markdown-content td {
+  @apply p-2 border border-gray-300;
+}
+
+/* Links */
+.markdown-content a {
+  @apply text-blue-600 underline hover:text-blue-800;
+}
+
+/* Blockquotes */
+.markdown-content blockquote {
+  @apply border-l-4 border-gray-400 pl-4 italic my-3 text-gray-700;
+}
+
+/* Horizontal Rules */
+.markdown-content hr {
+  @apply my-4 border-gray-300;
 }
