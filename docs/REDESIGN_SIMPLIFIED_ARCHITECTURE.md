@@ -1844,16 +1844,125 @@ function formatExpandedContext(rag_results):
 - [ ] **Finalize config schema**
 
 ### Phase 1: Core Implementation (2-3 days)
-- [ ] Rewrite `server.js` with new three-phase flow
-  - [ ] `buildProfile()` function
-  - [ ] `queryRagServices()` function  
-  - [ ] `matchResponseRule()` function
-  - [ ] `generateResponse()` function
-  - [ ] Variable substitution logic
-- [ ] Update config loading to support new structure
-- [ ] Add configuration validation
-- [ ] Create 3-4 example configs (chat-only, simple RAG, multi-service, complex)
-- [ ] Test manually with each example config
+
+**Approach:** Build `server-v2.js` incrementally with separate utility modules to avoid creating another monolithic file.
+
+**File Structure:**
+```
+backend/chat/
+├── server.js (current - keep as reference)
+├── server-v2.js (new - clean orchestrator)
+├── lib/
+│   ├── config-loader.js        # Load and validate config
+│   ├── rag-collector.js        # Phase 1: Collect RAG results
+│   ├── profile-builder.js      # Phase 1b: Build profile from rag_results
+│   ├── intent-detector.js      # Phase 2: Detect intent (conditional)
+│   ├── response-matcher.js     # Phase 3: Match response rule
+│   ├── response-generator.js   # Phase 4: Generate final response
+│   └── variable-substitution.js # Helper for ${...} substitution
+├── ai-providers/ (existing - reuse)
+└── retrieval-providers/ (existing - reuse)
+```
+
+**Incremental Build Steps:**
+
+#### Step 1: Foundation
+- [ ] Create `lib/config-loader.js`
+  - Load new config format (llms, rag_services, embedding, intent, responses)
+  - Validate required sections exist
+  - Substitute environment variables
+  - Export validated config object
+- [ ] Create basic `server-v2.js`
+  - Express app setup
+  - Single `/api/chat` endpoint skeleton
+  - Config loading on startup
+  - Return "not implemented yet" response
+- [ ] **Test:** Server starts, loads config, responds to requests
+
+#### Step 2: RAG Collection (Phase 1)
+- [ ] Create `lib/rag-collector.js`
+  - Export `collectRagResults(userMessage, selectedCollections, config, retrievalService)`
+  - Iterate through selected collections
+  - Query each collection via RetrievalService
+  - Classify results: match (< match_threshold) or partial (< partial_threshold)
+  - Store in flat `rag_results` object indexed by identifier
+  - Break loop if "match" found
+  - Return rag_results object
+- [ ] Update `server-v2.js`
+  - Initialize RetrievalService
+  - Call collectRagResults()
+  - Return rag_results as JSON (for debugging)
+- [ ] **Test:** Send requests, verify rag_results structure correct
+
+#### Step 3: Profile Building (Phase 1b)
+- [ ] Create `lib/profile-builder.js`
+  - Export `buildProfile(userMessage, selectedCollections, rag_results)`
+  - Evaluate rag_results (any match? any partial? none?)
+  - Set profile.rag_result ("match" | "partial" | "none")
+  - If match: set intent, service, collection, context, etc.
+  - If partial/none: leave intent undefined
+  - Return profile object
+- [ ] Update `server-v2.js`
+  - Call buildProfile() after collectRagResults()
+  - Return profile as JSON (for debugging)
+- [ ] **Test:** Verify profile structure for match/partial/none scenarios
+
+#### Step 4: Intent Detection (Phase 2)
+- [ ] Create `lib/intent-detector.js`
+  - Export `detectIntent(profile, config, aiService)`
+  - Check if profile.intent already set (skip if yes)
+  - Build categories array from config.intent.detection
+  - Add partial match collections as categories
+  - Build classification prompt
+  - Call intent detection LLM
+  - Set profile.intent from result
+  - Return updated profile
+- [ ] Update `server-v2.js`
+  - Initialize AIService
+  - Call detectIntent() after buildProfile()
+  - Return profile with intent set
+- [ ] **Test:** Intent set correctly (from match or from LLM)
+
+#### Step 5: Response Matching (Phase 3)
+- [ ] Create `lib/response-matcher.js`
+  - Export `matchResponse(profile, responses)`
+  - Iterate through responses array
+  - Evaluate match clause against profile
+  - Handle regexp matches, exact matches, special cases
+  - Return first matching response rule
+  - Throw error if no match (should never happen with fallback)
+- [ ] Update `server-v2.js`
+  - Call matchResponse()
+  - Return matched response rule (for debugging)
+- [ ] **Test:** Correct response rule selected for various profiles
+
+#### Step 6: Response Generation (Phase 4)
+- [ ] Create `lib/variable-substitution.js`
+  - Export `substituteVariables(template, profile)`
+  - Handle ${profile.*} replacements
+  - Handle ${service.*} replacements
+  - Handle ${context} (formatted from profile.context)
+  - Handle ${expanded_rag_context} (formatted from profile.rag_results)
+  - Return processed template
+- [ ] Create `lib/response-generator.js`
+  - Export `generateResponse(profile, responseRule, config, aiService)`
+  - Get LLM from config.llms[responseRule.llm]
+  - Substitute variables in prompt
+  - Call AIService with prompt, model, max_tokens
+  - Return LLM response
+- [ ] Update `server-v2.js`
+  - Call generateResponse()
+  - Return final response to user
+  - Optionally include profile in debug object
+- [ ] **Test:** Full end-to-end flow works!
+
+#### Step 7: Polish & Integration
+- [ ] Add comprehensive error handling
+- [ ] Add debug mode (include profile in response)
+- [ ] Add logging throughout
+- [ ] Update collection management endpoints if needed
+- [ ] Test with all example configs
+- [ ] Integration testing with real services (Ollama, ChromaDB)
 
 ### Phase 2: Provider Integration (1-2 days)
 - [ ] Ensure AI provider abstraction still works
