@@ -627,33 +627,38 @@ If no `match` field present, or `match: {}`, this always matches.
 
 ### Variable Substitution
 
-Response prompts can reference profile fields using `${profile.*}` syntax:
+Response prompts can reference profile fields using `{{variable}}` syntax (template variables):
 
 ```json
 {
-  "prompt": "Based on ${profile.collection}, here's what I found: ${profile.context}"
+  "prompt": "Based on {{profile.collection}}, here's what I found: {{context}}"
 }
 ```
+
+**Note:** We use different syntax for different substitution times:
+- `${VAR}` - Environment variables (substituted at config load time)
+- `{{variable}}` - Template variables (substituted at response generation time)
 
 #### Available Variables
 
 **From Profile:**
-- `${profile.service}` - Service name
-- `${profile.collection}` - Collection name
-- `${profile.distance}` - Similarity distance
-- `${profile.context}` - Retrieved documents (formatted)
-- `${profile.intent}` - Intent identifier
-- `${profile.service_prompt}` - From collection metadata
-- `${profile.service_tokens}` - From collection metadata
-- `${profile.user_message}` - Original user query
+- `{{profile.service}}` - Service name
+- `{{profile.collection}}` - Collection name
+- `{{profile.distance}}` - Similarity distance
+- `{{profile.context}}` - Retrieved documents (formatted)
+- `{{profile.intent}}` - Intent identifier
+- `{{profile.service_prompt}}` - From collection metadata
+- `{{profile.service_tokens}}` - From collection metadata
+- `{{profile.user_message}}` - Original user query
 
 **Special Variables:**
-- `${context}` - Shorthand for `${profile.context}` (formatted as text)
-- `${user}` - Shorthand for `${profile.user_message}`
+- `{{context}}` - Shorthand for `{{profile.context}}` (formatted as text)
+- `{{expanded_rag_context}}` - All partial match contexts (formatted)
+- `{{user}}` - Shorthand for `{{profile.user_message}}`
 
 #### Context Formatting
 
-The `${context}` variable formats retrieved documents:
+The `{{context}}` variable formats retrieved documents:
 
 ```
 Based on the following information:
