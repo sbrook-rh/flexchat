@@ -194,13 +194,20 @@ class ChromaDBProvider extends VectorProvider {
           type: 'string',
           description: 'Collection name'
         },
-        embedding_provider: {
-          type: 'string',
-          description: 'AI provider for embeddings'
-        },
-        embedding_model: {
-          type: 'string',
-          description: 'Model to use for embeddings'
+        embedding: {
+          type: 'object',
+          description: 'Embedding configuration',
+          required: ['llm', 'model'],
+          properties: {
+            llm: {
+              type: 'string',
+              description: 'LLM provider name for embeddings'
+            },
+            model: {
+              type: 'string',
+              description: 'Model to use for embeddings'
+            }
+          }
         },
         timeout: {
           type: 'number',
@@ -213,7 +220,7 @@ class ChromaDBProvider extends VectorProvider {
           default: 3
         }
       },
-      required: ['url', 'collection', 'embedding_provider', 'embedding_model']
+      required: ['url', 'collection', 'embedding']
     };
   }
 
@@ -233,12 +240,12 @@ class ChromaDBProvider extends VectorProvider {
       errors.push('Collection name is required');
     }
     
-    if (!config.embedding_provider) {
-      errors.push('Embedding provider is required');
+    if (!config.embedding || !config.embedding.llm) {
+      errors.push('Embedding LLM is required (embedding.llm)');
     }
     
-    if (!config.embedding_model) {
-      errors.push('Embedding model is required');
+    if (!config.embedding || !config.embedding.model) {
+      errors.push('Embedding model is required (embedding.model)');
     }
     
     return {

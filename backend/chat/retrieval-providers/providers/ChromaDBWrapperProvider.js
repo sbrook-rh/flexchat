@@ -394,7 +394,7 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
       const data = response.data;
       
       if (!data || !data.results) {
-        return [];
+        return { results: [], collectionMetadata: {} };
       }
 
       // Filter and transform results
@@ -408,7 +408,11 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
           metadata: r.metadata || {}
         }));
 
-      return results;
+      // Return results with collection metadata
+      return {
+        results: results,
+        collectionMetadata: data.collection_metadata || {}
+      };
     } catch (error) {
       console.error(`Error querying ChromaDB wrapper (collection: ${collection}):`, error.message);
       throw error;

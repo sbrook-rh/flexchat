@@ -23,8 +23,8 @@ class VectorProvider extends RetrievalProvider {
       throw new Error('AIService is required for embedding generation');
     }
 
-    const embeddingProvider = this.config.embedding_provider;
-    const embeddingModel = this.config.embedding_model;
+    const embeddingProvider = this.config.embedding.llm;
+    const embeddingModel = this.config.embedding.model;
 
     // Set the active provider for embeddings
     await this.aiService.setActiveProvider(embeddingProvider);
@@ -47,7 +47,14 @@ class VectorProvider extends RetrievalProvider {
     const queryEmbedding = Array.isArray(embeddings) ? embeddings[0] : embeddings;
     
     // Perform vector search
-    return await this.vectorSearch(queryEmbedding, top_k, options);
+    const results = await this.vectorSearch(queryEmbedding, top_k, options);
+    
+    // Return consistent structure with results and collectionMetadata
+    // Note: Direct ChromaDB providers don't have collection metadata readily available
+    return {
+      results: results,
+      collectionMetadata: {}
+    };
   }
 
   /**

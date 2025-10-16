@@ -471,7 +471,10 @@ def query_db(request: QueryRequest):
                     "metadata": match
                 })
 
-        return {"results": retrieved_results}
+        return {
+            "results": retrieved_results,
+            "collection_metadata": collection_metadata
+        }
 
     except HTTPException:
         raise
