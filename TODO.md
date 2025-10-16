@@ -1,5 +1,48 @@
 # Chat Starter - TODO List
 
+## 🎯 Current Focus: Architecture Simplification Redesign
+
+**Status**: Design Phase  
+**Branch**: `redesign/simplified-architecture`  
+**Document**: `docs/REDESIGN_SIMPLIFIED_ARCHITECTURE.md`
+
+### What We're Doing
+Redesigning the configuration and request flow to eliminate overengineering:
+- ❌ Remove: Complex nested strategy detection functions
+- ❌ Remove: "Strategies" object with detection/response split  
+- ✅ Add: Simple three-phase linear flow (Build Profile → Match Response → Generate)
+- ✅ Add: Profile object pattern as key abstraction
+- ✅ Add: Sequential response matching (responses array, first match wins)
+- ✅ Add: Flat config structure (llms, rag_services, responses)
+
+### New Config Structure
+```json
+{
+  "llms": { /* Named LLM resources */ },
+  "rag_services": { /* Named RAG services with thresholds */ },
+  "embedding": { /* Global default */ },
+  "intent_detection": { /* Optional LLM-based classification */ },
+  "responses": [ /* Sequential matching rules */ ]
+}
+```
+
+### Key Innovations
+- **Profile Pattern**: Single object carries all context (rag_result, service, collection, distance, context, intent)
+- **Intent Format**: `<category>/<collection>` (e.g., "knowledge_base/openshift")
+- **User-Driven Queries**: Only query collections user selected in UI
+- **Query Modes**: "first" (stop on match) or "all" (query everything)
+- **Variable Substitution**: `${profile.service}`, `${context}`, etc.
+
+### Next Steps
+1. ✅ Design document complete (1585 lines)
+2. ⏳ Review and iterate on design
+3. ⏳ Finalize config schema
+4. ⏳ Begin implementation (Phase 1: Core rewrite)
+
+**Estimated Timeline**: 10-15 days for full implementation + testing + docs
+
+---
+
 ## Configuration System
 - [x] Design strategy-based configuration structure
 - [x] Create JSON schema for configuration validation

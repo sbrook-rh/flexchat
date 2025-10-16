@@ -1472,14 +1472,14 @@ This prevents nested logic and keeps each phase focused on a single responsibili
 
 **Process:**
 ```javascript
-rag_results = {}  // or array - flat structure indexed by identifier
+rag_results = []  // array of result objects
 
 for each collection in selectedCollections:
   Parse identifier into service + collection name
   
   Query RAG service with user message
   Get: documents, distance
-  Get from metadata: description, prompt, max_tokens, etc.
+  Get from metadata: description (for intent detection phase)
   
   Classify result based on service thresholds:
     if distance < match_threshold:
@@ -1489,23 +1489,25 @@ for each collection in selectedCollections:
     else:
       skip this result (not relevant enough)
   
-  Store in rag_results[identifier]:
+  Add to rag_results array:
     {
       identifier: "service/collection",
       result_type: "match" | "partial",
       service: "my_local_chroma",
       collection: "openshift",
-      documents: [...],
+      documents: [
+        { text: "...", title: "...", source: "..." },
+        ...
+      ],
       distance: 0.15,
-      description: "..." (from collection metadata),
-      metadata: { prompt, max_tokens, ... } (from collection)
+      description: "..." (from collection metadata, used for intent detection)
     }
   
   if result_type === "match":
     break  // Stop iterating, we found a definitive match
 ```
 
-**Output:** `rag_results` object/array containing all collected results
+**Output:** `rag_results` array containing all collected results (only "match" or "partial" results, low-relevance results are excluded)
 
 **Key Point:** This phase ONLY collects data. It doesn't set profile.intent, doesn't call LLMs, doesn't make routing decisions.
 
@@ -1886,13 +1888,13 @@ backend/chat/
 
 #### Step 2: RAG Collection (Phase 1)
 - [ ] Create `lib/rag-collector.js`
-  - Export `collectRagResults(userMessage, selectedCollections, config, retrievalService)`
+  - Export `collectRagResults(userMessage, selectedCollections, ragServicesConfig, ragProviders)`
   - Iterate through selected collections
-  - Query each collection via RetrievalService
+  - Query each collection via appropriate provider
   - Classify results: match (< match_threshold) or partial (< partial_threshold)
-  - Store in flat `rag_results` object indexed by identifier
+  - Add qualifying results to `rag_results` array
   - Break loop if "match" found
-  - Return rag_results object
+  - Return rag_results array
 - [ ] Update `server-v2.js`
   - Initialize RetrievalService
   - Call collectRagResults()
