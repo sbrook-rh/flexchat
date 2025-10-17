@@ -5,6 +5,7 @@ const { loadConfig, resolveConfigPath } = require('./lib/config-loader');
 const { registry: aiRegistry } = require('./ai-providers/providers');
 const { registry: ragRegistry } = require('./retrieval-providers/providers');
 const { collectRagResults } = require('./lib/rag-collector');
+const { buildProfileFromMatch, buildProfileFromPartials } = require('./lib/profile-builder');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -202,27 +203,33 @@ app.post('/chat/api', async (req, res) => {
     console.log(`   Selected collections: ${JSON.stringify(selectedCollections)}`);
     
     // Phase 1: Collect RAG results
-    const ragResults = await collectRagResults(
+    const result = await collectRagResults(
       userMessage,
       selectedCollections,
       config.rag_services || {},
       ragProviders
     );
     
-    // TODO: Phase 1b - Build profile
-    // TODO: Phase 2 - Intent detection (if needed)
+    // Phase 1b: Build profile based on RAG results
+    let profile;
+    
+    if (result && typeof result === 'object' && !Array.isArray(result)) {
+      // Single match object - intent is set to identifier
+      profile = buildProfileFromMatch(result);
+    } else {
+      // Array of partials or empty array - perform intent detection
+      profile = await buildProfileFromPartials(result, userMessage, config.intent, aiProviders);
+    }
+    
     // TODO: Phase 3 - Match response rule
     // TODO: Phase 4 - Generate response
     
-    // For now, return RAG results for debugging
+    // For now, return profile for debugging
     res.json({
-      response: '🚧 Server v2.0 - Phase 1 (RAG Collection) complete!',
-      status: 'rag_collection_complete',
+      response: '🚧 Server v2.0 - Phase 1b (Profile Building) complete!',
+      status: 'profile_building_complete',
       debug: {
-        message_received: userMessage,
-        selected_collections: selectedCollections,
-        previous_messages_count: previousMessages.length,
-        rag_results: ragResults,
+        profile: profile,
         ai_providers_available: Object.keys(aiProviders),
         rag_providers_available: Object.keys(ragProviders)
       }

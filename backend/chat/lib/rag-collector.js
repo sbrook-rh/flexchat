@@ -12,7 +12,7 @@
  * @param {Array<string>} selectedCollections - Array of collection identifiers (e.g., ["service/collection"])
  * @param {Object} ragServicesConfig - RAG services configuration from config.rag_services
  * @param {Object} ragProviders - Map of initialized RAG provider instances
- * @returns {Promise<Array>} Array of RAG result objects
+ * @returns {Promise<Object|Array>} Single match object, or array of partial results, or empty array
  */
 async function collectRagResults(userMessage, selectedCollections, ragServicesConfig, ragProviders) {
   console.log(`\n🔍 Phase 1: Collecting RAG results...`);
@@ -59,7 +59,9 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
         top_k: 3  // TODO: make configurable
       };
       
+      console.log('<<--BEFORE');
       const response = await provider.query(userMessage, queryOptions);
+      console.log('<<--AFTER');
       
       if (!response || !response.results || response.results.length === 0) {
         console.log(`   📭 No results from ${identifier}`);
@@ -99,15 +101,16 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
         description
       };
       
-      ragResults.push(ragResult);
-      
       console.log(`   ✅ Result: ${resultType} (distance: ${minDistance.toFixed(4)})`);
       
-      // If this is a match, stop iterating (query_mode: "first")
+      // If this is a match, return immediately (query_mode: "first")
       if (resultType === 'match') {
-        console.log(`   🎯 Match found! Stopping iteration.`);
-        break;
+        console.log(`   🎯 Match found! Returning single match object.`);
+        return ragResult;
       }
+      
+      // Otherwise, collect partial result
+      ragResults.push(ragResult);
       
     } catch (error) {
       console.error(`   ❌ Error querying ${identifier}:`, error.message);
@@ -116,8 +119,9 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
     }
   }
   
-  console.log(`\n   📦 Collected ${ragResults.length} RAG result(s)`);
+  console.log(`\n   📦 Collected ${ragResults.length} partial result(s)`);
   
+  // Return array of partial results (or empty array if none)
   return ragResults;
 }
 
