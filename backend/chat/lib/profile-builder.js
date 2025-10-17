@@ -26,12 +26,12 @@ function buildProfileFromMatch(matchResult) {
  * Performs intent detection via LLM call.
  * 
  * @param {Array} partialResults - Array of partial results (or empty array)
- * @param {string} userMessage - The user's original query
+ * @param {string} topic - The detected conversation topic (from topic detector)
  * @param {Object} intentConfig - Intent detection configuration
  * @param {Object} aiProviders - Map of AI provider instances
  * @returns {Promise<Object>} Profile object with intent detected
  */
-async function buildProfileFromPartials(partialResults, userMessage, intentConfig, aiProviders) {
+async function buildProfileFromPartials(partialResults, topic, intentConfig, aiProviders) {
   console.log(`\n🧠 Phase 2: Intent Detection...`);
   
   // Step 1: Build initial profile structure
@@ -63,16 +63,19 @@ async function buildProfileFromPartials(partialResults, userMessage, intentConfi
   
   // Build the classification prompt
   const categoriesText = categories.map(c => `- "${c.name}": ${c.description}`).join('\n');
+  
   const prompt = `You are classifying user queries.
 
 Available categories:
 ${categoriesText}
+- "other": Query doesn't fit any category
 
-User query: "${userMessage}"
+Current query: "${topic}"
 
-Reply with ONLY the category name that best matches the query. Reply with just the name, nothing else.`;
+Reply with ONLY the category name that best matches. If nothing fits, reply "other".`;
 
   console.log(`   📋 ${categories.length} categories available for classification`);
+  // console.log(`   🔍 Intent detection prompt:\n${prompt}\n`);
   
   // Step 3: Call LLM for intent classification
   if (!intentConfig || !intentConfig.provider || !intentConfig.provider.llm || !intentConfig.provider.model) {

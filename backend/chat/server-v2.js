@@ -4,6 +4,7 @@ const path = require('path');
 const { loadConfig, resolveConfigPath } = require('./lib/config-loader');
 const { registry: aiRegistry } = require('./ai-providers/providers');
 const { registry: ragRegistry } = require('./retrieval-providers/providers');
+const { identifyTopic } = require('./lib/topic-detector');
 const { collectRagResults } = require('./lib/rag-collector');
 const { buildProfileFromMatch, buildProfileFromPartials } = require('./lib/profile-builder');
 
@@ -45,7 +46,7 @@ function parseArguments() {
   program.parse();
 
   const options = program.opts();
-  
+
   return options;
 }
 
@@ -54,10 +55,10 @@ function parseArguments() {
  */
 async function initialize() {
   console.log('🚀 Starting Flex Chat Server v2.0...\n');
-  
+
   const options = parseArguments();
   console.log(options);
-  
+
   // Load configuration
   try {
     const configPath = resolveConfigPath(options.config);
@@ -69,28 +70,28 @@ async function initialize() {
     console.error(`\n❌ Configuration error: ${error.message}\n`);
     process.exit(1);
   }
-  
+
   // Initialize AI providers
   console.log('\n🤖 Initializing AI providers...');
   for (const [name, llmConfig] of Object.entries(config.llms)) {
     try {
       const providerType = llmConfig.provider;
       console.log(`   Initializing ${name} (${providerType})...`);
-      
+
       // Debug: check if API key is substituted
       // if (llmConfig.api_key) {
       //   const keyPreview = llmConfig.api_key.substring(0, 10) + '...';
       //   console.log(`      API key: ${keyPreview}`);
       // }
-      
+
       const provider = aiRegistry.createProvider(providerType, llmConfig);
-      
+
       // Validate config
       const validation = provider.validateConfig(llmConfig);
       if (!validation.isValid) {
         throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
       }
-      
+
       // Health check
       const health = await provider.healthCheck();
       if (health.status !== 'healthy') {
@@ -99,7 +100,7 @@ async function initialize() {
         console.error(`      Error: ${health.error || 'Unknown error'}`);
         throw new Error(`Health check failed`);
       }
-      
+
       aiProviders[name] = provider;
       console.log(`   ✅ ${name} initialized successfully`);
     } catch (error) {
@@ -108,7 +109,7 @@ async function initialize() {
       process.exit(1);
     }
   }
-  
+
   // Initialize RAG services
   if (config.rag_services && Object.keys(config.rag_services).length > 0) {
     console.log('\n📚 Initializing RAG services...');
@@ -116,20 +117,20 @@ async function initialize() {
       try {
         const providerType = ragConfig.provider;
         console.log(`   Initializing ${name} (${providerType})...`);
-        
+
         // Use global embedding config if service doesn't have its own
         if (config.embedding && !ragConfig.embedding) {
           ragConfig.embedding = config.embedding;
         }
-        
+
         const provider = ragRegistry.createProvider(providerType, ragConfig);
-        
+
         // Validate config
         const validation = provider.validateConfig(ragConfig);
         if (!validation.isValid) {
           throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
         }
-        
+
         // Health check
         const health = await provider.healthCheck();
         if (health.status !== 'healthy') {
@@ -141,7 +142,7 @@ async function initialize() {
           }
           throw new Error(`Health check failed`);
         }
-        
+
         ragProviders[name] = provider;
         console.log(`   ✅ ${name} initialized successfully`);
       } catch (error) {
@@ -153,9 +154,9 @@ async function initialize() {
   } else {
     console.log('\n   ℹ️  No RAG services configured (chat-only mode)');
   }
-  
+
   console.log('\n✅ Server initialized successfully\n');
-  
+
   // Start server
   const PORT = options.port;
   app.listen(PORT, () => {
@@ -190,40 +191,49 @@ app.post('/chat/api', async (req, res) => {
     const userMessage = req.body.prompt;
     const selectedCollections = req.body.selectedCollections || [];
     const previousMessages = req.body.previousMessages || [];
-    
+
     // Validate request
     if (!userMessage || typeof userMessage !== 'string') {
       return res.status(400).json({
         error: 'Invalid request: prompt is required and must be a string'
       });
     }
-    
+
     console.log(`\n📨 Received chat request:`);
     console.log(`   Message: "${userMessage.substring(0, 50)}${userMessage.length > 50 ? '...' : ''}"`);
     console.log(`   Selected collections: ${JSON.stringify(selectedCollections)}`);
-    
+
+    // Extract recent user messages for context
+    const recentUserMessages = previousMessages
+      .filter(msg => msg.role === 'user')
+      .slice(-3)
+      .map(msg => msg.text);
     // Phase 1: Collect RAG results
+
+    const topic = await identifyTopic(userMessage, recentUserMessages, config.intent, aiProviders);
+
     const result = await collectRagResults(
-      userMessage,
+      topic,
       selectedCollections,
       config.rag_services || {},
       ragProviders
     );
-    
+
     // Phase 1b: Build profile based on RAG results
     let profile;
-    
+
     if (result && typeof result === 'object' && !Array.isArray(result)) {
       // Single match object - intent is set to identifier
       profile = buildProfileFromMatch(result);
     } else {
       // Array of partials or empty array - perform intent detection
-      profile = await buildProfileFromPartials(result, userMessage, config.intent, aiProviders);
+      // Use the detected topic (not raw message) for better classification
+      profile = await buildProfileFromPartials(result, topic, config.intent, aiProviders);
     }
-    
+
     // TODO: Phase 3 - Match response rule
     // TODO: Phase 4 - Generate response
-    
+
     // For now, return profile for debugging
     res.json({
       response: '🚧 Server v2.0 - Phase 1b (Profile Building) complete!',
@@ -234,7 +244,7 @@ app.post('/chat/api', async (req, res) => {
         rag_providers_available: Object.keys(ragProviders)
       }
     });
-    
+
   } catch (error) {
     console.error('❌ Error handling chat request:', error);
     res.status(500).json({
