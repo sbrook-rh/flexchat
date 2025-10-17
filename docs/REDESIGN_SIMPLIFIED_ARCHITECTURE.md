@@ -1462,12 +1462,96 @@ This prevents nested logic and keeps each phase focused on a single responsibili
 
 ### Detailed Phase Breakdown
 
+#### Phase 0: Topic Detection (Conversational Context)
+
+**Added**: October 17, 2025  
+**Goal:** Resolve ambiguous follow-up queries by identifying the current topic of conversation.
+
+**Why This Is Needed:**
+Follow-up questions often contain unclear references:
+- "Is it easy to use?" (What is "it"?)
+- "How do I renew them?" (What are "them"?)
+- "Tell me more" (More about what?)
+
+Without context, RAG queries fail and intent detection becomes confused.
+
+**Input:**
+- Current user message
+- Recent conversation history (last 2-3 user messages)
+
+**Process:**
+```javascript
+// If user message contains unclear references (it, that, them, more, etc.)
+// OR if we have conversation history
+if (hasUnclearReferences(userMessage) || previousMessages.length > 0) {
+  
+  // Extract recent user messages for context
+  const recentUserMessages = previousMessages
+    .filter(msg => msg.role === 'user')
+    .slice(-3)
+    .map(msg => msg.text);
+  
+  // Ask LLM to identify current topic
+  const topic = await identifyTopic(userMessage, recentUserMessages, intentConfig, aiProviders);
+  
+  // Topic is a clear, explicit description like:
+  // - "InstructLab and its ease of use"
+  // - "Red Hat subscription renewals"
+  // - "OpenShift AI features"
+  
+} else {
+  // Message is clear on its own
+  const topic = userMessage;
+}
+```
+
+**LLM Prompt Structure:**
+```
+You are a conversation analyst. Identify the MOST RECENT topic being discussed.
+
+Previous user questions:
+- "Tell me about InstructLab"
+- "Is it easy to use?"
+
+Current question: "How do I renew them?"
+
+Rules:
+1. If current question is about the same topic → expand the reference
+2. If current question changes topics → return the NEW topic only
+3. Be succinct (one phrase)
+4. Resolve pronouns (it, that, them) using previous context
+5. Ignore assistant responses - only look at user questions
+
+Topic:
+```
+
+**Output:** 
+- `topic` (string) - Clear, explicit topic description used for RAG and intent detection
+
+**Examples:**
+| User Message | History | Resolved Topic |
+|-------------|---------|----------------|
+| "Is it easy?" | ["Tell me about InstructLab"] | "InstructLab and its ease of use" |
+| "How do I renew them?" | ["Red Hat subscriptions"] | "Red Hat subscription renewals" |
+| "Tell me about machine learning" | [] | "machine learning" |
+| "What about Kubernetes?" | ["Tell me about OpenShift"] | "Kubernetes" (topic change detected) |
+
+**Key Benefits:**
+- RAG queries use clear topic instead of ambiguous message
+- Intent detection has proper context
+- Topic changes detected naturally (old context ignored)
+- No need to pass conversation history to later phases
+
+**Implementation:** `backend/chat/lib/topic-detector.js`
+
+---
+
 #### Phase 1: RAG Queries (Data Collection Only)
 
 **Goal:** Collect RAG query results. Don't make routing decisions yet.
 
 **Input:** 
-- User message
+- **Topic** (from Phase 0, not raw user message)
 - Selected collections from UI (array of strings like `["my_local_chroma/openshift", "my_local_chroma/kubernetes"]`)
 
 **Process:**
@@ -1477,7 +1561,7 @@ rag_results = []  // array of result objects
 for each collection in selectedCollections:
   Parse identifier into service + collection name
   
-  Query RAG service with user message
+  Query RAG service with topic (from Phase 0)
   Get: documents, distance
   Get from metadata: description (for intent detection phase)
   
@@ -1561,7 +1645,9 @@ else:
 
 **Goal:** Only runs if `profile.intent` is NOT already set. Classify the user's intent.
 
-**Input:** `profile` from Phase 1b
+**Input:** 
+- `profile` from Phase 1b
+- `topic` from Phase 0 (for classification prompt)
 
 **Process:**
 ```javascript
@@ -1586,16 +1672,17 @@ else:
       description: result.description || `Information about ${result.collection}`
     })
   
-  // Build prompt
+  // Build prompt (using topic from Phase 0, not raw user message)
   prompt = `
     You are classifying user queries.
     
     Available categories:
     ${categories.map(c => `- "${c.name}": ${c.description}`).join('\n')}
+    - "other": Query doesn't fit any category
     
-    User query: "${profile.user_message}"
+    Current query: "${topic}"
     
-    Respond with only the category name.
+    Reply with ONLY the category name that best matches. If nothing fits, reply "other".
   `
   
   // Call intent detection LLM

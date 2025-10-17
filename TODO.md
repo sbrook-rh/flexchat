@@ -2,44 +2,67 @@
 
 ## 🎯 Current Focus: Architecture Simplification Redesign
 
-**Status**: Design Phase  
+**Status**: Implementation Phase - Phases 1, 1b, 2 Complete ✅  
 **Branch**: `redesign/simplified-architecture`  
-**Document**: `docs/REDESIGN_SIMPLIFIED_ARCHITECTURE.md`
+**Document**: `docs/REDESIGN_SIMPLIFIED_ARCHITECTURE.md`  
+**Session Log**: See `SESSION_LOG.md` (2025-10-17 entry)
 
 ### What We're Doing
 Redesigning the configuration and request flow to eliminate overengineering:
 - ❌ Remove: Complex nested strategy detection functions
 - ❌ Remove: "Strategies" object with detection/response split  
-- ✅ Add: Simple three-phase linear flow (Build Profile → Match Response → Generate)
+- ✅ Add: Simple four-phase linear flow (RAG → Profile → Intent → Response)
 - ✅ Add: Profile object pattern as key abstraction
 - ✅ Add: Sequential response matching (responses array, first match wins)
 - ✅ Add: Flat config structure (llms, rag_services, responses)
+- ✅ Add: Topic detection for conversational context
 
-### New Config Structure
-```json
-{
-  "llms": { /* Named LLM resources */ },
-  "rag_services": { /* Named RAG services with thresholds */ },
-  "embedding": { /* Global default */ },
-  "intent_detection": { /* Optional LLM-based classification */ },
-  "responses": [ /* Sequential matching rules */ ]
-}
-```
+### Implementation Progress
 
-### Key Innovations
-- **Profile Pattern**: Single object carries all context (rag_result, service, collection, distance, context, intent)
-- **Intent Format**: `<category>/<collection>` (e.g., "knowledge_base/openshift")
-- **User-Driven Queries**: Only query collections user selected in UI
-- **Query Modes**: "first" (stop on match) or "all" (query everything)
-- **Variable Substitution**: `${profile.service}`, `${context}`, etc.
+**Completed:**
+- ✅ **Phase 0**: Topic Detection (`lib/topic-detector.js`)
+  - Resolves conversational follow-ups ("it", "that", "them")
+  - Detects topic changes naturally
+  - Provides clear topic for RAG and intent
+- ✅ **Phase 1**: RAG Collection (`lib/rag-collector.js`)
+  - Returns single match object or array of partials
+  - Classifies results by distance thresholds
+  - Filters documents to minimal structure
+- ✅ **Phase 1b**: Profile Building (`lib/profile-builder.js`)
+  - Builds profile from match or partials
+  - Sets initial intent from identifier
+- ✅ **Phase 2**: Intent Detection (`lib/profile-builder.js`)
+  - LLM-based classification when intent not set
+  - Uses topic instead of raw message
+  - Supports "other" category
+
+**In Progress:**
+- ⏳ **Phase 3**: Response Matching (`lib/response-matcher.js`)
+- ⏳ **Phase 4**: Response Generation (`lib/response-generator.js`)
+
+**Files Created:**
+- `backend/chat/server-v2.js` - New orchestrator
+- `backend/chat/lib/config-loader.js` - Config loading + env substitution
+- `backend/chat/lib/rag-collector.js` - RAG collection logic
+- `backend/chat/lib/profile-builder.js` - Profile + intent detection
+- `backend/chat/lib/topic-detector.js` - Conversational context handling
+
+**Key Design Decisions:**
+- Variable syntax: `${ENV_VAR}` (load time), `{{template}}` (runtime)
+- collectRagResults returns single object (match) or array (partials/none)
+- Topic detection runs before RAG to resolve ambiguous references
+- Intent detection simplified - no conversation history (topic handles it)
+- Profile structure: match vs partial/none with different fields
 
 ### Next Steps
-1. ✅ Design document complete (1585 lines)
-2. ⏳ Review and iterate on design
-3. ⏳ Finalize config schema
-4. ⏳ Begin implementation (Phase 1: Core rewrite)
+1. ✅ Design document complete
+2. ✅ Initial implementation (Phases 0-2)
+3. ⏳ Complete Phase 3 (Response Matching)
+4. ⏳ Complete Phase 4 (Response Generation)
+5. ⏳ End-to-end testing
+6. ⏳ Documentation updates
 
-**Estimated Timeline**: 10-15 days for full implementation + testing + docs
+**See SESSION_LOG.md (2025-10-17) for detailed implementation notes, testing scenarios, and gotchas.**
 
 ---
 
