@@ -281,13 +281,20 @@ def update_collection_metadata(name: str, request: UpdateCollectionMetadataReque
     try:
         collection = chroma_client.get_collection(name=name)
         
-        # ChromaDB doesn't support updating metadata directly
-        # We need to recreate the collection
-        # For now, return error - this would require data migration
-        raise HTTPException(
-            status_code=501, 
-            detail="Metadata update not yet implemented - requires collection recreation"
-        )
+        # Get existing metadata and merge with updates
+        # existing_metadata = collection.metadata or {}
+        # updated_metadata = {**existing_metadata, **request.metadata}
+        updated_metadata = request.metadata
+        
+        # Use ChromaDB's modify method to update metadata
+        collection.modify(metadata=updated_metadata)
+        
+        print(f"✅ Updated metadata for collection: {name}")
+        return {
+            "status": "updated",
+            "name": name,
+            "metadata": updated_metadata
+        }
     except HTTPException:
         raise
     except Exception as e:

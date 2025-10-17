@@ -360,6 +360,38 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
   }
 
   /**
+   * Update collection metadata
+   * @param {string} collectionName - Collection name
+   * @param {Object} metadata - Metadata to update
+   * @returns {Promise<Object>} Updated collection info
+   */
+  async updateCollectionMetadata(collectionName, metadata) {
+    if (!collectionName) {
+      throw new Error('Collection name is required');
+    }
+    
+    try {
+      const response = await axios.put(
+        `${this.baseUrl}/collections/${collectionName}/metadata`,
+        { metadata },
+        {
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.customHeaders,
+            ...(this.auth ? this.getAuthHeader() : {})
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Error updating collection metadata for ${collectionName}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Query with dynamic collection support
    */
   async query(text, options = {}) {

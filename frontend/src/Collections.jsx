@@ -11,11 +11,16 @@ function Collections() {
   const [newCollection, setNewCollection] = useState({
     name: '',
     description: '',
-    system_prompt: '',
     threshold: 0.3,
-    fallback_threshold: 0.5,
-    max_tokens: 800,
-    temperature: 0.7
+    fallback_threshold: 0.5
+  });
+  
+  // Edit collection form
+  const [editingCollection, setEditingCollection] = useState(null);
+  const [editForm, setEditForm] = useState({
+    description: '',
+    threshold: 0.3,
+    fallback_threshold: 0.5
   });
   
   // Upload form
@@ -59,11 +64,8 @@ function Collections() {
           name: newCollection.name,
           metadata: {
             description: newCollection.description,
-            system_prompt: newCollection.system_prompt,
             threshold: parseFloat(newCollection.threshold),
             fallback_threshold: parseFloat(newCollection.fallback_threshold),
-            max_tokens: parseInt(newCollection.max_tokens),
-            temperature: parseFloat(newCollection.temperature),
             created_at: new Date().toISOString()
           }
         })
@@ -80,11 +82,8 @@ function Collections() {
       setNewCollection({
         name: '',
         description: '',
-        system_prompt: '',
         threshold: 0.3,
-        fallback_threshold: 0.5,
-        max_tokens: 800,
-        temperature: 0.7
+        fallback_threshold: 0.5
       });
       setShowCreateForm(false);
       
@@ -93,6 +92,69 @@ function Collections() {
     } catch (err) {
       alert('Error creating collection: ' + err.message);
     }
+  };
+
+  const updateCollection = async (e) => {
+    e.preventDefault();
+    
+    if (!editingCollection) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/collections/${editingCollection}/metadata`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          metadata: {
+            description: editForm.description,
+            threshold: parseFloat(editForm.threshold),
+            fallback_threshold: parseFloat(editForm.fallback_threshold),
+            updated_at: new Date().toISOString()
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update collection');
+      }
+      
+      alert(`Collection "${editingCollection}" updated successfully!`);
+      
+      // Reset edit form
+      setEditingCollection(null);
+      setEditForm({
+        description: '',
+        threshold: 0.3,
+        fallback_threshold: 0.5
+      });
+      
+      // Reload collections
+      loadCollections();
+    } catch (err) {
+      alert('Error updating collection: ' + err.message);
+    }
+  };
+
+  const startEditing = (collection) => {
+    setEditingCollection(collection.name);
+    setEditForm({
+      description: collection.metadata?.description || '',
+      threshold: collection.metadata?.threshold || 0.3,
+      fallback_threshold: collection.metadata?.fallback_threshold || 0.5
+    });
+    setShowCreateForm(false); // Close create form if open
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const cancelEditing = () => {
+    setEditingCollection(null);
+    setEditForm({
+      description: '',
+      threshold: 0.3,
+      fallback_threshold: 0.5
+    });
   };
 
   const deleteCollection = async (collectionName) => {
@@ -290,7 +352,10 @@ function Collections() {
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">Available Collections</h2>
             <button
-              onClick={() => setShowCreateForm(!showCreateForm)}
+              onClick={() => {
+                setShowCreateForm(!showCreateForm);
+                if (editingCollection) cancelEditing();
+              }}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
             >
               {showCreateForm ? 'Cancel' : '+ Create New Collection'}
@@ -321,15 +386,21 @@ function Collections() {
                         )}
                         <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                           <span>{collection.count} documents</span>
-                          {collection.metadata?.threshold && (
+                          {collection.metadata?.threshold !== undefined && (
                             <span>Threshold: {collection.metadata.threshold}</span>
                           )}
-                          {collection.metadata?.max_tokens && (
-                            <span>Max tokens: {collection.metadata.max_tokens}</span>
+                          {collection.metadata?.fallback_threshold !== undefined && (
+                            <span>Fallback: {collection.metadata.fallback_threshold}</span>
                           )}
                         </div>
                       </div>
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => startEditing(collection)}
+                          className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+                        >
+                          Edit
+                        </button>
                         <button
                           onClick={() => {
                             setSelectedCollection(collection.name);
@@ -391,20 +462,7 @@ function Collections() {
                 <p className="text-xs text-gray-500 mt-1">Used by the AI to decide if this collection should be consulted</p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  System Prompt
-                </label>
-                <textarea
-                  value={newCollection.system_prompt}
-                  onChange={(e) => setNewCollection({ ...newCollection, system_prompt: e.target.value })}
-                  placeholder="You are an expert in... (This prompt will be used when this collection provides answers)"
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Match Threshold
@@ -438,32 +496,88 @@ function Collections() {
                 </div>
               </div>
 
+              <button
+                type="submit"
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              >
+                Create Collection
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Edit Collection Form */}
+        {editingCollection && (
+          <div className="bg-white rounded-lg shadow mb-8">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-900">Edit Collection: {editingCollection}</h2>
+              <button
+                onClick={cancelEditing}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition"
+              >
+                Cancel
+              </button>
+            </div>
+            
+            <form onSubmit={updateCollection} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Collection Name
+                </label>
+                <input
+                  type="text"
+                  value={editingCollection}
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">Collection name cannot be changed</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Detection Description
+                </label>
+                <input
+                  type="text"
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  placeholder="e.g., if the query is about Red Hat OpenShift AI or related technologies"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">Used by the AI to decide if this collection should be consulted</p>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Max Tokens
-                  </label>
-                  <input
-                    type="number"
-                    value={newCollection.max_tokens}
-                    onChange={(e) => setNewCollection({ ...newCollection, max_tokens: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Temperature
+                    Match Threshold
                   </label>
                   <input
                     type="number"
                     step="0.1"
                     min="0"
                     max="2"
-                    value={newCollection.temperature}
-                    onChange={(e) => setNewCollection({ ...newCollection, temperature: e.target.value })}
+                    value={editForm.threshold}
+                    onChange={(e) => setEditForm({ ...editForm, threshold: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Direct match (lower = stricter)</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fallback Threshold
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    max="2"
+                    value={editForm.fallback_threshold}
+                    onChange={(e) => setEditForm({ ...editForm, fallback_threshold: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">For LLM assist (if no direct match)</p>
                 </div>
               </div>
 
@@ -471,7 +585,7 @@ function Collections() {
                 type="submit"
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
               >
-                Create Collection
+                Save Changes
               </button>
             </form>
           </div>

@@ -996,6 +996,7 @@ app.get('/api/collections', async (req, res) => {
           collections.push(...providerCollections.map(c => ({
             name: c.name,
             knowledgeBase: name,
+            metadata: c.metadata,
             count: c.count || 0
           })));
         } catch (error) {
@@ -1215,6 +1216,44 @@ app.post('/api/collections/:name/documents', async (req, res) => {
     res.json(response.data);
   } catch (error) {
     console.error(`Error adding documents to collection ${req.params.name}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update collection metadata
+app.put('/api/collections/:name/metadata', async (req, res) => {
+  try {
+    const { name } = req.params;
+    const { metadata } = req.body;
+    
+    if (!metadata || typeof metadata !== 'object') {
+      return res.status(400).json({ error: 'Metadata object is required' });
+    }
+    
+    // Find wrapper provider
+    let targetProvider = null;
+    for (const providerInstance of retrievalService.providers.values()) {
+      if (providerInstance.getName() === 'ChromaDBWrapper') {
+        try {
+          await providerInstance.getCollectionInfo(name);
+          targetProvider = providerInstance;
+          break;
+        } catch (error) {
+          continue;
+        }
+      }
+    }
+    
+    if (!targetProvider) {
+      return res.status(404).json({ error: 'No suitable provider found for this collection' });
+    }
+    
+    // Update metadata via provider's API
+    const result = await targetProvider.updateCollectionMetadata(name, metadata);
+    
+    res.json(result);
+  } catch (error) {
+    console.error(`Error updating collection metadata for ${req.params.name}:`, error);
     res.status(500).json({ error: error.message });
   }
 });
