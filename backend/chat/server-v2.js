@@ -7,6 +7,8 @@ const { registry: ragRegistry } = require('./retrieval-providers/providers');
 const { identifyTopic } = require('./lib/topic-detector');
 const { collectRagResults } = require('./lib/rag-collector');
 const { buildProfileFromMatch, buildProfileFromPartials } = require('./lib/profile-builder');
+const { matchResponseRule } = require('./lib/response-matcher');
+const { generateResponse } = require('./lib/response-generator');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -231,18 +233,15 @@ app.post('/chat/api', async (req, res) => {
       profile = await buildProfileFromPartials(result, topic, config.intent, aiProviders);
     }
 
-    // TODO: Phase 3 - Match response rule
-    // TODO: Phase 4 - Generate response
+    // Phase 3: Match response rule
+    const responseRule = matchResponseRule(profile, config.responses);
 
-    // For now, return profile for debugging
+    // Phase 4: Generate response
+    const responseText = await generateResponse(profile, responseRule, aiProviders, userMessage, previousMessages);
+
     res.json({
-      response: '🚧 Server v2.0 - Phase 1b (Profile Building) complete!',
-      status: 'profile_building_complete',
-      debug: {
-        profile: profile,
-        ai_providers_available: Object.keys(aiProviders),
-        rag_providers_available: Object.keys(ragProviders)
-      }
+      response: responseText,
+      status: 'success'
     });
 
   } catch (error) {

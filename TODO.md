@@ -36,16 +36,22 @@ Redesigning the configuration and request flow to eliminate overengineering:
   - Uses topic instead of raw message
   - Supports "other" category
 
-**In Progress:**
-- ⏳ **Phase 3**: Response Matching (`lib/response-matcher.js`)
-- ⏳ **Phase 4**: Response Generation (`lib/response-generator.js`)
+**Completed:**
+- ✅ **Phase 0**: Topic Detection (`lib/topic-detector.js`)
+- ✅ **Phase 1**: RAG Collection (`lib/rag-collector.js`)
+- ✅ **Phase 1b**: Profile Building (`lib/profile-builder.js`)
+- ✅ **Phase 2**: Intent Detection (`lib/profile-builder.js`)
+- ✅ **Phase 3**: Response Matching (`lib/response-matcher.js`)
+- ✅ **Phase 4**: Response Generation (`lib/response-generator.js`)
 
 **Files Created:**
-- `backend/chat/server-v2.js` - New orchestrator
+- `backend/chat/server-v2.js` - New orchestrator with complete 4-phase flow
 - `backend/chat/lib/config-loader.js` - Config loading + env substitution
 - `backend/chat/lib/rag-collector.js` - RAG collection logic
 - `backend/chat/lib/profile-builder.js` - Profile + intent detection
 - `backend/chat/lib/topic-detector.js` - Conversational context handling
+- `backend/chat/lib/response-matcher.js` - Response rule matching
+- `backend/chat/lib/response-generator.js` - LLM response generation with variable substitution
 
 **Key Design Decisions:**
 - Variable syntax: `${ENV_VAR}` (load time), `{{template}}` (runtime)
@@ -53,14 +59,17 @@ Redesigning the configuration and request flow to eliminate overengineering:
 - Topic detection runs before RAG to resolve ambiguous references
 - Intent detection simplified - no conversation history (topic handles it)
 - Profile structure: match vs partial/none with different fields
+- Match patterns: exact equality, `_contains` (substring), `_regexp` (regex), special `any`
+- Profile fields: `rag_results`, `service`, `collection`, `intent`, `documents`, `user_message`, `topic`
 
 ### Next Steps
 1. ✅ Design document complete
 2. ✅ Initial implementation (Phases 0-2)
-3. ⏳ Complete Phase 3 (Response Matching)
-4. ⏳ Complete Phase 4 (Response Generation)
-5. ⏳ End-to-end testing
-6. ⏳ Documentation updates
+3. ✅ Complete Phase 3 (Response Matching)
+4. ✅ Complete Phase 4 (Response Generation)
+5. ⏳ End-to-end testing with real services
+6. ⏳ Frontend integration with server-v2.js
+7. ⏳ Documentation updates
 
 **See SESSION_LOG.md (2025-10-17) for detailed implementation notes, testing scenarios, and gotchas.**
 
