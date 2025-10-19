@@ -392,12 +392,14 @@ app.post('/chat/api', async (req, res) => {
     const responseRule = matchResponseRule(profile, config.responses);
 
     // Phase 4: Generate response
-    const responseText = await generateResponse(profile, responseRule, aiProviders, userMessage, previousMessages);
+    const responseData = await generateResponse(profile, responseRule, aiProviders, userMessage, previousMessages);
 
     res.json({
-      response: responseText,
+      response: responseData.content,
       status: 'success',
-      topic
+      topic,
+      service: responseData.service,
+      model: responseData.model
     });
 
   } catch (error) {

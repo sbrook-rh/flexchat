@@ -74,7 +74,7 @@ function evaluateMatch(matchClause, profile) {
  * @throws {Error} If no response rule matches
  */
 function matchResponseRule(profile, responses) {
-  console.log(`\n🎯 Phase 3: Matching response rule... against service:${profile.service}, collection:${profile.collection}`);
+  console.log(`\n🎯 Phase 3: Matching response rule... against rag_results:${profile.rag_results}, service:${profile.service}, collection:${profile.collection}`);
   
   if (!responses || responses.length === 0) {
     throw new Error('No response rules defined in configuration');

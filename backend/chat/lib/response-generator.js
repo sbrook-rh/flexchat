@@ -15,7 +15,7 @@
  * @param {Object} aiProviders - Map of AI provider instances
  * @param {string} userMessage - The user's message/question
  * @param {Array} previousMessages - Previous conversation messages
- * @returns {Promise<string>} The generated response text
+ * @returns {Promise<Object>} Object with { content, service, model }
  */
 async function generateResponse(profile, responseRule, aiProviders, userMessage, previousMessages) {
   console.log(`\n💬 Phase 4: Generating response...`);
@@ -96,7 +96,13 @@ async function generateResponse(profile, responseRule, aiProviders, userMessage,
     const result = await provider.generateChat(messages, responseRule.model, options);
     
     console.log(`   ✅ Response generated (${result.content.length} characters)`);
-    return result.content;
+    
+    // Return response with metadata about which service/model was used
+    return {
+      content: result.content,
+      service: providerName,
+      model: responseRule.model
+    };
     
   } catch (error) {
     console.error(`   ❌ Error generating response:`, error.message);

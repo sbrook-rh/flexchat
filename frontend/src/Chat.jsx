@@ -131,7 +131,13 @@ const Chat = ({ uiConfig }) => {
       }
       if (data.response) {
         setMessages(prev => {
-          const updated = [...prev, { type: 'bot', text: data.response, topic: data.topic }];
+          const updated = [...prev, { 
+            type: 'bot', 
+            text: data.response, 
+            topic: data.topic,
+            service: data.service,
+            model: data.model
+          }];
           localStorage.setItem('chatMessages', JSON.stringify(updated.slice(-50)));
           setRetryTracker(-1);
           return updated;
@@ -313,11 +319,23 @@ const Chat = ({ uiConfig }) => {
               <div key={index} className={`message-container ${message.type}`}>
                 <div className={`${message.type}-message`}>
                   {message.type === 'bot' ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none markdown-content">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
-                        {message.text}
-                      </ReactMarkdown>
-                    </div>
+                    <>
+                      <div className="prose prose-sm dark:prose-invert max-w-none markdown-content">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight]}>
+                          {message.text}
+                        </ReactMarkdown>
+                      </div>
+                      {(message.topic || message.service) && (
+                        <div className="topic-badge">
+                          {message.topic && <span>{message.topic}</span>}
+                          {message.service && message.model && (
+                            <span className="text-gray-400">
+                              {message.topic && ' · '}via {message.service} / {message.model}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </>
                   ) : (
                     message.text.split('\n').map((line, idx) => (
                       <span key={idx}>{line}<br /></span>
@@ -349,7 +367,7 @@ const Chat = ({ uiConfig }) => {
       {/* Input */}
       <div className="fixed bottom-0 bg-white border-t border-gray-200" style={{ left: leftPx, right: rightPx }}>
         <div className="max-w-6xl mx-auto p-4">
-          <div className="flex gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-2">
             <button
               onClick={() => {
                 if (messages.length > 0 && window.confirm('Clear chat history?')) {
@@ -365,6 +383,15 @@ const Chat = ({ uiConfig }) => {
             >
               Clear Chat
             </button>
+            {topic && (
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span className="text-gray-400">|</span>
+                <span className="flex items-center gap-1">
+                  <span className="opacity-60">Topic:</span>
+                  <span className="font-medium text-gray-600">{topic}</span>
+                </span>
+              </div>
+            )}
           </div>
           <div className="flex gap-3">
             <textarea
