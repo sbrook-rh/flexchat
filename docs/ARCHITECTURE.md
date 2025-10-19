@@ -1,363 +1,875 @@
-# Chat Starter - Architecture Overview
+# Flex Chat - Architecture Overview (v2.0)
+
+**Version**: 2.0.0  
+**Last Updated**: October 19, 2025  
+**Architecture**: Simplified 4-Phase Flow
+
+---
 
 ## System Vision
 
 A flexible, configurable chat system that can be adapted for different use cases:
 
 ### **Core Philosophy**
-- **Simple base**: Forward requests to any AI model service (OpenAI, Gemini, Ollama, etc.)
+- **Simple base**: Forward requests to any AI model service (OpenAI, Ollama, etc.)
 - **Optional RAG**: Add knowledge base retrieval capabilities when needed
 - **Configurable everything**: External configuration files, not hardcoded logic
-- **One thing at a time**: Build incrementally, don't solve everything at once
+- **Linear flow**: Predictable 4-phase request processing
 
 ### **System Layers**
 
 ```
 Frontend (React) → Chat API (Node.js) → AI Provider Abstraction → Model Services
                                     ↓
-                              RAG Service (Optional) → Vector Database
+                            RAG Service (Python) → ChromaDB
 ```
+
+---
 
 ## Application Structure
 
-This is a generic chat application with AI-powered responses, built with a microservices architecture:
+```
+Frontend (React/Vite)
+    ↓
+Chat API (Express/Node.js)
+    ├→ AI Providers (OpenAI, Ollama)
+    └→ RAG Providers (ChromaDB Wrapper)
+           ↓
+    RAG Service (Python/FastAPI)
+           ↓
+    ChromaDB Vector Database
+```
 
-```
-Frontend (React) → Chat API (Node.js) → RAG Service (Python/FastAPI) → ChromaDB
-                                    ↓
-                               AI Provider Abstraction → OpenAI/Gemini/Ollama
-```
+---
+
+## Core Architecture: 4-Phase Flow
+
+All chat requests follow a predictable linear flow through 4 phases:
+
+### **Phase 1: Topic Detection**
+- **Module**: `lib/topic-detector.js`
+- **Purpose**: Identify the conversation topic from user message and history
+- **Input**: User message, previous messages (last 6 turns), current topic
+- **Process**:
+  - Builds conversation context with both user and bot messages
+  - Compresses long assistant messages (>400 chars) to "...continues for N chars"
+  - Uses LLM to detect topic (≤10 words summary)
+  - Tracks topic changes across conversation
+- **Output**: Topic string (e.g., "hearty vegetarian soups")
+
+### **Phase 2: RAG Collection**
+- **Module**: `lib/rag-collector.js`
+- **Purpose**: Query selected collections for relevant documents
+- **Input**: Topic, selected collections, RAG service configs
+- **Process**:
+  - Queries each selected collection with the topic
+  - Classifies results based on distance thresholds:
+    - `distance < match_threshold` → **MATCH** (single best result)
+    - `distance < partial_threshold` → **PARTIAL** (candidate results)
+    - `distance ≥ partial_threshold` → **NONE** (no relevant content)
+  - Returns first MATCH found, or all PARTIAL candidates
+- **Output**: 
+  - Single match object (when confident match found)
+  - Array of partial candidates (when multiple possibilities)
+  - Empty array (when no relevant content)
+
+### **Phase 3: Profile Building**
+- **Module**: `lib/profile-builder.js`
+- **Purpose**: Build canonical profile object for response generation
+- **Input**: RAG results, topic, intent config
+- **Process**:
+  - **If MATCH**: Build profile from single result (intent = collection identifier)
+  - **If PARTIAL/NONE**: Perform intent detection with LLM
+    - For PARTIAL: Include partial collections in prompt context
+    - For NONE: Use only configured intents
+    - Classify user intent (e.g., "recipe", "general", "other")
+- **Output**: Profile object with:
+  ```javascript
+  {
+    intent: "recipe",
+    service: "recipes_wrapper",
+    collection: "comfort_soups",
+    documents: [...],  // RAG context documents
+    rag_result: "match" | "partial" | "none",
+    // ... other metadata
+  }
+  ```
+
+### **Phase 4: Response Generation**
+- **Module**: `lib/response-generator.js`
+- **Purpose**: Match response rule and generate final response
+- **Input**: Profile, response rules, AI providers, user message
+- **Process**:
+  1. **Response Matching** (`lib/response-matcher.js`):
+     - Sequential first-match pattern through response rules
+     - Match clauses: `{ intent, service, collection, rag_result }`
+     - First matching rule wins
+  2. **Template Substitution**:
+     - Replace `{{rag_context}}` with formatted document text
+     - Replace `{{intent}}`, `{{topic}}`, etc. from profile
+  3. **LLM Call**:
+     - Call configured LLM provider with system prompt + conversation history
+- **Output**: 
+  ```javascript
+  {
+    content: "Generated response text",
+    service: "ollama",
+    model: "llama3.2:3b"
+  }
+  ```
+
+---
 
 ## System Components
 
-### **1. Core Chat System**
-- **Purpose**: Simple request forwarding to AI model services
-- **Configurable options**: max_tokens, chat history handling, model selection
-- **AI Provider Abstraction**: Support for OpenAI, Gemini, Ollama, etc.
-- **Location**: `backend/ai-providers/`
+### **1. Chat Server** (`backend/chat/`)
 
-### **2. Optional RAG Layer**
-- **Purpose**: Add knowledge base retrieval capabilities
-- **Configurable**: One or more knowledge bases in vector databases
-- **Intent Detection**: Configurable via prompt lines and thresholds
-- **Location**: `backend/rag/` (existing) + `backend/ai-providers/intent/` (new)
+Main server implementation with Express API:
 
-### **3. Frontend Interface**
-- **Purpose**: Chat interface for user interaction
-- **Current**: Handles chat history in localStorage
-- **Future**: Backend might handle chat history (configurable)
-- **Location**: `frontend/`
+**Core Modules** (`lib/`):
+- `config-loader.js` - Configuration file loading with flexible path resolution
+- `topic-detector.js` - Stateful topic tracking across conversation
+- `rag-collector.js` - RAG query orchestration with threshold classification
+- `profile-builder.js` - Profile construction from RAG results
+- `response-matcher.js` - Sequential pattern matching for response rules
+- `response-generator.js` - Template-based response generation with LLM calls
+- `collection-manager.js` - CRUD operations for RAG collections
 
-## Service Details
+**Provider Abstractions**:
+- `ai-providers/` - AI/LLM provider implementations
+  - `base/AIProvider.js` - Base class for all AI providers
+  - `providers/OpenAIProvider.js` - OpenAI API implementation
+  - `providers/OllamaProvider.js` - Ollama local model implementation
+  - `providers/index.js` - Provider registry
+- `retrieval-providers/` - RAG/vector database provider implementations
+  - `base/RetrievalProvider.js` - Base class for retrieval providers
+  - `providers/ChromaDBWrapperProvider.js` - ChromaDB via Python wrapper
+  - `RetrievalService.js` - Service orchestration
 
-### Frontend (Port 3000)
-- **Technology**: React 18.3.1 with Tailwind CSS
-- **Location**: `frontend/`
-- **Key Files**:
-  - `src/App.jsx` - Main app with routing (simplified to just chat)
-  - `src/Chat.jsx` - Core chat component with message handling and retry logic
-  - `src/Chat.css` - Chat-specific styling
-  - `src/LogoSection.jsx` - Configurable logo/branding component
-  - `src/NavBar.jsx` - Simplified navigation (Home/Chat only)
-  - `src/setupProxy.js` - Proxies `/chat/api` to backend on port 5005
+**Main Files**:
+- `server.js` - Express server with 4-phase flow implementation
+- `package.json` - Node.js dependencies
 
-### Chat API (Port 5005)
-- **Technology**: Node.js with Express
-- **Location**: `backend/chat/`
-- **Key Files**:
-  - `server.js` - Main API with configurable intent detection and response generation
-- **Key Features**:
-  - AI Provider abstraction for multiple model services
-  - Configurable intent detection (via external config)
-  - Optional RAG integration for knowledge queries
-  - Rate limiting with exponential backoff
+### **2. RAG Service** (`backend/rag/`)
 
-### RAG Service (Port 5006)
-- **Technology**: Python with FastAPI
-- **Location**: `backend/rag/`
-- **Key Files**:
-  - `server.py` - FastAPI service for knowledge base queries
-  - `load_data.py` - Script to load knowledge base into ChromaDB
-  - `knowledge_base.json` - Sample knowledge base data
-- **Key Features**:
-  - ChromaDB vector database integration
-  - Configurable embedding providers
-  - Distance-based relevance scoring
+Python FastAPI service for ChromaDB operations:
 
-## Data Flow
+**Files**:
+- `server.py` - FastAPI endpoints for collection management and queries
+- `requirements.txt` - Python dependencies
+- `chroma_db/` - Persistent ChromaDB storage directory
 
-### **Simple Chat Mode** (No RAG)
-1. **User sends message** → Frontend `Chat.jsx`
-2. **Frontend calls** → `/chat/api` (proxied to port 5005)
-3. **Chat API** → Forwards to AI Provider (OpenAI/Gemini/Ollama)
-4. **AI Provider** → Returns response to Chat API
-5. **Chat API** → Returns response to Frontend
-6. **Frontend displays** → Message in chat UI
+**Key Features**:
+- Dynamic collection creation/deletion
+- Document upload with metadata
+- Semantic search with configurable embeddings
+- Distance-based relevance scoring
 
-### **RAG-Enabled Mode** (With Knowledge Base)
-1. **User sends message** → Frontend `Chat.jsx`
-2. **Frontend calls** → `/chat/api` (proxied to port 5005)
-3. **Chat API** → Configurable intent detection (via external config)
-4. **If KNOWLEDGE intent** → Calls RAG service on port 5006
-5. **RAG service** → Queries vector database with embeddings
-6. **RAG returns** → Relevant context to Chat API
-7. **Chat API** → Sends context + conversation to AI Provider
-8. **AI Provider** → Returns response to Chat API
-9. **Chat API** → Returns response to Frontend
-10. **Frontend displays** → Message in chat UI
+### **3. Frontend** (`frontend/`)
+
+React application with Vite build system:
+
+**Key Components**:
+- `src/App.jsx` - Main app with routing and config management
+- `src/Chat.jsx` - Chat interface with message handling
+- `src/Collections.jsx` - Collection management UI
+- `src/Home.jsx` - Landing page
+- `src/NavBar.jsx` - Navigation component
+- `src/LogoSection.jsx` - Branding/logo component
+
+**Key Features**:
+- CSS Grid responsive layout with collapsible sidebars
+- Collection selection with visual feedback
+- Topic tracking and display
+- Service/model transparency (shows which AI generated each response)
+- localStorage persistence for chat history
+
+---
+
+## Data Flow Diagrams
+
+### **Complete Request Flow**
+
+```
+User Message
+    ↓
+┌─────────────────────────────────────────────┐
+│  Phase 1: Topic Detection                  │
+│  - Analyze message + history               │
+│  - Generate topic (≤10 words)              │
+│  → Output: "hearty vegetarian soups"       │
+└─────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────┐
+│  Phase 2: RAG Collection                   │
+│  - Query selected collections              │
+│  - Classify by distance thresholds         │
+│  → Output: MATCH / PARTIAL / NONE          │
+└─────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────┐
+│  Phase 3: Profile Building                 │
+│  - If MATCH: use collection directly       │
+│  - If PARTIAL/NONE: detect intent via LLM  │
+│  → Output: Profile object                  │
+└─────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────┐
+│  Phase 4: Response Generation              │
+│  - Match response rule                     │
+│  - Substitute template variables           │
+│  - Call LLM with context                   │
+│  → Output: Response + metadata             │
+└─────────────────────────────────────────────┘
+    ↓
+Response to User
+```
+
+### **RAG Flow - Match Scenario**
+
+```
+User: "How do I make minestrone?"
+    ↓
+Topic: "minestrone soup recipe"
+    ↓
+Query: "comfort_soups" collection
+    ↓
+Distance: 0.15 (< match_threshold 0.25)
+    ↓
+Result: MATCH → Single document returned
+    ↓
+Profile: { intent: "comfort_soups", rag_result: "match", documents: [...] }
+    ↓
+Response Rule Match: { rag_result: "match", collection: "comfort_soups" }
+    ↓
+LLM generates response with RAG context
+```
+
+### **RAG Flow - Partial Scenario**
+
+```
+User: "Tell me about vegetarian soups"
+    ↓
+Topic: "vegetarian soups"
+    ↓
+Query: Multiple collections
+    ↓
+Results:
+  - "comfort_soups": 0.35 (partial)
+  - "vegetarian_basics": 0.40 (partial)
+    ↓
+Result: PARTIAL → Array of candidates
+    ↓
+Intent Detection: Use LLM with partial collections as context
+    ↓
+Profile: { intent: "recipe", rag_result: "partial", documents: [...] }
+    ↓
+Response Rule Match: { rag_result: "partial", intent: "recipe" }
+    ↓
+LLM generates response with combined RAG context
+```
+
+### **No RAG Scenario**
+
+```
+User: "What's the weather today?"
+    ↓
+Topic: "current weather"
+    ↓
+Query: All selected collections
+    ↓
+Distance: All > partial_threshold
+    ↓
+Result: NONE → Empty array
+    ↓
+Intent Detection: Use LLM with configured intents only
+    ↓
+Profile: { intent: "other", rag_result: "none", documents: [] }
+    ↓
+Response Rule Match: { intent: "other" }
+    ↓
+LLM generates conversational response without RAG context
+```
+
+---
 
 ## Configuration System
 
-### **External Configuration Files**
-- **Intent Detection**: `config/intents.yaml` - Configurable intent types, prompts, and thresholds
-- **RAG Settings**: `config/rag.yaml` - Knowledge base configurations and retrieval settings
-- **AI Providers**: `config/providers.yaml` - Model service configurations
-- **Use Case Examples**: `config/examples/` - Pre-configured setups for different scenarios
-
-### **Configuration Philosophy**
-- **External configs**: No hardcoded logic in code
-- **YAML-based**: Human-readable and easy to modify
-- **Example configs**: Documented examples for common use cases
-- **Environment overrides**: Environment variables can override config values
-
 ### **Configuration Structure**
 
-The system uses a single configuration file with three main sections:
+Single JSON configuration file with four main sections:
 
-#### **1. Providers Configuration**
 ```json
 {
-  "providers": {
-    "openai": {
-      "type": "openai",
-      "api_key": "${OPENAI_API_KEY}",
-      "base_url": "https://api.openai.com/v1"
-    },
+  "llms": { ... },           // AI/LLM providers
+  "rag_services": { ... },   // RAG/vector database services
+  "intent": { ... },         // Intent detection config
+  "responses": [ ... ]       // Response matching rules
+}
+```
+
+### **1. LLM Configuration** (`llms`)
+
+Define available AI providers:
+
+```json
+{
+  "llms": {
     "ollama": {
-      "type": "ollama",
-      "base_url": "http://localhost:11434"
-    }
-  }
-}
-```
-
-#### **2. Knowledge Bases Configuration**
-```json
-{
-  "knowledge_bases": {
-    "openshift": {
-      "type": "chromadb",
-      "url": "http://localhost:5006",
-      "collection": "openshift_docs",
-      "embedding_provider": "openai",
-      "embedding_model": "text-embedding-3-small"
-    }
-  }
-}
-```
-
-#### **3. Strategies Configuration**
-```json
-{
-  "detection_provider": {
-    "provider": "openai",
-    "model": "gpt-3.5-turbo"
-  },
-  "strategies": [
-    {
-      "name": "OPENSHIFT",
-      "detection": {
-        "type": "rag",
-        "knowledge_base": "openshift",
-        "match_threshold": 0.2,
-        "partial_threshold": 0.45,
-        "description": "if it's about Red Hat OpenShift..."
-      },
-      "response": {
-        "provider": "openai",
-        "model": "gpt-4o-mini",
-        "max_tokens": 400,
-        "system_prompt": "You are an expert..."
+      "provider": "ollama",
+      "base_url": "http://localhost:11434",
+      "models": {
+        "chat": ["llama3.2:3b", "llama3.1:8b"],
+        "reasoning": []
       }
     },
-    {
-      "name": "GENERAL",
-      "detection": {
-        "type": "default"
-      },
-      "response": {
-        "provider": "openai",
-        "model": "gpt-3.5-turbo",
-        "max_tokens": 50,
-        "system_prompt": "Provide a brief, polite response..."
+    "openai": {
+      "provider": "openai",
+      "api_key": "${OPENAI_API_KEY}",
+      "base_url": "https://api.openai.com/v1",
+      "models": {
+        "chat": ["gpt-4o-mini", "gpt-3.5-turbo"],
+        "reasoning": []
       }
+    }
+  }
+}
+```
+
+**Key Fields**:
+- `provider`: Provider type (openai, ollama)
+- `base_url`: API endpoint
+- `api_key`: Authentication (supports env var substitution)
+- `models.chat`: Available chat models
+- `models.reasoning`: Reasoning models (future feature)
+
+### **2. RAG Services Configuration** (`rag_services`)
+
+Define RAG/vector database services:
+
+```json
+{
+  "rag_services": {
+    "recipes_wrapper": {
+      "type": "chromadb_wrapper",
+      "url": "http://localhost:5006",
+      "embedding_provider": "ollama",
+      "embedding_model": "nomic-embed-text",
+      "match_threshold": 0.25,
+      "partial_threshold": 0.5,
+      "collections": [
+        {
+          "name": "comfort_soups",
+          "metadata": {
+            "display_name": "Comfort Soups from Around the World",
+            "description": "Hearty soup recipes"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+**Key Fields**:
+- `type`: Provider type (chromadb_wrapper)
+- `url`: RAG service endpoint
+- `embedding_provider`/`embedding_model`: Embeddings config
+- `match_threshold`: Distance threshold for confident matches
+- `partial_threshold`: Distance threshold for candidate results
+- `collections`: Pinned collections (optional, can be dynamic)
+
+### **3. Intent Configuration** (`intent`)
+
+Define intent detection settings:
+
+```json
+{
+  "intent": {
+    "llm": "ollama",
+    "model": "llama3.2:3b",
+    "intents": [
+      {
+        "name": "recipe",
+        "description": "User is asking for cooking instructions, recipes, or food preparation"
+      },
+      {
+        "name": "general",
+        "description": "General conversation, greetings, or non-food related questions"
+      }
+    ]
+  }
+}
+```
+
+**Key Fields**:
+- `llm`: Which LLM service to use for intent detection
+- `model`: Which model to use
+- `intents`: Array of possible intents with descriptions
+
+**When Used**:
+- Only when RAG result is PARTIAL or NONE
+- Not called when RAG finds confident MATCH
+- For PARTIAL: includes partial collections in prompt
+
+### **4. Response Rules** (`responses`)
+
+Define response matching and generation rules:
+
+```json
+{
+  "responses": [
+    {
+      "match": {
+        "rag_result": "match",
+        "collection": "comfort_soups"
+      },
+      "llm": "ollama",
+      "model": "llama3.2:3b",
+      "max_tokens": 500,
+      "prompt": "You are a cooking expert. Use this context:\n\n{{rag_context}}\n\nAnswer concisely."
+    },
+    {
+      "match": {
+        "rag_result": "partial",
+        "intent": "recipe"
+      },
+      "llm": "ollama",
+      "model": "llama3.2:3b",
+      "max_tokens": 500,
+      "prompt": "You are a helpful assistant. Use this context:\n\n{{rag_context}}"
+    },
+    {
+      "match": {
+        "intent": "general"
+      },
+      "llm": "ollama",
+      "model": "llama3.2:3b",
+      "max_tokens": 100,
+      "prompt": "You are a friendly chatbot. Keep responses brief."
     }
   ]
 }
 ```
 
-#### **Detection Types**
+**Match Clauses**:
+- Sequential first-match pattern (order matters!)
+- Available fields: `intent`, `service`, `collection`, `rag_result`
+- First rule where all specified fields match wins
 
-**RAG Detection (`"rag"`)**
-- Queries knowledge base directly
-- If distance < threshold → strategy detected immediately
-- If partial_threshold specified and distance in range → include in LLM detection
-- If distance > partial_threshold → exclude from LLM detection
+**Template Variables**:
+- `{{rag_context}}`: Formatted RAG documents
+- `{{intent}}`: Detected intent
+- `{{topic}}`: Current topic
+- `{{service.prompt}}`: Service-level prompt (if any)
+- Nested paths: `{{metadata.display_name}}`
 
-**LLM Detection (`"llm"`)**
-- Included in single LLM intent detection query
-- Uses description field in prompt
+### **Configuration Path Resolution**
 
-**Default (`"default"`)**
-- Catch-all strategy when nothing else matches
-- No detection needed
+Multiple ways to specify config file location:
 
-### **RAG Configuration**
-```yaml
-# Example: config/rag.yaml
-knowledge_bases:
-  - name: "main"
-    vector_db: "chromadb"
-    collection: "knowledge_base"
-    embedding_model: "text-embedding-3-small"
-    retrieval:
-      top_k: 3
-      confidence_threshold: 0.45
-```
+1. **CLI argument**: `--config /path/to/config.json`
+2. **Environment variable**: `FLEX_CHAT_CONFIG_FILE=/path/to/config.json`
+3. **Environment variable (alt)**: `FLEX_CHAT_CONFIG_FILE_PATH=/path/to/config.json`
+4. **Directory env var**: `FLEX_CHAT_CONFIG_DIR=/path/to/dir` (looks for config.json)
+5. **Default**: `./config/config.json` (from current working directory)
 
-### Environment Variables
+### **Example Configurations**
 
-**Chat API** (`backend/chat/.env`):
-- `AI_PROVIDER` - Which AI provider to use (openai, ollama, etc.)
-- `AI_PROVIDER_API_KEY` - API key for the selected provider
-- `INTENT_CONFIG_PATH` - Path to intent configuration file
-- `RAG_CONFIG_PATH` - Path to RAG configuration file
+See `config/examples/`:
+- `01-chat-only.json` - Simple chat without RAG
+- `02-single-rag-dynamic.json` - Single RAG service with dynamic collections
+- `03-single-rag-pinned.json` - Single RAG service with pinned collection
+- `04-multi-rag-multi-llm.json` - Complex: multiple services, LLMs, intents
 
-**RAG Service** (`backend/rag/.env`):
-- `EMBEDDING_PROVIDER` - Which embedding provider to use
-- `EMBEDDING_API_KEY` - API key for embeddings
+---
+
+## API Endpoints
+
+### **Chat Endpoints**
+
+**`POST /chat/api`**
+- Main chat endpoint
+- Body: `{ prompt, previousMessages, selectedCollections, topic }`
+- Returns: `{ response, status, topic, service, model }`
+
+### **Collection Management**
+
+**`GET /api/collections`**
+- List all collections from all RAG services
+- Returns: `{ collections, wrappers }`
+
+**`GET /api/ui-config`**
+- Get complete UI configuration (collections + wrappers + model selection)
+- Returns: `{ collections, wrappers, modelSelection }`
+
+**`POST /api/collections`**
+- Create new collection
+- Body: `{ name, metadata, service }`
+- Requires: `service` parameter to specify which RAG service
+
+**`POST /api/collections/:name/documents`**
+- Add documents to collection
+- Body: `{ documents: [...], service }`
+
+**`PUT /api/collections/:name/metadata`**
+- Update collection metadata
+- Body: `{ metadata, service }`
+
+**`DELETE /api/collections/:name?service=X`**
+- Delete collection
+- Requires: `service` query parameter
+
+### **Health Check**
+
+**`GET /health`**
+- Returns server status, version, loaded providers
+
+---
 
 ## Key Design Decisions
 
-### **Configuration-First Approach**
-- **External configs**: All behavior controlled by YAML configuration files
-- **No hardcoded logic**: Intent detection, response strategies, and thresholds are configurable
-- **Example-driven**: Documented configuration examples for common use cases
-- **Environment overrides**: Environment variables can override config values
+### **1. Simplified Linear Flow**
 
-### **Flexible Intent Detection**
-- **Configurable strategies**: Hybrid (ChromaDB + AI), AI-only, or skip detection
-- **Configurable thresholds**: Distance thresholds defined in config, not code
-- **Configurable prompts**: Intent detection prompts defined in config
-- **Dynamic intent types**: Easy to add new intent types via configuration
+**Why**: Previous strategy-based architecture was complex and hard to reason about.
 
-### **AI Provider Abstraction**
-- **Multiple providers**: Support for OpenAI, Gemini, Ollama, etc.
-- **Unified interface**: Same API regardless of underlying provider
-- **Model discovery**: Dynamic model listing and selection
-- **Health monitoring**: Provider health checks and fallback
+**v2.0 Approach**:
+- Linear 4-phase flow: Topic → RAG → Profile → Response
+- Each phase has single responsibility
+- Predictable execution path
+- Easier to debug and extend
 
-### **Optional RAG Layer**
-- **Configurable retrieval**: One or more knowledge bases via configuration
-- **Multiple vector DBs**: Support for different vector database backends
-- **Configurable embeddings**: Different embedding providers and models
-- **Intent-driven**: RAG only used when configured intent is detected
+### **2. Topic-First Approach**
 
-### Error Handling
-- **Rate limiting**: Exponential backoff with retry logic
-- **Network errors**: Graceful degradation with user-friendly messages
-- **API failures**: Fallback responses when services unavailable
-- **Provider fallback**: Switch to backup providers if primary fails
+**Why**: Topic provides valuable context for both RAG queries and LLM responses.
 
-### State Management
-- **Frontend**: React state + localStorage for message persistence (current)
-- **Backend**: Stateless API design
-- **Knowledge**: Persistent vector database storage
-- **Future**: Backend chat history management (configurable)
+**Benefits**:
+- RAG queries use normalized topic (better results)
+- Topic tracking across conversation enables context awareness
+- User can see and potentially override topic (future feature)
+- Topics stored with messages for historical context
 
-## Use Case Examples
+### **3. Threshold-Based RAG Classification**
 
-### **1. Simple Chat Bot** (No RAG)
-- **Configuration**: `config/examples/chat-only.yaml`
-- **Intent Detection**: Skip detection, all queries go to GENERAL
-- **Response**: Simple conversational responses
-- **Use Case**: Generic chatbot, customer service, general Q&A
+**Why**: Simple distance thresholds are intuitive and configurable.
 
-### **2. RAG-Only Bot** (On-Topic Focus)
-- **Configuration**: `config/examples/rag-only.yaml`
-- **Intent Detection**: Hybrid (ChromaDB + AI fallback)
-- **Response**: KNOWLEDGE gets full RAG treatment, GENERAL gets short "off-topic" response
-- **Use Case**: Domain-specific knowledge base, technical documentation
+**Three-tier system**:
+- **Match** (`< match_threshold`): High confidence, use immediately
+- **Partial** (`< partial_threshold`): Candidate, needs intent detection
+- **None** (`≥ partial_threshold`): Not relevant, pure intent detection
 
-### **3. RAG + Chat Bot** (Flexible)
-- **Configuration**: `config/examples/rag-and-chat.yaml`
-- **Intent Detection**: Hybrid for KNOWLEDGE, AI-only for GENERAL
-- **Response**: KNOWLEDGE uses RAG, GENERAL gets full conversational response
-- **Use Case**: Mixed use cases, customer support with knowledge base
+**Benefits**:
+- Clear decision boundaries
+- Per-collection threshold configuration
+- Avoids complex multi-stage logic
 
-### **4. Multi-Provider Bot** (Future)
-- **Configuration**: `config/examples/multi-provider.yaml`
-- **AI Providers**: Multiple providers with fallback
-- **Use Case**: High availability, cost optimization, different models for different intents
+### **4. Profile Object Pattern**
 
-## Customization Points
+**Why**: Canonical data structure for passing context through phases.
 
-### **Configuration-Based Customization**:
-1. **Intent types**: Add new intents via `config/intents.yaml`
-2. **Response strategies**: Configure response types and prompts
-3. **AI providers**: Switch between OpenAI, Ollama, Gemini, etc.
-4. **Knowledge bases**: Configure multiple vector databases
-5. **Thresholds**: Adjust detection and retrieval thresholds
+**Contents**:
+```javascript
+{
+  intent: string,           // Primary classification
+  service: string,          // RAG service used (if any)
+  collection: string,       // Collection matched (if any)
+  documents: Array,         // RAG context documents
+  rag_result: string,       // "match" | "partial" | "none"
+  metadata: Object,         // Collection metadata
+  // ... extensible for future features
+}
+```
 
-### **Code-Based Customization**:
-1. **UI styling**: Update `Chat.css` and Tailwind classes
-2. **Frontend logic**: Modify React components
-3. **New response types**: Add new response strategies (e.g., tool calling)
-4. **New providers**: Add new AI provider implementations
+**Benefits**:
+- Single source of truth
+- All downstream logic uses same data structure
+- Easy to log and debug
+- Extensible without breaking changes
 
-### **For Production**:
-1. **Environment variables**: Set production API keys and URLs
-2. **Configuration files**: Use production-specific config files
-3. **CORS**: Configure for production domains
-4. **Logging**: Add proper logging and monitoring
-5. **Security**: Add authentication if needed
-6. **Scaling**: Consider containerization and load balancing
+### **5. Collection Management in Chat**
+
+**Why**: Users need to manage collections without restarting server.
+
+**Features**:
+- Dynamic collection creation/deletion via API
+- Metadata (display names, descriptions) for better UX
+- Pinned collections (config-level) vs dynamic (runtime)
+- Multi-service support (multiple RAG backends)
+
+### **6. Provider Abstraction**
+
+**Why**: Support multiple AI providers without changing core logic.
+
+**Architecture**:
+- Base classes define interface (`AIProvider`, `RetrievalProvider`)
+- Concrete implementations (OpenAIProvider, OllamaProvider)
+- Registry pattern for discovery
+- Health checks and validation
+
+**Benefits**:
+- Easy to add new providers
+- Swap providers without code changes (config only)
+- Fallback and redundancy support
+
+---
+
+## State Management
+
+### **Frontend State**
+- **React state**: Current chat session, UI interactions
+- **localStorage**: Message history (last 50), topic, sidebar preferences
+- **API state**: Collections, wrappers, UI config (fetched on load)
+
+### **Backend State**
+- **Stateless API design**: Each request is independent
+- **Configuration**: Loaded at startup, immutable during runtime
+- **Providers**: Initialized once, reused across requests
+
+### **Persistence**
+- **ChromaDB**: Persistent vector database storage
+- **LocalStorage**: Browser-side chat history
+- **Future**: Backend chat history with database storage
+
+---
+
+## Error Handling
+
+### **Network Errors**
+- Retry with exponential backoff (frontend)
+- Rate limit detection (429 responses)
+- User-friendly error messages
+
+### **Provider Failures**
+- Health checks on initialization
+- Validation of provider configuration
+- Graceful error responses
+
+### **RAG Errors**
+- Handle missing collections
+- Handle embedding failures
+- Fall back to no-RAG mode when RAG unavailable
+
+### **Configuration Errors**
+- JSON schema validation (future)
+- Helpful error messages with suggestions
+- Exit on startup if critical config invalid
+
+---
+
+## Performance Considerations
+
+### **RAG Query Optimization**
+- Parallel collection queries where possible
+- Short-circuit on first MATCH found
+- Caching potential (future)
+
+### **LLM Call Optimization**
+- Intent detection skipped when RAG MATCH found
+- Configurable max_tokens per response rule
+- Conversation history truncation (last N messages)
+
+### **Frontend Optimization**
+- Single UI config fetch on load
+- LocalStorage for offline message viewing
+- Lazy loading of collection details
+
+### **Memory Management**
+- Provider instances reused across requests
+- Message history capped at 50 (localStorage)
+- Previous messages limited to last 4-6 turns
+
+---
+
+## Security Considerations
+
+### **API Keys**
+- Environment variable substitution in config
+- Never commit .env files
+- Separate .env files per service
+
+### **CORS**
+- Currently allows all origins (development)
+- Production: Configure specific domains
+
+### **Input Validation**
+- Request body validation in endpoints
+- Collection name validation (ChromaDB rules)
+- Sanitization of user inputs
+
+### **Authentication** (Future)
+- No authentication currently
+- Production deployment should add auth layer
+- Consider API keys or OAuth
+
+---
+
+## Testing Strategy
+
+### **Current State**
+- Manual testing completed ✅
+- Automated tests TODO
+
+### **Testing Priorities**
+1. **Unit Tests**:
+   - Topic detection logic
+   - RAG threshold classification
+   - Profile building (match/partial/none scenarios)
+   - Response rule matching
+   - Template variable substitution
+
+2. **Integration Tests**:
+   - Full 4-phase flow with mocks
+   - Collection CRUD operations
+   - Multiple RAG services
+   - Error scenarios
+
+3. **E2E Tests** (Optional):
+   - Real services validation
+   - UI interactions
+   - Performance testing
+
+### **Mocking Strategy**
+- Mock LLM responses (avoid API calls in tests)
+- Mock RAG query results
+- Mock provider health checks
+- Test the flow logic, not external services
+
+---
+
+## Future Enhancements
+
+### **Streaming Responses** (Planned)
+- Server-Sent Events (SSE) for real-time streaming
+- Reasoning model "thinking" phase visibility
+- Progress indicators ("Detecting topic...", "Searching knowledge...")
+- See `TODO.md` for detailed implementation plan
+
+### **Source Attribution** (Planned)
+- Format RAG context with collection headers
+- Enable LLM citations ("According to X collection...")
+- Clickable citations in UI
+- See `TODO.md` for format options and implementation plan
+
+### **Topic Interaction** (Planned)
+- Edit and resubmit with topic override
+- Conversation branching on topic edit
+- Topic change visualization
+- Topic history timeline
+
+### **Advanced RAG Features**
+- Hybrid search (semantic + keyword)
+- Query expansion and rewriting
+- Re-ranking strategies
+- Citation extraction and display
+
+### **Chat History Management**
+- Backend persistence (DB storage)
+- LLM-based summarization for long conversations
+- Conversation search and filtering
+- Export conversations
+
+### **Additional Providers**
+- Google Gemini provider
+- Anthropic Claude provider
+- Azure OpenAI provider
+- Additional vector databases (Pinecone, Qdrant, etc.)
+
+---
 
 ## Dependencies
 
 ### Frontend
-- React 18.3.1, React Router, Axios, Tailwind CSS
+```json
+{
+  "react": "^18.3.1",
+  "react-router-dom": "^6.28.0",
+  "react-markdown": "^9.0.1",
+  "tailwindcss": "^3.4.15"
+}
+```
 
 ### Chat API
-- Express, Axios, dotenv, yaml (for config parsing)
-
-### AI Provider Abstraction
-- Axios (for HTTP requests), dotenv (for environment variables)
+```json
+{
+  "express": "^4.21.1",
+  "commander": "^12.1.0",
+  "dotenv": "^16.4.5",
+  "axios": "^1.7.7"
+}
+```
 
 ### RAG Service
-- FastAPI, ChromaDB, OpenAI, Pydantic
+```
+fastapi==0.115.5
+chromadb==0.5.20
+openai==1.54.4
+pydantic==2.10.2
+```
 
-## Future Enhancements
+---
 
-### **Tool Calling Support** (TODO)
-- **Configuration**: Add tool calling intents and response strategies
-- **Implementation**: Extend response generator to handle tool calls
-- **Use Cases**: Function calling, API integrations, external service calls
+## Deployment Considerations
 
-### **Backend Chat History** (TODO)
-- **Configuration**: Enable/disable backend chat history management
-- **Features**: LLM-based conversation summarization, context optimization
-- **Storage**: Database-backed conversation storage
+### **Development**
+- Frontend: `npm run dev` (Vite dev server, port 3000)
+- Chat API: `npm start` (Express, port 5005)
+- RAG Service: `uvicorn server:app --reload` (FastAPI, port 5006)
 
-### **Advanced RAG Features** (TODO)
-- **Multiple Knowledge Bases**: Support for multiple vector databases
-- **Hybrid Search**: Combine semantic and keyword search
-- **Query Expansion**: Automatic query enhancement for better retrieval
+### **Production** (Future)
+- Containerization with Docker
+- Environment-specific configurations
+- Reverse proxy (nginx) for routing
+- SSL/TLS certificates
+- Monitoring and logging
+- Database backups (ChromaDB)
+- Load balancing for scale
+
+### **OpenShift/Kubernetes** (Planned)
+- Deployment manifests
+- ConfigMaps for configuration
+- Secrets for API keys
+- Persistent volumes for ChromaDB
+- Health checks and probes
+
+---
 
 ## Common Issues & Solutions
 
-1. **"AI_PROVIDER_API_KEY is not defined"** → Check `.env` files exist and have valid API keys
-2. **"No relevant information found"** → Verify RAG service running and knowledge base loaded
-3. **Frontend can't connect** → Check proxy configuration and backend services running
-4. **Configuration errors** → Validate YAML configuration files
-5. **Provider health issues** → Check AI provider health and fallback configuration
+### Configuration Issues
+- **"Configuration error: ..."**: Check JSON syntax, ensure all required fields present
+- **"AI provider not found"**: Verify provider name matches registered providers
+- **"Service name is required"**: Collection operations need explicit `service` parameter
+
+### Connection Issues
+- **Frontend can't connect**: Check proxy config, ensure backend on port 5005
+- **RAG service unreachable**: Verify Python service running on port 5006
+- **"Failed to initialize RAG service"**: Check ChromaDB directory permissions
+
+### RAG Issues
+- **"No collections yet"**: Create collections via Collections page
+- **No RAG results**: Check collection has documents, verify embedding model matches
+- **High distances**: Try different embedding model or check document relevance
+
+### Provider Issues
+- **"Provider health check failed"**: Verify API keys, check provider endpoints
+- **"Model not available"**: Check model name, verify provider supports model
+
+---
+
+## Additional Resources
+
+- **[CHANGELOG.md](../CHANGELOG.md)**: Version history and changes
+- **[TODO.md](../TODO.md)**: Planned features and improvements
+- **[CONFIGURATION.md](CONFIGURATION.md)**: Detailed configuration guide
+- **[COLLECTION_MANAGEMENT.md](COLLECTION_MANAGEMENT.md)**: Collection management guide
+- **[RETRIEVAL_PROVIDERS.md](RETRIEVAL_PROVIDERS.md)**: RAG provider documentation
+- **[REASONING_MODELS.md](REASONING_MODELS.md)**: Reasoning models (legacy, needs update)
+
+---
+
+## Version History
+
+- **v2.0.0** (2025-10-19): Simplified architecture with 4-phase flow
+- **v1.x**: Strategy-based architecture (deprecated)
+
+For detailed changes, see [CHANGELOG.md](../CHANGELOG.md).
