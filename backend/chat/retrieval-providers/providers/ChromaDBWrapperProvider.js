@@ -360,6 +360,71 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
   }
 
   /**
+   * Create a new collection
+   * @param {string} collectionName - Collection name
+   * @param {Object} metadata - Collection metadata
+   * @returns {Promise<Object>} Created collection info
+   */
+  async createCollection(collectionName, metadata = {}) {
+    if (!collectionName) {
+      throw new Error('Collection name is required');
+    }
+    
+    try {
+      const response = await axios.post(
+        `${this.baseUrl}/collections`,
+        { 
+          name: collectionName,
+          metadata 
+        },
+        {
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.customHeaders,
+            ...(this.auth ? this.getAuthHeader() : {})
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Error creating collection ${collectionName}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a collection
+   * @param {string} collectionName - Collection name
+   * @returns {Promise<Object>} Deletion result
+   */
+  async deleteCollection(collectionName) {
+    if (!collectionName) {
+      throw new Error('Collection name is required');
+    }
+    
+    try {
+      const response = await axios.delete(
+        `${this.baseUrl}/collections/${collectionName}`,
+        {
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.customHeaders,
+            ...(this.auth ? this.getAuthHeader() : {})
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Error deleting collection ${collectionName}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Update collection metadata
    * @param {string} collectionName - Collection name
    * @param {Object} metadata - Metadata to update
@@ -452,19 +517,37 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
   }
 
   /**
-   * Add documents (proxy to wrapper)
+   * Add documents to a collection
+   * @param {string} collectionName - Collection name (optional, uses configured collection if not provided)
+   * @param {Array} documents - Array of documents to add
+   * @returns {Promise<Object>} Upload result
    */
-  async addDocuments(documents) {
-    const collection = this.collection;
+  async addDocuments(collectionName, documents) {
+    // Support both signatures: addDocuments(collectionName, documents) or addDocuments(documents)
+    let collection, docs;
+    
+    if (Array.isArray(collectionName)) {
+      // Old signature: addDocuments(documents)
+      docs = collectionName;
+      collection = this.collection;
+    } else {
+      // New signature: addDocuments(collectionName, documents)
+      collection = collectionName;
+      docs = documents;
+    }
     
     if (!collection) {
       throw new Error('Collection must be specified to add documents');
     }
     
+    if (!docs || !Array.isArray(docs)) {
+      throw new Error('Documents must be an array');
+    }
+    
     try {
       const response = await axios.post(
         `${this.baseUrl}/collections/${collection}/documents`,
-        { documents },
+        { documents: docs },
         {
           timeout: this.timeout * 2, // Longer timeout for uploads
           headers: {

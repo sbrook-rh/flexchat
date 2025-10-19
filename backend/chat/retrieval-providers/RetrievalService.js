@@ -18,7 +18,7 @@ class RetrievalService {
     this.providersConfig = providersConfig;
     
     for (const [name, config] of Object.entries(knowledgeBasesConfig)) {
-      try {
+      // try {
         // Resolve embedding provider if specified
         const enrichedConfig = { ...config };
         
@@ -30,9 +30,9 @@ class RetrievalService {
         
         await this.addKnowledgeBase(name, enrichedConfig);
         console.log(`✅ Initialized knowledge base: ${name}`);
-      } catch (error) {
-        console.error(`❌ Failed to initialize knowledge base ${name}:`, error.message);
-      }
+      // } catch (error) {
+      //   console.error(`❌ Failed to initialize knowledge base ${name}:`, error.message);
+      // }
     }
   }
 
