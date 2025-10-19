@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Configuration Viewer UI** 🆕 NEW FEATURE DOCUMENTED - Easy Win!
+  - **Phase 1: Display Only** (read-only, high priority)
+    - Backend endpoint: `GET /config/api` and `/config/api/:section`
+    - Returns deep clone of config (env vars already resolved)
+    - **Critical**: Verify global config object isn't being mutated at runtime
+    - Section-specific queries: llms, rag_services, embedding, intent, responses
+    - Frontend `/config` route with tab/accordion UI
+    - JSON viewer with syntax highlighting
+    - Search/filter capabilities
+    - Copy to clipboard, reload config button
+    - NavBar integration (Configuration link)
+  - **Phase 2: Live Editing** (future)
+    - Architecture decision: Config mutation vs. file write + reload
+    - Investigate current config lifecycle and mutability
+    - Safety filters, validation, preview impact
+    - Test response handler matching (dry-run)
+    - Hot reload if safe mutation approach chosen
+    - Audit log of config changes
+  - **Phase 3**: Advanced features (presets, wizard, versioning)
+  - **Key Technical Insight**:
+    - Phase 1 reveals config lifecycle: load → env var substitution → runtime state
+    - Answers critical question: Is config object mutated during operation?
+    - This understanding determines Phase 2 architecture (mutable vs immutable)
+    - Provides safe pathway for future runtime config changes
+  - **Benefits**:
+    - Immediate debugging value
+    - See active configuration without SSH/file access
+    - Discover how config behaves at runtime
+    - Foundation for future safe config editing
+    - No risk (read-only initially)
+  - Documented in TODO.md with 3-phase implementation plan
+
 - **Provider Data Structure Specialization concept** 🆕 NEW FEATURE DOCUMENTED
   - Added "Choosing a RAG Provider" section to RAG_SERVICES.md
   - Documents which providers are best for different data structures:

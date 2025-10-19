@@ -1025,13 +1025,85 @@ Reusable "toolbox" templates creating specialized workspaces:
   - [ ] 📄 Document Analyzer
   - [ ] 🖥️ System Admin
 
-### Configuration Management UI
+### Configuration Viewer & Management UI 🆕
+
+**Phase 1: Display Only (Easy Win!)** 🎯 HIGH PRIORITY
+- [ ] **Backend Endpoint**: `GET /config/api` or `/config/api/:section`
+  - [ ] Return current loaded configuration (already sanitized - env vars resolved)
+  - [ ] **Important**: Return deep clone, not reference to global config object
+  - [ ] Verify global config hasn't been mutated during runtime
+  - [ ] Support section queries: `/config/api/llms`, `/config/api/rag_services`, etc.
+  - [ ] Return metadata: config file path, last loaded time, env var usage
+  
+- [ ] **Frontend Config Viewer Page** (`/config` route)
+  - [ ] Tab-based or accordion UI for sections:
+    - LLMs (providers, models)
+    - RAG Services (services, thresholds)
+    - Embedding (default provider)
+    - Intent Detection (categories, model)
+    - Response Handlers (match criteria, prompts)
+  - [ ] JSON viewer with syntax highlighting
+  - [ ] Search/filter within config
+  - [ ] Copy to clipboard buttons
+  - [ ] "Reload Config" button (restart required notice)
+  
+- [ ] **Navigation**: Add "Configuration" link to NavBar
+  - [ ] Only show if user has access (future: RBAC)
+  
+**Phase 2: Live Editing** (Future)
+- [ ] **Architecture Decision**: Config mutation approach
+  - [ ] Investigate: Is global config object being mutated during runtime?
+  - [ ] Option A: Allow safe runtime mutation (with validation + rollback)
+  - [ ] Option B: Immutable config, requires file write + reload
+  - [ ] Safety filters: Validate before applying, preview impact
+  
+- [ ] **UI Features**:
+  - [ ] Edit mode with schema validation
+  - [ ] Test response handler matching (dry-run)
+  - [ ] Preview: "Which handler would match this query?"
+  - [ ] Save changes to file (with automatic backup)
+  - [ ] Hot reload configuration without restart (if mutation approach)
+  - [ ] Diff view showing changes before/after
+  
+- [ ] **Safety & Approval System**:
+  - [ ] Validate changes against schema
+  - [ ] Check for breaking changes (e.g., removing active LLM)
+  - [ ] Confirmation dialog with impact summary
+  - [ ] Rollback mechanism if something breaks
+  - [ ] Audit log of config changes
+
+**Phase 3: Advanced Features** (Future)
 - [ ] Runtime config selection with presets
 - [ ] Initial configuration wizard (no-config mode)
-- [ ] Edit existing configuration with live preview
 - [ ] Configuration versioning and rollback
 - [ ] Import/export configurations
-- [ ] Secrets management integration
+- [ ] Secrets management integration (vault, env vars)
+- [ ] Visual response handler builder
+
+**Why Start with Display Only:**
+- ✅ Easy to implement (just backend endpoint + React component)
+- ✅ Immediately useful for debugging
+- ✅ See which response handlers match your query
+- ✅ Understand current system configuration
+- ✅ No risk of breaking config (read-only)
+- ✅ Foundation for future editing features
+- ✅ **Important discovery opportunity**: 
+  - Reveals if config object is being mutated at runtime
+  - Shows how env vars are resolved vs. file contents
+  - Identifies safe pathways for future runtime config changes
+  - Tests deep cloning approach before allowing edits
+
+**Key Technical Insight:**
+Phase 1 helps us understand the current config lifecycle:
+1. Config loaded from file at startup
+2. Environment variables substituted (`${VAR}` → actual values)
+3. Global config object passed around the application
+4. **Question to answer**: Is this object being mutated during operation?
+
+This understanding is **critical** for Phase 2 design:
+- If config is immutable → Changes require file write + restart
+- If config can be safely mutated → Enable hot reload with validation
+- Phase 1 viewer reveals the current state and any unexpected mutations
 
 ### Performance & Monitoring
 - [ ] Prometheus/Grafana integration
