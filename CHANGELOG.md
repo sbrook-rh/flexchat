@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Provider Data Structure Specialization concept** 🆕 NEW FEATURE DOCUMENTED
+  - Added "Choosing a RAG Provider" section to RAG_SERVICES.md
+  - Documents which providers are best for different data structures:
+    - ChromaDB Wrapper: Simple text-based, FAQ/Q&A format
+    - Milvus (planned): Structured multi-field data (recipes, products, catalogs)
+    - Weaviate (planned): Flexible schema, multi-modal content
+  - Comparison table by data complexity, structure type, and management approach
+  - Examples showing simple text vs. structured JSON data models
+  - Use case recommendations for each provider type
+  - Updated TODO.md with implementation tasks and provider metadata
+  - References example structured data: `logs/recipe_data_for_structured_db.json`
+  - Ready for implementation when Milvus/Weaviate providers are added
+
 **Frontend - Topic Transparency:**
 - Current topic indicator next to "Clear Chat" button
   - Shows the active conversation topic in real-time

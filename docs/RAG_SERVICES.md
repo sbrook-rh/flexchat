@@ -15,11 +15,12 @@ This document explains how RAG (Retrieval Augmented Generation) services work in
 1. [Overview](#overview)
 2. [How RAG Services Work](#how-rag-services-work)
 3. [Configuration](#configuration)
-4. [Supported Providers](#supported-providers)
-5. [ChromaDB Wrapper (Recommended)](#chromadb-wrapper-recommended)
-6. [Provider Architecture](#provider-architecture)
-7. [Adding New Providers](#adding-new-providers)
-8. [Troubleshooting](#troubleshooting)
+4. [Choosing a RAG Provider](#choosing-a-rag-provider)
+5. [Supported Providers](#supported-providers)
+6. [ChromaDB Wrapper (Recommended)](#chromadb-wrapper-recommended)
+7. [Provider Architecture](#provider-architecture)
+8. [Adding New Providers](#adding-new-providers)
+9. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -155,16 +156,71 @@ RAG services are configured in the `rag_services` section of `config.json`.
 
 ---
 
+## Choosing a RAG Provider
+
+Different RAG providers are optimized for different data structures and use cases.
+
+### Data Structure Considerations
+
+**Simple Text-Based (FAQ / Q&A Format):**
+- **Best Provider**: ChromaDB Wrapper
+- **Data Structure**: Single text field per entry with optional metadata
+- **Example**: `{"text": "How do I reset password? Go to Settings...", "metadata": {...}}`
+- **Use Cases**: Documentation, FAQs, articles, knowledge bases
+
+**Structured Multi-Field Data:**
+- **Best Provider**: Milvus (planned), Weaviate (planned)
+- **Data Structure**: Multiple fields with schema enforcement
+- **Example**:
+  ```json
+  {
+    "id": "dessert-001",
+    "title": "Sticky Toffee Pudding",
+    "region": "British Classics",
+    "ingredients": ["200g dates", "250ml water"],
+    "instructions": "Step-by-step...",
+    "prep_time": 45
+  }
+  ```
+- **Use Cases**: Recipe databases, product catalogs, structured knowledge graphs
+
+### Provider Comparison
+
+| Provider | Data Complexity | Best For | Structure | Management |
+|----------|----------------|----------|-----------|------------|
+| **ChromaDB Wrapper** | Simple | FAQs, Docs | Text-focused | UI-driven, dynamic |
+| **Milvus** (planned) | Complex | Recipes, Products | Multi-field | Schema-based, structured |
+| **Weaviate** (planned) | Moderate | Mixed content | Flexible | Auto-schema |
+| **Qdrant** (planned) | Moderate | General | Flexible | Payload-based |
+
+**Current Recommendation**: Use ChromaDB wrapper for most use cases. It handles:
+- Dynamic collection creation through UI
+- Simple document upload
+- Text-based knowledge bases
+- FAQs and Q&A pairs
+
+**Future**: When Milvus support is added, use it for:
+- Structured data with multiple searchable fields
+- Complex filtering (e.g., "British desserts with < 30 min prep")
+- Schema-enforced data consistency
+- High-scale production deployments
+
+---
+
 ## Supported Providers
 
 ### Current
 
 - **`chromadb-wrapper`**: ChromaDB via Python FastAPI wrapper ✅
+  - **Recommended for**: FAQs, documentation, simple Q&A format
+  - **Data model**: Text documents with optional metadata
 
 ### Planned
 
 - **`chromadb`**: Direct ChromaDB HTTP client
 - **`milvus`**: Milvus vector database
+  - **Recommended for**: Structured data (recipes, products, catalogs)
+  - **Data model**: Multi-field schema with typed fields
 - **`pgvector`**: PostgreSQL with pgvector extension
 - **`pinecone`**: Pinecone cloud vector database
 - **`qdrant`**: Qdrant vector database

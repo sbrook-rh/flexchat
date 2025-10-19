@@ -586,17 +586,42 @@ Response:
 - [ ] Hugging Face provider
 
 ### Retrieval Providers
-- [x] ChromaDB wrapper (with Python service)
+- [x] ChromaDB wrapper (with Python service) - **Best for**: FAQs, simple Q&A format
 - [ ] ChromaDB direct (native JS client)
-- [ ] Milvus provider
+- [ ] Milvus provider - **Best for**: Structured multi-field data (recipes, products)
 - [ ] Postgres/pgvector provider
 - [ ] Pinecone provider
-- [ ] Weaviate provider
+- [ ] Weaviate provider - **Best for**: Flexible schema, multi-modal data
 - [ ] Qdrant provider
 
 ---
 
 ## 📄 Advanced RAG Features
+
+### Provider Data Structure Specialization 🆕
+
+**Concept**: Different RAG providers optimized for different data structures
+
+- [ ] **Provider Description & Usage Metadata**
+  - [ ] Add `description` and `recommended_for` fields to provider classes
+  - [ ] Document data structure best practices in provider code
+  - [ ] Examples:
+    - ChromaDB Wrapper: "Simple text-based, FAQ/Q&A format"
+    - Milvus: "Structured multi-field data with schema (recipes, products)"
+    - Weaviate: "Flexible schema, multi-modal content"
+
+- [ ] **Data Structure Examples**
+  - [ ] Simple Text (ChromaDB): `{"text": "...", "metadata": {...}}`
+  - [ ] Structured (Milvus): `{"id": "...", "title": "...", "ingredients": [...], "instructions": "..."}`
+  - [ ] See: `logs/recipe_data_for_structured_db.json` for structured example
+
+- [ ] **Provider Selection Guide in Docs** ✅ DOCUMENTED
+  - [x] Added "Choosing a RAG Provider" section to RAG_SERVICES.md
+  - [x] Comparison table by data complexity
+  - [x] Use case recommendations
+  - [ ] Add to UI: Provider selection wizard based on data structure
+
+**Status**: Documented concept, ready for implementation when Milvus/Weaviate providers added
 
 ### Document Ingestion
 - [ ] Advanced document parsing
