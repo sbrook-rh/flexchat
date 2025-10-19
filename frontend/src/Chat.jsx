@@ -166,9 +166,9 @@ const Chat = ({ uiConfig }) => {
           onClick={toggleLeftSidebar}
           title={leftSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
-          {leftSidebarCollapsed ? '›' : '‹'}
+          {leftSidebarCollapsed ? '→' : '←'}
         </button>
-        <div className={leftSidebarCollapsed ? 'hidden' : 'flex flex-col h-full p-4 overflow-y-auto'}>
+        <div className={leftSidebarCollapsed ? 'hidden' : 'flex flex-col h-full px-4 pb-4 pt-14 overflow-y-auto'}>
           {/* Full sidebar content preserved */}
           {/* Model Selection */}
           {Object.keys(selectedModels).length > 0 && (
@@ -338,9 +338,9 @@ const Chat = ({ uiConfig }) => {
       {/* Right Sidebar */}
       <aside className="relative bg-white border-l border-gray-200 overflow-y-auto">
         <button className="edge-toggle edge-toggle-left" onClick={toggleRightSidebar} title={rightSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-          {rightSidebarCollapsed ? '‹' : '›'}
+          {rightSidebarCollapsed ? '←' : '→'}
         </button>
-        <div className={rightSidebarCollapsed ? 'hidden' : 'p-4 h-full overflow-y-auto'}>
+        <div className={rightSidebarCollapsed ? 'hidden' : 'px-4 pb-4 pt-14 h-full overflow-y-auto'}>
           <h2 className="text-lg font-semibold text-gray-800 mb-2">Chat History</h2>
           <p className="text-sm text-gray-400 italic">Coming soon...</p>
         </div>
