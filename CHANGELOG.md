@@ -35,18 +35,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
       - Use cases: dev/staging/prod configs, experiments, team sharing
     - Configuration wizard, versioning, import/export
     - Visual response handler builder
-  - **Key Technical Insight**:
-    - Phase 1 reveals config lifecycle: load → env var substitution → runtime state
-    - Answers critical question: Is config object mutated during operation?
-    - This understanding determines Phase 2 architecture (mutable vs immutable)
-    - Provides safe pathway for future runtime config changes
+
+- **Connection Builder Interface** (`docs/CONNECTION_BUILDER.md`) 🆕
+  - **Goal**: UI wizard for creating LLM/RAG connections without exposing API keys
+  - **Security**: Environment variable references only, never actual secrets in browser
+  - **Schema-Driven**: Forms generated from provider `getConnectionSchema()` method
+  - **Phase 1**: Core infrastructure
+    - Provider schema interface (fields, types, hints, UI display names)
+    - **Pattern-based env var handling**: Schema defines `env_var_pattern: "FLEX_CHAT_OPENAI_*"`
+    - Dropdown filtered by pattern (only shows matching vars per provider)
+    - Validation: Custom env var names must match provider's pattern
+    - Backend endpoints: providers list, test connection, validate name, merge config, filtered env vars
+    - Dynamic form generation from schema
+    - Config snippet + instructions output
+  - **Phase 2**: Enhanced UX
+    - Model discovery and selection (saves startup query)
+    - Connection name auto-suggest with clash detection
+    - Full config merge and download
+    - Connection testing with status feedback
+  - **Phase 3**: Advanced features
+    - Reconfigure/refresh existing connections
+    - Connection health monitoring and latency tracking
+    - Batch operations and templates
+  - **Key Innovation**: Provider-agnostic wizard. New providers implement schema interface → Connection Builder "just works"
+  - **Use Cases**: Onboarding, dev/staging/prod setups, troubleshooting, team collaboration
   - **Benefits**:
-    - Immediate debugging value
-    - See active configuration without SSH/file access
-    - Discover how config behaves at runtime
-    - Foundation for future safe config editing
-    - No risk (read-only initially)
-  - Documented in TODO.md with 3-phase implementation plan
+    - **Security**: No API keys in browser/localStorage/UI state
+    - **Organization**: Provider-specific env var patterns (`OPENAI_*`, `ANTHROPIC_*`)
+    - **Safety**: Can't accidentally use wrong provider's key (pattern validation)
+    - **Discovery**: Set `FLEX_CHAT_OPENAI_PROD_KEY` → auto-appears in OpenAI wizard
+    - **Portability**: Generated configs shareable (no embedded secrets)
+    - **Flexibility**: Works with any provider (schema-driven)
+    - **User-friendly**: Guided wizard vs. manual JSON editing
+    - **Team collaboration**: Share configs, teammates set their own env vars
+  - Documented in TODO.md and dedicated `docs/CONNECTION_BUILDER.md`
 
 - **Provider Data Structure Specialization concept** 🆕 NEW FEATURE DOCUMENTED
   - Added "Choosing a RAG Provider" section to RAG_SERVICES.md

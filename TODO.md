@@ -1134,6 +1134,161 @@ This understanding is **critical** for Phase 2 design:
 - If config can be safely mutated → Enable hot reload with validation
 - Phase 1 viewer reveals the current state and any unexpected mutations
 
+---
+
+## 🔌 Connection Builder Interface
+
+**Goal**: UI-driven wizard for creating LLM and RAG service connections without ever exposing API keys in the browser.
+
+**Status**: 📝 Documented (Ready for implementation after Config Viewer Phase 1)
+
+**Documentation**: `docs/CONNECTION_BUILDER.md`
+
+### Core Principles
+- 🔐 **Security First**: NEVER ask users to paste API keys in browser
+- 🎯 **Schema-Driven**: Forms generated from provider `getConnectionSchema()` 
+- 🔌 **Provider-Agnostic**: Works with any provider that implements schema interface
+- 📥 **Portable**: Generated configs shareable (secrets stay in environment)
+
+### Phase 1: Core Infrastructure
+- [ ] **Provider Schema Interface**:
+  - [ ] Add `getConnectionSchema()` method to base provider classes
+  - [ ] Implement schemas for OpenAI, Ollama, Anthropic
+  - [ ] Implement schemas for ChromaDB, Milvus (future)
+  - [ ] Schema includes: fields, types, hints, defaults, UI display names
+  
+- [ ] **Backend API Endpoints**:
+  - [ ] `GET /connections/providers?type=llm|rag` - List provider schemas
+  - [ ] `POST /connections/test` - Test connection with env var resolution
+  - [ ] `GET /connections/env-vars` - List available `FLEX_CHAT_*` vars (names only)
+  - [ ] `POST /connections/validate-name` - Check for config clashes
+  - [ ] `POST /connections/merge` - Merge connection into loaded config
+  
+- [ ] **Frontend UI - Basic Wizard**:
+  - [ ] Step 1: Choose type (LLM / RAG)
+  - [ ] Step 2: Choose provider
+  - [ ] Step 3: Dynamic form from schema
+  - [ ] Step 4: Review & export (snippet + instructions)
+  - [ ] Form validation and field hints
+  
+- [ ] **Environment Variable Handling** (Pattern-Based):
+  - [ ] Schema defines `env_var_pattern` per field: `FLEX_CHAT_OPENAI_*`
+  - [ ] Schema defines `env_var_suggestion`: `FLEX_CHAT_OPENAI_KEY`
+  - [ ] Dropdown shows only vars matching provider's pattern
+  - [ ] Filter: `FLEX_CHAT_OPENAI_KEY`, `FLEX_CHAT_OPENAI_PROD_KEY` ✅
+  - [ ] Hidden: `FLEX_CHAT_ANTHROPIC_KEY` ❌ (wrong provider)
+  - [ ] Exclude reserved vars (`FLEX_CHAT_CONFIG*`)
+  - [ ] Validate custom input against pattern
+  - [ ] Warn if env var not set in environment
+  - [ ] Config output uses references: `${FLEX_CHAT_OPENAI_KEY}`
+  - [ ] Backend endpoint: `GET /connections/env-vars?pattern=FLEX_CHAT_OPENAI_*`
+
+### Phase 2: Enhanced UX
+- [ ] **Model Discovery & Selection**:
+  - [ ] `POST /connections/models` - Query provider for available models
+  - [ ] UI: List models, filter, select subset
+  - [ ] Add selected models to config (saves startup query)
+  - [ ] Collection selection for RAG services
+  
+- [ ] **Connection Name Auto-Suggest**:
+  - [ ] Detect clashes with loaded config
+  - [ ] Suggest: `openai-1`, `openai-2`, etc.
+  - [ ] Show warnings if name exists
+  - [ ] Provide alternative suggestions
+  
+- [ ] **Full Config Merge**:
+  - [ ] Backend merges new connection into loaded config
+  - [ ] Download complete `config.json`
+  - [ ] Generate setup instructions (env vars, restart, test)
+  
+- [ ] **Connection Testing**:
+  - [ ] Test if env var is set (backend only)
+  - [ ] Show connection status (success/pending/error)
+  - [ ] Display response time and capabilities
+  - [ ] Clear instructions if env var missing
+
+### Phase 3: Advanced Features
+- [ ] **Reconfigure/Refresh Connection**:
+  - [ ] Load existing connection config into wizard
+  - [ ] Update settings (base_url, timeout, etc.)
+  - [ ] Refresh model list (query API again)
+  - [ ] Add/remove selected models
+  - [ ] Use case: New models released, endpoint changed
+  
+- [ ] **Connection Health Monitoring**:
+  - [ ] "Test All Connections" dashboard
+  - [ ] Latency tracking per connection
+  - [ ] Auto-detect offline connections
+  - [ ] Connection usage statistics
+  
+- [ ] **Batch Operations**:
+  - [ ] Import multiple connections at once
+  - [ ] Connection templates (common setups)
+  - [ ] Duplicate connection with different name
+  - [ ] Export connection subset
+
+### Key Features
+
+**Secure Secret Handling (Pattern-Based)**:
+```
+Schema defines: env_var_pattern: "FLEX_CHAT_OPENAI_*"
+Schema suggests: env_var_suggestion: "FLEX_CHAT_OPENAI_KEY"
+
+Dropdown shows (filtered by pattern):
+  ✅ FLEX_CHAT_OPENAI_KEY (suggested)
+  ✅ FLEX_CHAT_OPENAI_PROD_KEY (detected)
+  ❌ FLEX_CHAT_ANTHROPIC_KEY (hidden - wrong pattern)
+
+Generated config: "api_key": "${FLEX_CHAT_OPENAI_KEY}"
+Instructions: export FLEX_CHAT_OPENAI_KEY="sk-..."
+```
+
+**Schema-Driven Forms**:
+```javascript
+// Provider implements:
+getConnectionSchema() {
+  return {
+    fields: [
+      { name: "base_url", type: "url", default: "...", hint: "..." },
+      { 
+        name: "api_key", 
+        type: "secret", 
+        env_var_pattern: "FLEX_CHAT_OPENAI_*",
+        env_var_suggestion: "FLEX_CHAT_OPENAI_KEY"
+      }
+    ],
+    capabilities: { list_models: true, test_connection: true }
+  }
+}
+```
+
+**Model Discovery** (saves startup query):
+```
+Query provider → List 25 models → User selects 3
+Generated config includes: "models": ["gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]
+Backend skips model query at startup (already in config)
+```
+
+**Output Options**:
+1. Copy config snippet + instructions (manual paste)
+2. Download full merged config.json (replace file)
+
+### Use Cases
+- **Onboarding**: New users set up connections without reading docs
+- **Development**: Quick switch between dev/staging/prod connections
+- **Experimentation**: Test new providers without manual JSON editing
+- **Troubleshooting**: Verify connections, diagnose issues
+- **Team Sharing**: Export config (no secrets) → teammates import → set own env vars
+
+### Integration Points
+- **Config Viewer UI**: Display and test configured connections
+- **Config Presets**: Save connection setups as presets
+- **UI-Driven Config**: Build entire config from scratch
+
+**Why This Matters**: Transforms configuration from error-prone manual editing to secure, guided, testable experience. New providers automatically get great setup UX by implementing schema interface.
+
+---
+
 ### Performance & Monitoring
 - [ ] Prometheus/Grafana integration
 - [ ] Request tracing and logging
