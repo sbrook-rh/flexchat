@@ -1,0 +1,56 @@
+{
+  "comment": "Single RAG service with pinned collection - for fixed knowledge bases like documentation",
+  "llms": {
+    "local": {
+      "base_url": "http://localhost:11434",
+      "provider": "ollama"
+    }
+  },
+  "rag_services": {
+    "product_docs": {
+      "url": "http://localhost:5006",
+      "collection": "openshift-ai",
+      "provider": "chromadb-wrapper",
+      "match_threshold": 0.2,
+      "partial_threshold": 0.45,
+      "comment": "Collection is pinned - UI will not allow creating/deleting collections for this service"
+    }
+  },
+  "embedding": {
+    "model": "nomic-embed-text",
+    "llm": "local"
+  },
+  "intent": {
+    "provider": {
+      "llm": "local",
+      "model": "qwen2.5:3b-instruct"
+    }
+  },
+  "responses": [
+    {
+      "match": {
+        "rag_results": "match"
+      },
+      "prompt": "You are a technical support assistant. Use the following documentation to answer the user's question:\n\n{{rag_context}}",
+      "llm": "local",
+      "model": "qwen2.5:7b-instruct",
+      "max_tokens": 1200
+    },
+    {
+      "match": {
+        "rag_results": "partial"
+      },
+      "prompt": "You are a technical support assistant. The documentation may contain some relevant information:\n\n{{rag_context}}\n\nUse this if helpful to answer the user's question.",
+      "llm": "local",
+      "model": "qwen2.5:7b-instruct",
+      "max_tokens": 1200
+    },
+    {
+      "prompt": "You are a technical support assistant. The user's question is outside the scope of the available documentation. Politely let them know.",
+      "llm": "local",
+      "model": "qwen2.5:3b-instruct",
+      "max_tokens": 300
+    }
+  ]
+}
+

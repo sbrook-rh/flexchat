@@ -1,0 +1,55 @@
+{
+  "comment": "Single RAG service with dynamic collections - good starting point for RAG",
+  "llms": {
+    "local": {
+      "base_url": "http://localhost:11434",
+      "provider": "ollama"
+    }
+  },
+  "rag_services": {
+    "my_knowledge_base": {
+      "url": "http://localhost:5006",
+      "provider": "chromadb-wrapper",
+      "match_threshold": 0.2,
+      "partial_threshold": 0.45,
+      "comment": "No collection specified = dynamic collections managed via UI"
+    }
+  },
+  "embedding": {
+    "model": "nomic-embed-text",
+    "llm": "local"
+  },
+  "intent": {
+    "provider": {
+      "llm": "local",
+      "model": "qwen2.5:3b-instruct"
+    }
+  },
+  "responses": [
+    {
+      "match": {
+        "rag_results": "match"
+      },
+      "prompt": "You are a helpful assistant. Use the following context to answer the user's question:\n\n{{rag_context}}",
+      "llm": "local",
+      "model": "qwen2.5:7b-instruct",
+      "max_tokens": 1000
+    },
+    {
+      "match": {
+        "rag_results": "partial"
+      },
+      "prompt": "You are a helpful assistant. The following information may be relevant:\n\n{{rag_context}}\n\nUse this to help answer the user's question if applicable.",
+      "llm": "local",
+      "model": "qwen2.5:7b-instruct",
+      "max_tokens": 1000
+    },
+    {
+      "prompt": "You are a helpful AI assistant. Answer the user's question clearly and concisely.",
+      "llm": "local",
+      "model": "qwen2.5:7b-instruct",
+      "max_tokens": 500
+    }
+  ]
+}
+

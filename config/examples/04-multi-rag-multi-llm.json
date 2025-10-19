@@ -1,0 +1,121 @@
+{
+    "llms":
+    {
+        "local":
+        {
+            "base_url": "http://localhost:11434",
+            "provider": "ollama"
+        },
+        "chatgpt":
+        {
+            "api_key": "${OPENAI_API_KEY}",
+            "base_url": "https://api.openai.com/v1",
+            "provider": "openai"
+        }
+    },
+    "rag_services":
+    {
+        "recipes":
+        {
+            "url": "http://localhost:5007",
+            "embedding":
+            {
+                "model": "text-embedding-ada-002",
+                "llm": "chatgpt"
+            },
+            "match_threshold": 0.2,
+            "provider": "chromadb-wrapper"
+        },
+        "red_hat_products":
+        {
+            "url": "http://localhost:5006",
+            "match_threshold": 0.2,
+            "intent_identifier": "knowledge_base",
+            "provider": "chromadb-wrapper",
+            "partial_threshold": 0.45
+        }
+    },
+    "embedding":
+    {
+        "model": "nomic-embed-text",
+        "llm": "local"
+    },
+    "intent":
+    {
+        "provider":
+        {
+            "llm": "local",
+            "model": "qwen2.5:3b-instruct"
+        },
+        "detection":
+        {
+            "support": "The request is about Red Hat products or is about RHEL, Linux, Command line tools, Satellite",
+            "subscriptions": "They are asking about Red Hat subscriptions or RHSM or subscription manager"
+        }
+    },
+    "responses":
+    [
+        {
+            "match":
+            {
+                "rag_results": "any",
+                "service": "red_hat_products",
+                "collection_contains": "openshift-ai"
+            },
+            "prompt": "You are a Red Hat OpenShift support engineer. Help the user with their query as best you can from the information given and what you know\n\nContext from knowledge base:\n{{rag_context}}",
+            "max_tokens": 1200,
+            "llm": "local",
+            "model": "qwen2.5:7b-instruct"
+        },
+        {
+            "match":
+            {
+                "rag_results": "match",
+                "service": "red_hat_products"
+            },
+            "prompt": "You are a Red Hat Product Support engineer with some understanding of various Red Hat products.\n\nContext from knowledge base:\n{{rag_context}}",
+            "max_tokens": 1200,
+            "llm": "local",
+            "model": "qwen2.5:7b-instruct"
+        },
+        {
+            "match":
+            {
+                "rag_results": "any",
+                "service": "recipes"
+            },
+            "prompt": "You are a cooking lover that likes to share recipes. Here are some recipies that might help with the user's query:\n{{rag_context}}",
+            "llm": "chatgpt",
+            "model": "gpt-3.5-turbo",
+            "max_tokens": 1000
+        },
+        {
+            "match":
+            {
+                "intent": "support",
+                "rag_results": "partial"
+            },
+            "prompt": "You are a Red Hat customer support technician with an understanding of Red Hat main product range as well as Linux in general.\n\nThe following data may be helpful: {{rag_context}}. Try to keep your answer specific to the Red Hat products where possible and answer the user as clearly as possible",
+            "llm": "local",
+            "model": "qwen2.5:7b-instruct",
+            "max_tokens": 1200
+        },
+        {
+            "match":
+            {
+                "intent": "subscriptions",
+                "rag_results": "any"
+            },
+            "prompt": "You are a Red Hat sales assistant with an understanding of Res Hat Subscriptions and the subscription model.\n\nThe following data may be helpful: {{rag_context}}. Where possible try to keep your answer specific to Red Hat subscriptions and as clear as possible",
+            "llm": "local",
+            "model": "mistral:7b",
+            "max_tokens": 1200
+        },
+        {
+            "prompt": "You are a with knowledge of specific things but the query from the user if off topic. Answer politely but keep it short",
+            "max_tokens": 200,
+            "llm": "local",
+            "model": "qwen2.5:3b-instruct"
+        }
+    ]
+}
