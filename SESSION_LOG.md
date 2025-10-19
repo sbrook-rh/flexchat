@@ -1,5 +1,86 @@
 # Session Log
 
+## 2025-10-19
+
+### Context
+- Documentation sprint: Align all docs with v2.0 simplified architecture
+- Implement UI transparency features (topic awareness, model visibility)
+- Document future features for planned implementation
+- Update session guidelines (CONTEXT.md) with best practices
+
+### Decisions
+
+**Documentation Philosophy:**
+- **Document what we DO, not what we DON'T** - Avoids confusion in future sessions
+  - Example: "Store topic and rag_result" (not "Don't store RAG documents - too large")
+- **Code comments describe WHAT, not WHY/HISTORY** - History lives in git commits
+  - Example: `// Query all configured RAG services` (not `// Fixed bug where...`)
+- **README as overview** - Concise entry point that links to detailed docs, not a mega-document
+
+**Per-Message Model Switching Architecture:**
+- Store minimal context: `topic` + `rag_result` only (~60 bytes per message)
+- Re-query RAG service with topic (not stored documents)
+- Rationale: Lightweight storage, gets fresh RAG results, automatically benefits from future RAG caching
+- Rejected: Storing full profile or RAG documents (too large, stale data)
+
+**Configuration Documentation:**
+- User provided specific corrections to CONFIGURATION.md for clarity
+- Renamed RETRIEVAL_PROVIDERS.md → RAG_SERVICES.md (aligns with v2.0 terminology)
+
+### Commands Run
+
+None - pure documentation, UI implementation, and planning session
+
+### Changes Made
+
+**UI Features (Implemented):**
+- Topic display in Chat UI (conditional, next to Clear Chat button)
+- Per-message topic and service/model badges (`.topic-badge` styling)
+- Backend: `server.js`, `response-generator.js` return service/model metadata
+- Frontend: `Chat.jsx` stores and displays topic, llm, model per message
+
+**Documentation (Complete Rewrites):**
+- `docs/ARCHITECTURE.md` - v2.0 with 4-phase flow, lib/ modules, profile pattern
+- `docs/CONFIGURATION.md` - Complete guide with user corrections (llm_reference_name, etc.)
+- `docs/REASONING_MODELS.md` - Aligned with response handlers, two-stage process
+- `docs/RETRIEVAL_PROVIDERS.md` → `docs/RAG_SERVICES.md` - Renamed, rewritten for v2.0
+- `docs/CHROMADB_WRAPPER.md` - New comprehensive Python service guide (CLI args, env vars, multiple instances)
+- `README.md` - Concise overview with 4-phase architecture, points to detailed docs
+- `CONTEXT.md` - Added documentation guidelines, code comment guidelines, session log improvements
+
+**Feature Documentation (Planned Features):**
+- **Per-Message Model Switching** - Regenerate responses with different models retroactively
+- **Streaming Responses** - SSE for real-time feedback (6-phase plan)
+- **Source Attribution** - Format RAG context with collection sources (5-phase plan)
+- **UI-Driven Configuration** - Long-term vision for fully configurable system
+
+**Corrections:**
+- Gemini provider status (marked as not implemented in TODO.md)
+- Python service startup command (python3 server.py, not uvicorn)
+- All outdated terminology updated (strategies → response handlers, knowledge bases → RAG services)
+
+**Updates:**
+- `TODO.md` - Organized with completed/planned features, documentation statuses
+- `CHANGELOG.md` - Documented all changes above
+
+### TODOs / Next
+
+**Documentation (Remaining):**
+- Update `COLLECTION_MANAGEMENT.md` - Still references "Configured Strategies"
+- Review `DYNAMIC_COLLECTIONS_IMPLEMENTATION.md` - Check for outdated content
+- Consider: Main `README.md` environment variables section
+
+**Features (Next to Implement):**
+- Choose between Per-Message Model Switching or Streaming Responses
+- Consider: Quick wins vs. high-impact features
+
+### Open Questions
+
+- Which feature to implement first: Model Switching (good for experimentation) or Streaming (better UX for reasoning models)?
+- Should we batch remaining doc updates or implement features now that planning is complete?
+
+---
+
 ## 2025-10-13
 
 ### Context

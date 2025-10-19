@@ -50,32 +50,43 @@ git branch
 ```
 backend/
   chat/
-    server.js - Main chat server with multi-stage strategy detection
-    ai-providers/ - AI provider abstraction (OpenAI, Gemini, Ollama)
-    retrieval-providers/ - RAG abstraction (ChromaDB wrapper)
-    __tests__/ - Jest tests (3 passing, 60+ outlined)
+    server.js - Main chat server with 4-phase processing flow
+    lib/ - Core processing modules
+      topic-detector.js - Phase 1: Topic detection
+      rag-collector.js - Phase 2: RAG collection search
+      profile-builder.js - Phase 3: Profile building
+      response-matcher.js - Phase 4a: Response handler matching
+      response-generator.js - Phase 4b: Response generation
+    ai-providers/ - AI provider abstraction (OpenAI, Ollama)
+    retrieval-providers/ - RAG service abstraction (ChromaDB wrapper)
+    __tests__/ - Jest tests
   rag/
     server.py - Python FastAPI wrapper for ChromaDB
     
 frontend/
   src/
-    Chat.jsx - Main chat interface
+    Chat.jsx - Topic-aware chat interface
     Collections.jsx - Dynamic collection management UI
     
 config/
   config.json - Main configuration
-  examples/ - Example configurations
+  examples/ - Example configurations (01-chat-only.json, etc.)
   
 docs/
-  CONFIGURATION.md - Practical config guide
+  ARCHITECTURE.md - v2.0 architecture and 4-phase flow
+  CONFIGURATION.md - Complete configuration guide
+  RAG_SERVICES.md - RAG service configuration
+  CHROMADB_WRAPPER.md - Python service guide
 ```
 
-### Key Technical Concepts
-- **Multi-stage strategy detection**: Dynamic collections → Static RAG → LLM fallback → Default
-- **Dynamic collections**: UI-created collections with metadata-driven behavior
-- **Hybrid embedding config**: Model specified in config.json, credentials in .env
-- **Fallback thresholds**: Lower (immediate match) and upper (LLM candidate)
-- **Multi-collection combining**: Combines context from all matching candidates
+### Key Technical Concepts (v2.0)
+- **4-Phase Processing Flow**: Topic Detection → RAG Collection → Profile Building → Response Generation
+- **Response Handlers** (not "strategies"): Rules in `responses` array with match criteria
+- **RAG Services** (not "knowledge bases"): Vector databases configured in `rag_services`
+- **Profile Object**: Context built in Phase 3, contains topic, intent, rag_result, documents
+- **Topic Awareness**: UI displays current topic and per-message topics
+- **Model Transparency**: Each response shows which LLM/model was used
+- **Dynamic Collections**: UI-created collections with metadata-driven behavior
 
 ## Step 4: Ask Clarifying Questions
 
@@ -131,13 +142,17 @@ Once you understand the task:
 ### Important Files to Know
 | File | Purpose | When to Check |
 |------|---------|---------------|
-| `CONTEXT.md` | Working practices | Start of every session |
+| `CONTEXT.md` | Working practices, guidelines | Start of every session |
 | `TODO.md` | Task list and priorities | Start of every session |
 | `README.md` | Project overview | When unclear on architecture |
-| `docs/CONFIGURATION.md` | Config guide | When working with config |
-| `backend/chat/server.js` | Main server logic | When working on detection/routing |
-| `backend/rag/server.py` | RAG service | When working on embeddings/collections |
-| `config/config.json` | Main config | When testing or changing behavior |
+| `docs/ARCHITECTURE.md` | v2.0 architecture, 4-phase flow | When working on core logic |
+| `docs/CONFIGURATION.md` | Complete config guide | When working with config |
+| `docs/RAG_SERVICES.md` | RAG service configuration | When working with RAG |
+| `docs/CHROMADB_WRAPPER.md` | Python service guide | When working with embeddings/collections |
+| `backend/chat/server.js` | Main server orchestrator | When working on chat flow |
+| `backend/chat/lib/*.js` | Core processing modules | When working on specific phases |
+| `backend/rag/server.py` | ChromaDB wrapper service | When working on collections/embeddings |
+| `config/examples/*.json` | Example configurations | When setting up or testing |
 
 ### Test Commands
 ```bash
@@ -150,9 +165,9 @@ npm run test:coverage     # With coverage report
 ### Development Commands
 ```bash
 ./start.sh                # Start all services (frontend, chat, rag)
-cd backend/chat && npm run dev   # Chat server with auto-reload
-cd backend/rag && uvicorn server:app --reload  # RAG service with auto-reload
-cd frontend && npm start  # Frontend dev server
+cd backend/chat && node server.js  # Chat server
+cd backend/rag && python3 server.py  # RAG service (port 5006 by default)
+cd frontend && npm run dev  # Frontend dev server (port 5173)
 ```
 
 ## Summary Checklist

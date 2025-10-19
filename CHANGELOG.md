@@ -5,6 +5,187 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+**Frontend - Topic Transparency:**
+- Current topic indicator next to "Clear Chat" button
+  - Shows the active conversation topic in real-time
+  - Only appears when a topic has been detected
+  - Automatically updates with each response
+- Per-message topic badges on bot responses
+  - Displays the topic that was active when that response was generated
+  - Subtle styling with top border separator
+  - Provides historical view of topic evolution throughout conversation
+
+**Backend - Response Metadata:**
+- `generateResponse()` now returns structured object: `{ content, service, model }`
+- `/chat/api` endpoint includes `service` and `model` in response payload
+- Updated JSDoc comments to reflect new return type
+
+**Frontend - Service/Model Display:**
+- Each bot message shows which AI service and model generated the response
+- Displayed in message footer: `[topic] · via [service] / [model]`
+- Stored with each message for full conversation transparency
+- Very subtle styling (lighter gray) to not distract from content
+
+**Documentation:**
+- Added "Topic Interaction Features" section to TODO.md
+- Documented comprehensive streaming response implementation plan
+  - Server-Sent Events (SSE) architecture
+  - Reasoning model "thinking" phase streaming
+  - 6-phase implementation roadmap
+  - Technical considerations and testing strategy
+- Documented conversation branching for topic editing feature
+- Documented RAG source attribution and context formatting
+  - Three format options (section headers, inline tags, numbered references)
+  - 5-phase implementation plan from basic formatting to clickable citations
+  - Benefits for trust, transparency, and multi-collection scenarios
+  - Configuration options for per-response-rule customization
+- **Completed ARCHITECTURE.md rewrite for v2.0** ✅
+  - Removed all references to old strategy-based architecture
+  - Documented complete 4-phase flow (Topic → RAG → Profile → Response)
+  - Added data flow diagrams for Match, Partial, and None scenarios
+  - Documented all lib/ modules and their responsibilities
+  - Updated configuration structure (llms, rag_services, intent, responses)
+  - Added API endpoints documentation
+  - Included key design decisions and rationale
+  - Added future enhancements section
+- **Completed REASONING_MODELS.md rewrite** ✅
+  - Removed all old strategy-based references
+  - Documented as opt-in feature per response handler
+  - Shows two-stage architecture: reasoning prompt → response prompt
+  - Template variable `{{reasoning}}` for including analysis in response
+  - Match criteria can include `reasoning: true/false`
+  - Marked as planned feature for v2.1+
+  - Integrated with streaming response vision
+  - Updated all examples to match realistic configuration patterns
+- **Completed CONFIGURATION.md rewrite** ✅
+  - Complete rewrite for v2.0 configuration structure
+  - "How to specify config file" section (CLI args, env vars, defaults)
+  - Detailed breakdown of all 5 sections (llms, rag_services, embedding, intent, responses)
+  - Thresholds explained (match vs partial with typical values)
+  - Response handler matching (first-match wins, execution order)
+  - Template variables reference table
+  - Complete realistic example configuration
+  - Environment variables documentation
+  - Troubleshooting section with common issues
+- **Completed RAG_SERVICES.md (renamed from RETRIEVAL_PROVIDERS.md)** ✅
+  - Renamed to match `rag_services` configuration terminology
+  - Complete rewrite for v2.0 architecture
+  - Explained distance-based matching with threshold classification
+  - Documented ChromaDB wrapper as recommended provider
+  - Corrected Python service startup (python3 server.py, not uvicorn)
+  - Embedding consistency explained (critical for correct results)
+  - Provider architecture and interface documentation
+  - Step-by-step guide for adding new providers
+  - Comprehensive troubleshooting section
+  - Best practices for embeddings, thresholds, collections, performance
+- **Created CHROMADB_WRAPPER.md** ✅ NEW
+  - Complete guide for Python ChromaDB wrapper service
+  - Command-line arguments: --chroma-path and --port
+  - Running multiple instances (different databases on different ports)
+  - Environment variables for all embedding providers (Ollama, OpenAI, Gemini)
+  - API endpoints reference
+  - Data storage and backup procedures
+  - Embedding consistency requirements
+  - Troubleshooting common issues
+  - Production deployment (systemd, Docker, nginx)
+  - Development tips and testing
+- **Documented UI-Driven Configuration System vision** 🎨
+  - Long-term goal: zero-config start, build everything through UI
+  - Response Handler Builder as core feature
+  - Visual rule builder with drag-and-drop
+  - LLM provider and RAG service management UIs
+  - Configuration import/export and templates
+  - 4-phase implementation plan (v2.x → v4.0+)
+  - Makes Flex Chat accessible to non-technical users
+- **Documented Per-Message Model Switching feature** 🔄 NEW APPROACH
+  - Replaces problematic sidebar model pre-selection concept
+  - Retroactive model switching: try different models on existing responses
+  - Compare model outputs side-by-side
+  - New `/chat/api/regenerate` endpoint (bypasses topic detection)
+  - Lightweight storage: topic + rag_result per message
+  - Frontend reconstructs conversation context from UI
+  - Backend re-queries RAG service with stored topic
+  - Will automatically benefit from RAG caching if implemented
+  - Overlay UI for model selection and comparison
+  - 5-phase implementation plan
+  - Enables model experimentation and quality comparison
+  - Foundation for ensemble responses and A/B testing
+- **Identified terminology issue**: `service` field ambiguous
+  - Currently used for both RAG services and LLM services
+  - Should rename LLM reference to `llm` instead of `service`
+  - Affects message metadata, response payload
+  - Marked for future cleanup
+- **Updated main README.md to v2.0** 📖 COMPLETE REWRITE
+  - Updated architecture diagram with 4-phase processing flow
+  - Fixed all outdated terminology throughout
+    - strategies → response handlers
+    - knowledge bases → RAG services
+  - Updated configuration section with actual example files
+  - Added links to all v2.0 documentation (CONFIGURATION.md, RAG_SERVICES.md, etc.)
+  - Updated Quick Start with correct config files and env vars
+  - Fixed Python service command (python3 server.py, not uvicorn)
+  - Rewrote Key Concepts with v2.0 examples (response handlers, RAG services)
+  - Reorganized documentation links by category
+  - Updated project structure showing lib/ modules
+  - Enhanced troubleshooting with v2.0-specific issues
+  - README now acts as concise overview, pointing to detailed docs
+- **Updated CONTEXT.md (session instructions)** 📋 IMPROVED GUIDELINES
+  - Added "Documentation Guidelines" section
+    - Document what we DO, not what we DON'T (prevents confusion)
+    - Be concise, link liberally, update systematically
+  - Added "Code Comment Guidelines" section
+    - Comments should describe WHAT, not WHY or HISTORY
+    - No bug fix mentions or change history in comments
+    - Use commit messages for historical context
+    - JSDoc for APIs, inline comments for complex logic only
+  - Added "Project Architecture (v2.0)" overview
+    - 4-phase flow summary with module references
+    - Key terminology clarifications
+    - Configuration structure overview
+  - Updated "Testing Strategy" to v2.0 terminology
+    - Removed "strategy detection" references
+    - Added 4-phase flow testing priorities
+  - Updated example to mention atomic commits and clean code
+  - **Improved "How We Use the Session Log" section**
+    - Enhanced template with better guidelines
+    - Focus on decisions and rationale (not just file lists)
+    - Keep entries scannable and concise (30-60 lines, not 100+)
+    - Group changes by type, link to commits for details
+    - Added specific guidelines on what to include/exclude
+- **Added 2025-10-19 session to SESSION_LOG.md** 📝
+  - Followed new improved template format
+  - Captured documentation philosophy decisions
+  - Documented Per-Message Model Switching architecture rationale
+  - Grouped changes by type for scannability
+  - ~80 lines (vs. previous 100-200+ line entries)
+- Identified additional outdated documentation requiring updates
+  - COLLECTION_MANAGEMENT.md - references "Configured Strategies" (still needs update)
+  - DYNAMIC_COLLECTIONS_IMPLEMENTATION.md - needs review
+  - All marked in TODO with specific update requirements
+- Corrected provider implementation status
+  - Gemini provider NOT implemented (was incorrectly marked as complete)
+  - Only OpenAI and Ollama currently available
+
+### Changed
+
+**Frontend:**
+- Bot messages now include metadata (topic, service, model) in localStorage
+- Message badge component renders combined topic and service/model info
+- Updated message storage format to include new metadata fields
+
+### Benefits
+
+- **Transparency**: Users can see exactly which AI and topic context produced each response
+- **Debugging**: Easy to identify if wrong model or topic was used
+- **Historical Context**: Topic evolution visible throughout conversation
+- **Multi-Model Support**: Clear when different models are used for different queries
+
+---
+
 ## [2.0.0] - 2025-10-19
 
 ### Major Architecture Redesign

@@ -6,6 +6,25 @@
 - Logging: impactful commands and changes are recorded in `SESSION_LOG.md`.
 - Documentation: Keep only README.md in root; all other documentation goes in `docs/` folder.
 
+## Documentation Guidelines
+- **Document what we DO, not what we DON'T**: Avoid negative statements like "we don't store X" or "this won't do Y" - they cause confusion later. Focus on what the system actually does.
+  - ❌ Bad: "We don't store RAG documents with messages (too large)"
+  - ✅ Good: "Store topic and rag_result with each message"
+- **Be concise**: Documentation should be scannable. Use the README as an overview that points to detailed docs.
+- **Update systematically**: When changing functionality, update related docs immediately (README, CHANGELOG, TODO, relevant docs/).
+- **Link liberally**: Cross-reference related documentation rather than duplicating information.
+
+## Code Comment Guidelines
+- **Describe WHAT, not WHY or HISTORY**: Comments should explain what the code is doing, not why it was changed or what it fixes.
+  - ❌ Bad: `// Fixed bug where RAG context was lost` or `// Changed to support multiple collections`
+  - ❌ Bad: `// TODO: This needs refactoring because the old approach was slow`
+  - ✅ Good: `// Query all configured RAG services with the detected topic`
+  - ✅ Good: `// Combine documents from multiple collections, removing duplicates`
+- **Commit messages are for history**: Use git commits to document why changes were made, what problems they solve, and design decisions.
+- **JSDoc for APIs**: Use JSDoc comments for function signatures, parameters, and return values.
+- **Inline comments for clarity**: Use inline comments sparingly to explain complex logic or non-obvious code.
+- **Remove outdated comments**: Delete comments that no longer apply rather than leaving them to cause confusion.
+
 ## Change Planning
 - Simplicity first: prefer the minimal, robust fix over broader refactors.
 - Evidence before edits: capture one concrete log/command showing the issue and the expected vs. actual behavior.
@@ -55,31 +74,62 @@ When investigating or changing complex multi-step logic (e.g., strategy detectio
 
 5. **Implement & Validate**
    - Make the changes systematically
-   - Update related documentation (TODO, comments, etc.)
+   - Update related documentation (TODO, CHANGELOG, etc.)
    - Commit with clear explanation of the problem solved and approach taken
+   - Use atomic commits - group all files that are part of the same logical change
 
 **Example:** When fixing multi-collection RAG context combining, we:
 - Traced current flow and found it returned after first candidate (bug)
 - Analyzed real scenario: 2 collections both have relevant context
 - Designed optimal outcome: combine context from all relevant collections
 - Plotted steps: collect all candidates → dedupe prompt → combine context
-- Implemented and committed with comprehensive explanation
+- Implemented with clear code (no historical comments about the bug)
+- Committed with message explaining what was fixed and why
 
 ## Testing Strategy
 - **Mock external dependencies**: LLM responses, RAG query results, embeddings
-- **Test the flow logic**: Strategy detection, threshold logic, context combining
+- **Test the flow logic**: Topic detection, RAG collection search, profile building, response matching
 - **Unit tests first**: Test individual functions with mocked dependencies
-- **Integration tests**: Test full chat flow end-to-end with mocks
+- **Integration tests**: Test full 4-phase flow end-to-end with mocks
 - **E2E tests optional**: With real services for validation, not required for CI
 - **Coverage priorities**:
-  1. Strategy detection logic (highest complexity)
-  2. Multi-collection context combining
-  3. Threshold and fallback logic
-  4. Error handling and edge cases
-  5. Provider abstraction interfaces
+  1. Topic detection and intent extraction (Phase 1)
+  2. Multi-collection RAG search and context combining (Phase 2)
+  3. Profile building and intent detection (Phase 3)
+  4. Response handler matching logic (Phase 4a)
+  5. Threshold and fallback logic
+  6. Error handling and edge cases
+  7. Provider abstraction interfaces
+
+## Project Architecture (v2.0)
+Flex Chat uses a **4-phase processing flow** for all chat requests:
+
+1. **Topic Detection** (`lib/topic-detector.js`) - Extract user intent as a topic
+2. **RAG Collection Search** (`lib/rag-collector.js`) - Query configured RAG services with topic
+3. **Profile Building** (`lib/profile-builder.js`) - Construct context with intent detection
+4. **Response Generation** (`lib/response-generator.js`) - Match and execute response handlers
+
+**Key Terminology:**
+- **Response Handlers** (not "strategies") - Rules in `responses` array with match criteria
+- **RAG Services** (not "knowledge bases") - Vector databases configured in `rag_services`
+- **Profile** - Context object built in Phase 3, used for response handler matching
+- **Topic** - User intent extracted in Phase 1, used for RAG queries
+
+**Configuration Structure:**
+- `llms` - AI provider connections
+- `rag_services` - Vector database connections
+- `embedding` - Default embedding configuration
+- `intent` - Intent detection settings
+- `responses` - Response handlers (first match wins)
+
+See `docs/ARCHITECTURE.md` for detailed documentation.
 
 ## Key Scripts and Config
-
+- `./start.sh` - Start all services (frontend, chat server, RAG wrapper)
+- `backend/chat/server.js --config <file>` - Start chat server with specific config
+- `backend/rag/server.py --chroma-path <path> --port <port>` - Start RAG wrapper
+- `config/examples/*.json` - Example configurations
+- `FLEX_CHAT_CONFIG_FILE=<filename>` - Environment variable for config selection
 
 ## Common Tasks / Runbook
 
@@ -87,32 +137,45 @@ When investigating or changing complex multi-step logic (e.g., strategy detectio
 ## Build and Deployment Operations
 
 ## How We Use the Session Log
-- Each session gets a dated section.
-- We capture: context, decisions, commands run (with outputs when relevant), changes made, TODOs/next, and open questions.
+Each session gets a dated section capturing decisions and changes. Keep entries **scannable and concise** - detailed "what" lives in git history, session log captures "why" and "what changed".
 
-Template snippet:
+### Core Template (6 sections)
 
-```
+```markdown
 ## YYYY-MM-DD
+
 ### Context
-- ...
+- Brief: What were we trying to accomplish?
+- Scope: What area of the system?
 
 ### Decisions
-- ...
+- Key design choices and rationale
+- Tradeoffs considered
+- Changes to approach during session
 
 ### Commands Run
-- ...
+- Only impactful commands (deployments, migrations, etc.)
+- Skip routine file edits
+- Include outputs if relevant for future troubleshooting
 
 ### Changes Made
-- ...
+- Group by type (Documentation, Features, Refactoring, Bug Fixes)
+- One-liners with file/module names
+- Link to commits for details (not full file lists)
 
 ### TODOs / Next
-- ...
+- Immediate next steps
+- Blockers or dependencies
 
 ### Open Questions
-- ...
+- Unresolved issues
+- Design decisions to revisit
 ```
 
-## Open Questions
-- Preferred detail for logging: only impactful actions (default) or everything?
-- Any additional conventions (branching, commit style, naming) to capture?
+### Guidelines
+
+- **Be concise**: Aim for 30-60 lines per session, not 100+
+- **Focus on decisions**: Why we chose approach A over B
+- **Link, don't list**: "See commit abc123" instead of listing every file
+- **Extra sections sparingly**: Add "Key Technical Points" or "Testing Done" only for complex implementation sessions
+- **Group related changes**: "Updated 5 docs to v2.0" instead of listing each doc separately
