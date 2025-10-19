@@ -15,12 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - ChromaDB Wrapper: Simple text-based, FAQ/Q&A format
     - Milvus (planned): Structured multi-field data (recipes, products, catalogs)
     - Weaviate (planned): Flexible schema, multi-modal content
+    - Qdrant (planned): Flexible payload-based approach
   - Comparison table by data complexity, structure type, and management approach
   - Examples showing simple text vs. structured JSON data models
+  - **Technical guidance for structured data**:
+    - Chunking strategy: 512-1024 token chunks for long text fields
+    - Metadata fields: Index title, region, etc. as filterable fields
+    - ID strategy: Auto-generate UUID or accept user-provided IDs
+    - Embedding recommendations: text-embedding-3-large, instructor-xl for rich content
+    - Markdown support: Preserve structure cues (headers, bullets) in instructions
+    - Data transformation: New wrapper service must normalize/transform structured JSON
+    - Query examples: Filtered semantic search ("British desserts"), hybrid queries
   - Use case recommendations for each provider type
-  - Updated TODO.md with implementation tasks and provider metadata
+  - Updated TODO.md with detailed implementation tasks:
+    - Chunking strategy implementation
+    - Schema management for typed fields
+    - Data transformation pipeline
+    - Embedding configuration per field
+    - Filtered and hybrid query support
   - References example structured data: `logs/recipe_data_for_structured_db.json`
-  - Ready for implementation when Milvus/Weaviate providers are added
+  - Ready for implementation when Milvus/Qdrant providers are added
 
 **Frontend - Topic Transparency:**
 - Current topic indicator next to "Clear Chat" button

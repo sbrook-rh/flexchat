@@ -169,20 +169,35 @@ Different RAG providers are optimized for different data structures and use case
 - **Use Cases**: Documentation, FAQs, articles, knowledge bases
 
 **Structured Multi-Field Data:**
-- **Best Provider**: Milvus (planned), Weaviate (planned)
+- **Best Provider**: Milvus (planned), Weaviate (planned), Qdrant (planned)
 - **Data Structure**: Multiple fields with schema enforcement
-- **Example**:
+- **Example** (Recipe Database):
   ```json
   {
     "id": "dessert-001",
     "title": "Sticky Toffee Pudding",
     "region": "British Classics",
-    "ingredients": ["200g dates", "250ml water"],
-    "instructions": "Step-by-step...",
-    "prep_time": 45
+    "ingredients": [
+      "200g dates, chopped",
+      "250ml boiling water",
+      "100g butter",
+      "150g brown sugar"
+    ],
+    "instructions": "### Sticky Toffee Pudding\n\nA rich British dessert...\n\n**Method:** Soak dates in hot water, mix with creamed butter and sugar..."
   }
   ```
+- **Technical Considerations**:
+  - **Chunking**: 512-1024 token chunks for long instructions field
+  - **Metadata**: Index `title` and `region` as filterable fields
+  - **ID Strategy**: Auto-generate UUID or accept user-provided IDs
+  - **Embeddings**: Rich models like `text-embedding-3-large` or `instructor-xl` work well
+  - **Markdown**: Instructions can use markdown for structure cues (`### Headers`, bullet points)
+  - **Ingestion**: New wrapper service must transform/normalize structured data before indexing
 - **Use Cases**: Recipe databases, product catalogs, structured knowledge graphs
+- **Query Examples**: 
+  - "British desserts" (filter by region)
+  - "Quick recipes" (filter by prep_time if indexed)
+  - Semantic search on instructions while filtering by structured fields
 
 ### Provider Comparison
 

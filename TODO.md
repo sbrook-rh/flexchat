@@ -615,6 +615,27 @@ Response:
   - [ ] Structured (Milvus): `{"id": "...", "title": "...", "ingredients": [...], "instructions": "..."}`
   - [ ] See: `logs/recipe_data_for_structured_db.json` for structured example
 
+- [ ] **Structured Data Provider Implementation** (Milvus/Qdrant)
+  - [ ] **Chunking Strategy**:
+    - [ ] Implement 512-1024 token chunking for long text fields
+    - [ ] Preserve markdown structure (`### Headers`, bullets)
+    - [ ] Configurable chunk size per collection
+  - [ ] **Schema Management**:
+    - [ ] Define filterable fields (title, region, prep_time, etc.)
+    - [ ] Support for typed fields (string, number, array, datetime)
+    - [ ] Auto-generate UUIDs or accept user-provided IDs
+  - [ ] **Data Transformation**:
+    - [ ] New wrapper service must transform/normalize structured JSON
+    - [ ] Flatten nested objects for indexing
+    - [ ] Handle array fields (ingredients as searchable text)
+  - [ ] **Embedding Configuration**:
+    - [ ] Support rich embedding models (text-embedding-3-large, instructor-xl)
+    - [ ] Per-field embedding strategies (instructions vs. title)
+  - [ ] **Query Features**:
+    - [ ] Filtered search: semantic + structured filters (e.g., "British desserts")
+    - [ ] Hybrid queries: combine vector similarity with field constraints
+    - [ ] Result ranking with field weighting
+
 - [ ] **Provider Selection Guide in Docs** ✅ DOCUMENTED
   - [x] Added "Choosing a RAG Provider" section to RAG_SERVICES.md
   - [x] Comparison table by data complexity
