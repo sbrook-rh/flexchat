@@ -107,7 +107,7 @@
                 "maximum": 1,
                 "description": "Distance threshold for RAG detection"
               },
-              "fallback_threshold": {
+              "partial_threshold": {
                 "type": "number",
                 "minimum": 0,
                 "maximum": 1,

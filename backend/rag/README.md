@@ -90,8 +90,8 @@ Content-Type: application/json
   "metadata": {
     "description": "Description for LLM detection",
     "system_prompt": "Custom prompt for responses",
-    "threshold": 0.3,
-    "fallback_threshold": 0.5,
+    "match_threshold": 0.3,
+    "partial_threshold": 0.5,
     "max_tokens": 800,
     "temperature": 0.7
   },

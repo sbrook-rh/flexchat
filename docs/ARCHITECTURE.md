@@ -169,8 +169,8 @@ The system uses a single configuration file with three main sections:
       "detection": {
         "type": "rag",
         "knowledge_base": "openshift",
-        "threshold": 0.2,
-        "fallback_threshold": 0.45,
+        "match_threshold": 0.2,
+        "partial_threshold": 0.45,
         "description": "if it's about Red Hat OpenShift..."
       },
       "response": {
@@ -201,8 +201,8 @@ The system uses a single configuration file with three main sections:
 **RAG Detection (`"rag"`)**
 - Queries knowledge base directly
 - If distance < threshold → strategy detected immediately
-- If fallback_threshold specified and distance in range → include in LLM detection
-- If distance > fallback_threshold → exclude from LLM detection
+- If partial_threshold specified and distance in range → include in LLM detection
+- If distance > partial_threshold → exclude from LLM detection
 
 **LLM Detection (`"llm"`)**
 - Included in single LLM intent detection query

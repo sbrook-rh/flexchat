@@ -62,8 +62,8 @@ Each strategy has:
 - **`detection`**: How to detect this strategy
   - `type`: "rag", "llm", or "default"
   - `knowledge_base`: Knowledge base name (for RAG)
-  - `threshold`: Distance threshold for immediate detection
-  - `fallback_threshold`: Optional upper threshold for hybrid detection
+  - `match_threshold`: Distance threshold for immediate detection
+  - `partial_threshold`: Optional upper threshold for hybrid detection
   - `description`: Text used in LLM intent detection
 - **`response`**: How to generate responses
   - `provider`: AI provider name
@@ -77,8 +77,8 @@ Each strategy has:
 ### RAG Detection (`"rag"`)
 - Queries knowledge base directly
 - If distance < threshold → strategy detected
-- If fallback_threshold specified and distance in range → include in LLM detection
-- If distance > fallback_threshold → exclude from LLM detection
+- If partial_threshold specified and distance in range → include in LLM detection
+- If distance > partial_threshold → exclude from LLM detection
 
 ### LLM Detection (`"llm"`)
 - Included in LLM intent detection query

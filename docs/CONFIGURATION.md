@@ -130,7 +130,7 @@ Define how the system detects and responds to different types of queries:
 **Detection Fields (for `rag`):**
 - `knowledge_base`: Reference to knowledge base name
 - `threshold`: Distance threshold for match (0-2, lower = stricter)
-- `fallback_threshold`: Optional upper threshold for LLM fallback
+- `partial_threshold`: Optional upper threshold for LLM fallback
 - `description`: Text for LLM detection (if using fallback)
 
 **Response Fields:**

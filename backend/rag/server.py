@@ -7,9 +7,18 @@ from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import uuid
 import requests
+import argparse
 
 # Load environment variables
 load_dotenv()
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='ChromaDB Wrapper Service')
+parser.add_argument('--chroma-path', type=str, default='./chroma_db',
+                    help='Path to ChromaDB storage directory (default: ./chroma_db)')
+parser.add_argument('--port', type=int, default=5006,
+                    help='Server port (default: 5006)')
+args = parser.parse_args()
 
 # Embedding provider configuration
 EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "ollama").lower()
@@ -110,8 +119,8 @@ app.add_middleware(
 )
 
 # Initialize ChromaDB
-print("🔄 Connecting to ChromaDB...")
-chroma_client = chromadb.PersistentClient(path="./chroma_db")
+print(f"🔄 Connecting to ChromaDB at {args.chroma_path}...")
+chroma_client = chromadb.PersistentClient(path=args.chroma_path)
 print("✅ ChromaDB initialized.")
 
 # Pydantic models
@@ -422,10 +431,14 @@ def delete_documents(collection_name: str, ids: List[str]):
 def query_db(request: QueryRequest):
     """Query a collection"""
     print(f"🔍 Received query: {request.query}")
+    print(f"   📦 Collection: {request.collection}")
+    print(f"   🔢 Top K: {request.top_k}")
+    print(f"   📋 Full request: {request}")
     
     try:
         # Get collection (must be specified)
         if not request.collection:
+            print(f"   ❌ ERROR: No collection specified in request")
             raise HTTPException(
                 status_code=400,
                 detail="Collection name is required"
@@ -433,9 +446,14 @@ def query_db(request: QueryRequest):
         
         collection_name = request.collection
         
+        print(f"   🔍 Looking for collection: '{collection_name}'")
+        
         try:
             collection = chroma_client.get_collection(name=collection_name)
+            print(f"   ✅ Collection found: {collection.name}")
         except Exception as e:
+            print(f"   ❌ ERROR: Collection '{collection_name}' not found")
+            print(f"   ℹ️  Available collections: {[c.name for c in chroma_client.list_collections()]}")
             raise HTTPException(
                 status_code=404,
                 detail=f"Collection '{collection_name}' not found"
@@ -493,5 +511,6 @@ def query_db(request: QueryRequest):
 # Run the server (if executed directly)
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=5006)
+    print(f"🚀 Starting server on port {args.port}...")
+    uvicorn.run(app, host="0.0.0.0", port=args.port)
 
