@@ -112,27 +112,45 @@ function validateConfig(config) {
 }
 
 /**
- * Resolve config file path from CLI args or defaults
+ * Resolve config file path from CLI args or environment variables
  * 
- * @param {string|null} providedPath - Path provided via CLI argument
+ * Priority order:
+ * 1. CLI argument (--config)
+ * 2. FLEX_CHAT_CONFIG_FILE or FLEX_CHAT_CONFIG_FILE_PATH env var (full file path)
+ * 3. FLEX_CHAT_CONFIG_DIR env var (directory containing config.json)
+ * 4. Default: ./config/config.json from current working directory
+ * 
+ * @param {string|null} providedPath - Path provided via CLI argument (file or directory)
  * @returns {string} Resolved absolute path to config file
  */
 function resolveConfigPath(providedPath) {
   let configPath;
   
   if (providedPath) {
-    // CLI argument provided
-    configPath = path.isAbsolute(providedPath) 
+    // 1. CLI argument provided - can be file or directory
+    const resolvedPath = path.isAbsolute(providedPath) 
       ? providedPath 
       : path.resolve(process.cwd(), providedPath);
-    console.log(`📝 Using config from CLI argument: ${providedPath}`);
-  } else if (process.env.CHAT_CONFIG_PATH) {
-    // Environment variable
-    configPath = process.env.CHAT_CONFIG_PATH;
-    console.log(`📝 Using config from CHAT_CONFIG_PATH env var: ${configPath}`);
+    
+    // If it's a directory, look for config.json inside
+    if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
+      configPath = path.join(resolvedPath, 'config.json');
+      console.log(`📝 Using config from CLI directory: ${resolvedPath}`);
+    } else {
+      configPath = resolvedPath;
+      console.log(`📝 Using config from CLI argument: ${providedPath}`);
+    }
+  } else if (process.env.FLEX_CHAT_CONFIG_FILE || process.env.FLEX_CHAT_CONFIG_FILE_PATH) {
+    // 2. Environment variable - full file path
+    configPath = process.env.FLEX_CHAT_CONFIG_FILE || process.env.FLEX_CHAT_CONFIG_FILE_PATH;
+    console.log(`📝 Using config from env var: ${configPath}`);
+  } else if (process.env.FLEX_CHAT_CONFIG_DIR) {
+    // 3. Environment variable - directory path
+    configPath = path.join(process.env.FLEX_CHAT_CONFIG_DIR, 'config.json');
+    console.log(`📝 Using config from FLEX_CHAT_CONFIG_DIR: ${process.env.FLEX_CHAT_CONFIG_DIR}`);
   } else {
-    // Default location
-    configPath = path.join(__dirname, '../../../config/config.json');
+    // 4. Default: config/config.json relative to project root (cwd)
+    configPath = path.join(process.cwd(), 'config', 'config.json');
     console.log(`📝 Using default config: config/config.json`);
   }
   

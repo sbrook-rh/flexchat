@@ -48,7 +48,7 @@ function parseArguments() {
   const program = new Command();
 
   program
-    .option('--config <path>', 'Path to configuration file', 'config/config.json')
+    .option('--config <path>', 'Path to configuration file (file or directory)')
     .option('--port <number>', 'Port to listen on', 5005)
     .helpOption('-h, --help', 'Display help for command')
 
