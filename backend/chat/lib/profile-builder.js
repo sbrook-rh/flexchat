@@ -55,7 +55,7 @@ async function buildProfileFromPartials(partialResults, topic, intentConfig, aiP
   if (hasPartials) {
     for (const result of partialResults) {
       categories.push({
-        name: result.identifier,
+        name: `${result.service}/${result.collection}`,
         description: result.description
       });
     }
@@ -64,13 +64,13 @@ async function buildProfileFromPartials(partialResults, topic, intentConfig, aiP
   // Build the classification prompt
   const categoriesText = categories.map(c => `- "${c.name}": ${c.description}`).join('\n');
   
-  const prompt = `You are classifying user queries.
+  const prompt = `You are classifying the user's query.
 
 Available categories:
 ${categoriesText}
 - "other": Query doesn't fit any category
 
-Current query: "${topic}"
+Current query/topic: "${topic}"
 
 Reply with ONLY the category name that best matches. If nothing fits, reply "other".`;
 
@@ -114,6 +114,13 @@ Reply with ONLY the category name that best matches. If nothing fits, reply "oth
         profile.collection = parts[1];
         console.log(`   📍 Parsed as service/collection: ${profile.service}/${profile.collection}`);
       }
+    }
+
+    if (profile.intent === 'other' && hasPartials) {
+      const best = partialResults.reduce((a,b) => a.distance < b.distance ? a : b);
+      profile.intent = `${best.service}/${best.collection}`;
+      profile.service = best.service;
+      profile.collection = best.collection;
     }
     
   } catch (error) {

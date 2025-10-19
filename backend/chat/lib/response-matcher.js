@@ -74,7 +74,7 @@ function evaluateMatch(matchClause, profile) {
  * @throws {Error} If no response rule matches
  */
 function matchResponseRule(profile, responses) {
-  console.log(`\n🎯 Phase 3: Matching response rule...`);
+  console.log(`\n🎯 Phase 3: Matching response rule... against service:${profile.service}, collection:${profile.collection}`);
   
   if (!responses || responses.length === 0) {
     throw new Error('No response rules defined in configuration');
@@ -82,7 +82,7 @@ function matchResponseRule(profile, responses) {
 
   for (let i = 0; i < responses.length; i++) {
     const response = responses[i];
-    
+    // console.log(`    Trying ${JSON.stringify(response.match)}`);
     // Check if this response matches
     if (evaluateMatch(response.match, profile)) {
       console.log(`   ✅ Matched response rule #${i + 1}`);

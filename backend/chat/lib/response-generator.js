@@ -6,43 +6,6 @@
  * 2. Calling the LLM with the constructed prompt
  */
 
-/**
- * Substitute template variables {{var}} from profile
- * 
- * @param {string} template - The prompt template with {{var}} placeholders
- * @param {Object} profile - The profile object containing values
- * @returns {string} Template with variables substituted
- */
-function substituteVariables(template, profile) {
-  if (!template) {
-    return '';
-  }
-
-  return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
-    const trimmedPath = path.trim();
-    
-    // Special case: rag_context should format documents
-    if (trimmedPath === 'rag_context') {
-      return (profile.documents.map(doc => doc.text).join("\n"));
-    }
-    
-    // Handle nested paths like "service.prompt"
-    const parts = trimmedPath.split('.');
-    let value = profile;
-    
-    for (const part of parts) {
-      if (value && typeof value === 'object') {
-        value = value[part];
-      } else {
-        value = undefined;
-        break;
-      }
-    }
-    
-    // Return value if found, otherwise keep placeholder
-    return value !== undefined ? value : match;
-  });
-}
 
 /**
  * Generate final response using LLM
@@ -67,6 +30,37 @@ async function generateResponse(profile, responseRule, aiProviders, userMessage,
   
   console.log(`   🤖 Using LLM: ${providerName} / ${responseRule.model}`);
   
+  function substituteVariables(template, profile) {
+    if (!template) {
+      return '';
+    }
+
+    return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
+      const trimmedPath = path.trim();
+      
+      // Special case: rag_context should format documents
+      if (trimmedPath === 'rag_context') {
+        return (profile.documents.map(doc => doc.text).join("\n"));
+      }
+      
+      // Handle nested paths like "service.prompt"
+      const parts = trimmedPath.split('.');
+      let value = profile;
+      
+      for (const part of parts) {
+        if (value && typeof value === 'object') {
+          value = value[part];
+        } else {
+          value = undefined;
+          break;
+        }
+      }
+      
+      // Return value if found, otherwise keep placeholder
+      return value !== undefined ? value : match;
+    });
+  }
+
   // Substitute variables in prompt (this becomes the system message)
   const systemPrompt = substituteVariables(responseRule.prompt, profile);
   console.log(`   📝 System prompt length: ${systemPrompt.length} characters`);
@@ -90,7 +84,7 @@ async function generateResponse(profile, responseRule, aiProviders, userMessage,
   messages.push({ role: 'user', content: userMessage });
   
   console.log(`   💬 Message structure: 1 system + ${previousMessages?.length || 0} history + 1 user`);
-  console.log(messages);
+  // console.log(messages);
   
   // Prepare options
   const options = {
@@ -111,7 +105,6 @@ async function generateResponse(profile, responseRule, aiProviders, userMessage,
 }
 
 module.exports = {
-  generateResponse,
-  substituteVariables
+  generateResponse
 };
 

@@ -26,17 +26,9 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
   }
   
   // Iterate through selected collections
-  for (const identifier of selectedCollections) {
-    console.log(`\n   📚 Querying: ${identifier}`);
-    
-    // Parse identifier into service + collection
-    const parts = identifier.split('/');
-    if (parts.length !== 2) {
-      console.warn(`   ⚠️  Invalid collection identifier: ${identifier} (expected format: service/collection)`);
-      continue;
-    }
-    
-    const [serviceName, collectionName] = parts;
+  for (const collection of selectedCollections) {
+    const serviceName = collection.service;
+    const collectionName = collection.name;
     
     // Get service configuration
     const serviceConfig = ragServicesConfig[serviceName];
@@ -62,19 +54,35 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
       const response = await provider.query(userMessage, queryOptions);
       
       if (!response || !response.results || response.results.length === 0) {
-        console.log(`   📭 No results from ${identifier}`);
+        console.log(`   📭 No results from ${serviceName}/${collectionName}`);
         continue;
       }
       
       const results = response.results;
       const collectionMetadata = response.collectionMetadata || {};
-      
+      // console.log(`   ⚙️ metadata: ${JSON.stringify(response.collectionMetadata)}`);
+
       // Get minimum distance from results
       const minDistance = Math.min(...results.map(r => r.distance));
       console.log(`   📊 Min distance: ${minDistance.toFixed(4)}`);
       
+      function classifyResult(distance, serviceConfig, collectionMetadata) {
+        const matchThreshold = collectionMetadata.match_threshold || serviceConfig.match_threshold;
+        const partialThreshold = collectionMetadata.partial_threshold || serviceConfig.partial_threshold;
+        
+        if (distance < matchThreshold) {
+          return 'match';
+        }
+        
+        if (partialThreshold !== undefined && distance < partialThreshold) {
+          return 'partial';
+        }
+        
+        return 'none';
+      }
+
       // Classify result based on thresholds
-      const resultType = classifyResult(minDistance, serviceConfig);
+      const resultType = classifyResult(minDistance, serviceConfig, collectionMetadata);
       
       if (resultType === 'none') {
         console.log(`   ⏭️  Distance too high, skipping (match_threshold: ${serviceConfig.match_threshold})`);
@@ -86,7 +94,6 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
       
       // Add to results array
       const ragResult = {
-        identifier,
         result_type: resultType,
         service: serviceName,
         collection: collectionName,
@@ -111,7 +118,7 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
       ragResults.push(ragResult);
       
     } catch (error) {
-      console.error(`   ❌ Error querying ${identifier}:`, error.message);
+      console.error(`   ❌ Error querying ${serviceName}/${collectionName}:`, error.message);
       // Continue to next collection on error
       // This allows the system to be resilient to individual provider failures
     }
@@ -123,29 +130,6 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
   return ragResults;
 }
 
-/**
- * Classify a result based on distance and service thresholds
- * 
- * @param {number} distance - The similarity distance
- * @param {Object} serviceConfig - RAG service configuration
- * @returns {string} "match" | "partial" | "none"
- */
-function classifyResult(distance, serviceConfig) {
-  const matchThreshold = serviceConfig.match_threshold;
-  const partialThreshold = serviceConfig.partial_threshold;
-  
-  if (distance < matchThreshold) {
-    return 'match';
-  }
-  
-  if (partialThreshold !== undefined && distance < partialThreshold) {
-    return 'partial';
-  }
-  
-  return 'none';
-}
-
 module.exports = {
-  collectRagResults,
-  classifyResult
+  collectRagResults
 };

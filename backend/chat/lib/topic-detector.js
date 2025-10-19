@@ -5,67 +5,110 @@
  */
 
 /**
- * Identify topic from recent queries
+ * Identify the current topic of conversation.
  *
- * @param {string} userMessage - The latest user's query
- * @param {Array<string>} recentUserMessages - Recent user messages for context (already filtered)
- * @param {Object} intentConfig - Intent detection configuration
- * @param {Object} aiProviders - Map of AI provider instances
- * @returns {string} Succinct description of the topic
+ * @param {string} userMessage - The latest user message.
+ * @param {Array<Object>} previousMessages - Full ordered conversation history [{ type: 'user' | 'bot', text: string }]
+ * @param {string} currentTopic - Previously detected topic summary.
+ * @param {Object} intentConfig - Intent detection configuration (provider + model).
+ * @param {Object} aiProviders - Map of AI provider instances.
+ * @returns {Promise<string>} Updated topic summary.
  */
-async function identifyTopic(userMessage, recentUserMessages, intentConfig, aiProviders) {
+async function identifyTopic(userMessage, previousMessages, currentTopic, intentConfig, aiProviders) {
   console.log(`\n🔎 Topic Detection: Identifying conversation topic...`);
-  
-  // If no conversation history, just use the user's message
-  if (!recentUserMessages || recentUserMessages.length === 0) {
-    console.log(`   ℹ️  No conversation history, using query as-is`);
-    return userMessage;
-  }
-  
-  // Check if LLM is available for topic detection
-  if (!intentConfig || !intentConfig.provider || !intentConfig.provider.llm || !intentConfig.provider.model) {
-    console.log(`   ⚠️  No intent detection config, using query as-is`);
-    return userMessage;
-  }
 
-  const providerName = intentConfig.provider.llm;
-  const modelName = intentConfig.provider.model;
+  // ---- Sanity checks -------------------------------------------------------
+  const providerName = intentConfig?.provider?.llm;
+  const modelName = intentConfig?.provider?.model;
+  const provider = aiProviders?.[providerName];
 
-  const provider = aiProviders[providerName];
   if (!provider) {
-    console.error(`   ❌ AI provider not found: ${providerName}, using query as-is`);
+    console.warn(`⚠️ No AI provider found (${providerName}), using userMessage as fallback`);
     return userMessage;
   }
 
-  const prompt = `You are identifying the current topic of a conversation. The user's latest question may:
-- Continue the previous topic
-- Ask a follow-up using unclear references (it, that, this)
-- Change to a completely new topic
+  // ---- Build context -------------------------------------------------------
+  function buildContextFromMessages(messages, currentTopic) {
+    const maxTurns = 6; // last ~6 turns total
+    const sliced = messages.slice(-maxTurns);
+    const contextLines = [];
 
-Previous questions:
-${recentUserMessages.map(msg => `- ${msg}`).join('\n')}
+    for (const msg of sliced) {
+      if (msg.type === "user") {
+        contextLines.push(`User: ${msg.text}`);
+      } else if (msg.type === "bot") {
+        if (!msg.text) continue;
 
-Latest question:
-- ${userMessage}
+        if (msg.text.length > 400) {
+          // Compress long assistant messages
+          const about = msg.topic || "a previous topic";
+          contextLines.push(
+            `Assistant: (summary) provided a detailed answer about ${about}.`
+          );
+        } else {
+          // Keep shorter assistant replies verbatim
+          contextLines.push(`Assistant: ${msg.text}`);
+        }
+      }
+    }
 
-Reply with a short, clear description of what the user is currently asking about. This will be used to search for relevant documents.`;
+    return contextLines.join("\n");
+  }
 
-  console.log(`   🔍 Topic detection prompt:\n${prompt}\n`);
+  const conversationContext = buildContextFromMessages(previousMessages, currentTopic);
 
+  // ---- Construct prompt ----------------------------------------------------
+  const prompt = `
+You are a topic-detection assistant.
+
+Your job:
+- Identify the main topic of the conversation based on recent exchanges.
+- The latest message may continue the same topic, ask a related follow-up, or change to a new subject.
+- If it’s related, slightly refine the topic; if it’s new, describe the new topic clearly.
+- If the current topic is none, and the Recent conversation is blank infer a clear starting topic from the latest message.
+- If the user’s new question is still about the same general domain or goal, treat it as a continuation with a broadened topic summary
+- Keep the topic summary concise and domain-level (≤10 words). Merge refinements conceptually rather than additively.
+
+Current known topic: "${currentTopic || "none"}"
+
+Recent conversation:
+${conversationContext}
+
+Latest user message:
+"${userMessage}"
+
+Reply in strict JSON:
+{
+  "topic_status": "continuation" | "new_topic",
+  "topic_summary": "<short updated topic summary>"
+}
+  `.trim();
+
+  // console.log(`🧾 Topic detection prompt:\n${prompt}\n`);
+
+  // ---- Model call ----------------------------------------------------------
   try {
-    const messages = [{ role: 'user', content: prompt }];
+    const messages = [{ role: "user", content: prompt }];
+
     const response = await provider.generateChat(messages, modelName, {
       max_tokens: 100,
-      temperature: 0.1  // Low temperature for deterministic classification
+      temperature: 0.1
     });
 
-    const topic = response.content.trim();
-    console.log(`   ✅ Detected topic: "${topic}"`);
-    return topic;
+    const raw = response.content.trim();
+    const match = raw.match(/\{[\s\S]*\}/); // extract JSON if wrapped in text
+    const parsed = match ? JSON.parse(match[0]) : { topic_status: "continuation", topic_summary: raw };
 
-  } catch (error) {
-    console.error(`   ❌ Error during topic detection:`, error.message);
-    return userMessage;  // Fallback to original query
+    if (!parsed.topic_summary || /^(none|general|conversation)$/i.test(parsed.topic_summary)) {
+      parsed.topic_summary = currentTopic || userMessage.slice(0, 40);
+    }
+    console.log(`✅ Topic: "${parsed.topic_summary}" (${parsed.topic_status})`);
+
+    return parsed.topic_summary;
+
+  } catch (err) {
+    console.error(`❌ Topic detection failed: ${err.message}`);
+    return userMessage; // fallback
   }
 }
 
