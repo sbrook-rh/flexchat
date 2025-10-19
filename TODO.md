@@ -134,7 +134,7 @@ Redesigning the configuration and request flow to eliminate overengineering:
 - [x] Handle context injection for RAG strategies
 - [x] Support for dynamic collections (created via UI)
 - [x] Add collection management API endpoints
-- [x] Implement fallback_threshold for RAG candidate detection
+- [x] Implement partial_threshold for RAG candidate detection
 - [x] Combine context from multiple selected collections (when all are candidates)
 - [x] Add proper error handling throughout
 - [x] Update package.json dependencies
