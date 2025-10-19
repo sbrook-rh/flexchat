@@ -27,7 +27,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Test response handler matching (dry-run)
     - Hot reload if safe mutation approach chosen
     - Audit log of config changes
-  - **Phase 3**: Advanced features (presets, wizard, versioning)
+  - **Phase 3**: Advanced features
+    - **Configuration Presets & Snapshots**: Save current config as named preset
+      - Store in config/presets/ directory with metadata
+      - List, preview, and load presets from UI
+      - Duplicate and edit existing presets
+      - Use cases: dev/staging/prod configs, experiments, team sharing
+    - Configuration wizard, versioning, import/export
+    - Visual response handler builder
   - **Key Technical Insight**:
     - Phase 1 reveals config lifecycle: load → env var substitution → runtime state
     - Answers critical question: Is config object mutated during operation?

@@ -1073,12 +1073,41 @@ Reusable "toolbox" templates creating specialized workspaces:
   - [ ] Audit log of config changes
 
 **Phase 3: Advanced Features** (Future)
-- [ ] Runtime config selection with presets
-- [ ] Initial configuration wizard (no-config mode)
-- [ ] Configuration versioning and rollback
-- [ ] Import/export configurations
-- [ ] Secrets management integration (vault, env vars)
-- [ ] Visual response handler builder
+- [ ] **Configuration Presets & Snapshots** 🆕
+  - [ ] **Save Config as Preset**:
+    - [ ] "Save As Preset" button in config viewer
+    - [ ] User provides name: "recipes-only", "support-bot", "dev-testing"
+    - [ ] Optional description and tags
+    - [ ] Store in `config/presets/` directory
+    - [ ] Include metadata: created_at, description, author, based_on
+  
+  - [ ] **Preset Management**:
+    - [ ] List available presets in UI (card grid or list)
+    - [ ] Preview preset contents before switching
+    - [ ] "Load Preset" - switch to preset (restart or hot reload)
+    - [ ] "Duplicate and Edit" - clone preset, modify, save as new
+    - [ ] Delete preset (with confirmation)
+    - [ ] Mark preset as "favorite" or "production"
+  
+  - [ ] **Use Cases**:
+    - Development: Quick switch between test configs
+    - Staging: "staging-openai", "staging-ollama" presets
+    - Production: Versioned production configs
+    - Experiments: "try-reasoning", "multi-rag-test"
+    - Team: Share preset via export → teammate imports
+  
+- [ ] **Configuration Management**:
+  - [ ] Runtime config selection from presets dropdown
+  - [ ] Initial configuration wizard (no-config mode)
+  - [ ] Configuration versioning and rollback
+  - [ ] Import/export configurations (JSON file)
+  - [ ] Share presets with team (export with sanitized secrets)
+  
+- [ ] **Advanced Editing**:
+  - [ ] Secrets management integration (vault, env vars)
+  - [ ] Visual response handler builder (drag-and-drop)
+  - [ ] Template variables helper (shows available: {{rag_context}}, etc.)
+  - [ ] Response handler testing sandbox
 
 **Why Start with Display Only:**
 - ✅ Easy to implement (just backend endpoint + React component)
