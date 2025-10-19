@@ -1,26 +1,32 @@
 import React, { useState, useEffect } from 'react';
-import NavBar from './NavBar';
+import { useSearchParams, Link } from 'react-router-dom';
 
-function Collections() {
+function Collections({ uiConfig, reloadConfig }) {
+  const [searchParams] = useSearchParams();
+  const currentWrapper = searchParams.get('wrapper');
+  
   const [collections, setCollections] = useState([]);
+  const [wrappers, setWrappers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
   // New collection form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newCollection, setNewCollection] = useState({
-    name: '',
+    displayName: '',
     description: '',
-    threshold: 0.3,
-    fallback_threshold: 0.5
+    match_threshold: 0.3,
+    partial_threshold: 0.5
   });
+  const [collectionId, setCollectionId] = useState('');
+  const [idError, setIdError] = useState('');
   
   // Edit collection form
   const [editingCollection, setEditingCollection] = useState(null);
   const [editForm, setEditForm] = useState({
     description: '',
-    threshold: 0.3,
-    fallback_threshold: 0.5
+    match_threshold: 0.3,
+    partial_threshold: 0.5
   });
   
   // Upload form
@@ -29,30 +35,83 @@ function Collections() {
   const [uploadFiles, setUploadFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
 
-  // Load collections on mount
+  // Populate from uiConfig on mount
   useEffect(() => {
-    loadCollections();
-  }, []);
-
-  const loadCollections = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch('/api/collections');
-      const data = await response.json();
-      setCollections(data.collections || []);
-      setError(null);
-    } catch (err) {
-      setError('Failed to load collections: ' + err.message);
-    } finally {
+    if (uiConfig) {
+      setCollections(uiConfig.collections || []);
+      setWrappers(uiConfig.wrappers || []);
       setLoading(false);
     }
+  }, [uiConfig]);
+
+  // Generate a valid collection ID from display name
+  const generateCollectionId = (displayName) => {
+    if (!displayName) return '';
+    
+    let id = displayName
+      .toLowerCase()
+      .trim()
+      // Replace spaces and special chars with hyphens
+      .replace(/[^a-z0-9_-]+/g, '-')
+      // Remove leading/trailing hyphens
+      .replace(/^-+|-+$/g, '')
+      // Collapse multiple hyphens
+      .replace(/-+/g, '-');
+    
+    // Truncate to 63 chars
+    if (id.length > 63) {
+      id = id.substring(0, 63).replace(/-+$/, '');
+    }
+    
+    return id;
   };
+
+  // Validate generated collection ID per ChromaDB rules
+  const validateCollectionId = (id) => {
+    if (!id) {
+      return 'Collection name cannot be empty';
+    }
+    
+    // ChromaDB naming rules:
+    if (id.length < 3) {
+      return 'Name too short (min 3 characters) - add more text';
+    }
+    
+    if (id.length > 63) {
+      return 'Name too long (max 63 characters)';
+    }
+    
+    if (!/^[a-zA-Z0-9]/.test(id)) {
+      return 'Generated ID must start with a letter or number';
+    }
+    
+    if (!/[a-zA-Z0-9]$/.test(id)) {
+      return 'Generated ID must end with a letter or number';
+    }
+    
+    if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+      return 'Invalid characters in name';
+    }
+    
+    if (/^(\d{1,3}\.){3}\d{1,3}$/.test(id)) {
+      return 'Name cannot look like an IP address';
+    }
+    
+    return ''; // Valid
+  };
+
 
   const createCollection = async (e) => {
     e.preventDefault();
     
-    if (!newCollection.name) {
-      alert('Collection name is required');
+    // Validate generated ID
+    if (idError) {
+      alert(idError);
+      return;
+    }
+    
+    if (!collectionId) {
+      alert('Please enter a collection name');
       return;
     }
     
@@ -61,11 +120,13 @@ function Collections() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newCollection.name,
+          name: collectionId,  // Use generated ID as the actual collection name
+          service: currentWrapper,
           metadata: {
+            display_name: newCollection.displayName,  // Store original display name
             description: newCollection.description,
-            threshold: parseFloat(newCollection.threshold),
-            fallback_threshold: parseFloat(newCollection.fallback_threshold),
+            match_threshold: parseFloat(newCollection.match_threshold),
+            partial_threshold: parseFloat(newCollection.partial_threshold),
             created_at: new Date().toISOString()
           }
         })
@@ -76,19 +137,21 @@ function Collections() {
         throw new Error(error.error || 'Failed to create collection');
       }
       
-      alert(`Collection "${newCollection.name}" created successfully!`);
+      alert(`Collection "${newCollection.displayName}" created successfully!`);
       
       // Reset form
       setNewCollection({
-        name: '',
+        displayName: '',
         description: '',
-        threshold: 0.3,
-        fallback_threshold: 0.5
+        match_threshold: 0.3,
+        partial_threshold: 0.5
       });
+      setCollectionId('');
+      setIdError('');
       setShowCreateForm(false);
       
-      // Reload collections
-      loadCollections();
+      // Reload UI config to update all pages
+      reloadConfig();
     } catch (err) {
       alert('Error creating collection: ' + err.message);
     }
@@ -106,10 +169,11 @@ function Collections() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          service: currentWrapper,
           metadata: {
             description: editForm.description,
-            threshold: parseFloat(editForm.threshold),
-            fallback_threshold: parseFloat(editForm.fallback_threshold),
+            match_threshold: parseFloat(editForm.match_threshold),
+            partial_threshold: parseFloat(editForm.partial_threshold),
             updated_at: new Date().toISOString()
           }
         })
@@ -126,12 +190,12 @@ function Collections() {
       setEditingCollection(null);
       setEditForm({
         description: '',
-        threshold: 0.3,
-        fallback_threshold: 0.5
+        match_threshold: 0.3,
+        partial_threshold: 0.5
       });
       
-      // Reload collections
-      loadCollections();
+      // Reload UI config to update all pages
+      reloadConfig();
     } catch (err) {
       alert('Error updating collection: ' + err.message);
     }
@@ -142,7 +206,7 @@ function Collections() {
     setEditForm({
       description: collection.metadata?.description || '',
       threshold: collection.metadata?.threshold || 0.3,
-      fallback_threshold: collection.metadata?.fallback_threshold || 0.5
+      partial_threshold: collection.metadata?.partial_threshold || 0.5
     });
     setShowCreateForm(false); // Close create form if open
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -152,8 +216,8 @@ function Collections() {
     setEditingCollection(null);
     setEditForm({
       description: '',
-      threshold: 0.3,
-      fallback_threshold: 0.5
+      match_threshold: 0.3,
+      partial_threshold: 0.5
     });
   };
 
@@ -163,7 +227,7 @@ function Collections() {
     }
     
     try {
-      const response = await fetch(`/api/collections/${collectionName}`, {
+      const response = await fetch(`/api/collections/${collectionName}?service=${currentWrapper}`, {
         method: 'DELETE'
       });
       
@@ -172,7 +236,7 @@ function Collections() {
       }
       
       alert(`Collection "${collectionName}" deleted successfully`);
-      loadCollections();
+      reloadConfig();
     } catch (err) {
       alert('Error deleting collection: ' + err.message);
     }
@@ -290,7 +354,10 @@ function Collections() {
       const response = await fetch(`/api/collections/${selectedCollection}/documents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ documents })
+        body: JSON.stringify({ 
+          documents,
+          service: currentWrapper
+        })
       });
       
       if (!response.ok) {
@@ -304,9 +371,10 @@ function Collections() {
       // Reset form
       setUploadText('');
       setUploadFiles([]);
+      setSelectedCollection('');
       
-      // Reload collections to update counts
-      loadCollections();
+      // Reload to update counts
+      reloadConfig();
     } catch (err) {
       alert('Error uploading documents: ' + err.message);
     } finally {
@@ -318,10 +386,20 @@ function Collections() {
     setUploadFiles(Array.from(e.target.files));
   };
 
+  // Filter collections if wrapper is specified
+  const displayCollections = currentWrapper
+    ? collections.filter(c => c.service === currentWrapper)
+    : collections;
+
+  // Find wrapper info to check if pinned
+  const currentWrapperInfo = currentWrapper 
+    ? wrappers.find(w => w.name === currentWrapper)
+    : null;
+  const isPinned = currentWrapperInfo?.collection;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <NavBar />
         <div className="max-w-6xl mx-auto p-6">
           <div className="text-center py-12">
             <div className="text-gray-600">Loading collections...</div>
@@ -333,12 +411,38 @@ function Collections() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <NavBar />
-      
+      {/* Simple header with navigation */}
+      <div className="bg-white border-b border-gray-200 py-4 px-6">
+        <div className="max-w-6xl mx-auto flex items-center gap-4">
+          <Link to="/" className="text-sm text-gray-600 hover:text-gray-800">
+            ← Home
+          </Link>
+          <span className="text-gray-300">|</span>
+          <Link to="/chat" className="text-sm text-blue-600 hover:text-blue-800">
+            Chat
+          </Link>
+          <div className="flex-1 text-center">
+            <span className="text-lg font-semibold text-gray-800">Collection Management</span>
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-6xl mx-auto p-6">
+        {/* Header with breadcrumb/title */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Collection Management</h1>
-          <p className="text-gray-600">Create and manage knowledge base collections</p>
+          {currentWrapper ? (
+            <>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Managing: {currentWrapper}
+              </h1>
+              <p className="text-gray-600">Collections from this wrapper service</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">All Collections</h1>
+              <p className="text-gray-600">Create and manage knowledge base collections</p>
+            </>
+          )}
         </div>
 
         {error && (
@@ -351,25 +455,29 @@ function Collections() {
         <div className="bg-white rounded-lg shadow mb-8">
           <div className="p-6 border-b border-gray-200 flex justify-between items-center">
             <h2 className="text-xl font-semibold text-gray-900">Available Collections</h2>
-            <button
-              onClick={() => {
-                setShowCreateForm(!showCreateForm);
-                if (editingCollection) cancelEditing();
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-            >
-              {showCreateForm ? 'Cancel' : '+ Create New Collection'}
-            </button>
+            {!isPinned && (
+              <button
+                onClick={() => {
+                  setShowCreateForm(!showCreateForm);
+                  if (editingCollection) cancelEditing();
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+              >
+                {showCreateForm ? 'Cancel' : '+ Create New Collection'}
+              </button>
+            )}
           </div>
           
           <div className="p-6">
-            {collections.length === 0 ? (
+            {displayCollections.length === 0 ? (
               <p className="text-gray-500 text-center py-8">
-                No collections found. Create one to get started!
+                {currentWrapper
+                  ? `No collections found in "${currentWrapper}". Create one to get started!`
+                  : 'No collections found. Create one to get started!'}
               </p>
             ) : (
               <div className="grid gap-4">
-                {collections.map((collection) => (
+                {displayCollections.map((collection) => (
                   <div
                     key={collection.name}
                     className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition"
@@ -377,8 +485,13 @@ function Collections() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                          📚 {collection.name}
+                          📚 {collection.metadata?.display_name || collection.name}
                         </h3>
+                        {collection.metadata?.display_name && (
+                          <p className="text-xs text-gray-400 mb-1">
+                            ID: <code className="bg-gray-100 px-1 py-0.5 rounded">{collection.name}</code>
+                          </p>
+                        )}
                         {collection.metadata?.description && (
                           <p className="text-gray-600 text-sm mb-2">
                             {collection.metadata.description}
@@ -386,11 +499,11 @@ function Collections() {
                         )}
                         <div className="flex flex-wrap gap-4 text-sm text-gray-500">
                           <span>{collection.count} documents</span>
-                          {collection.metadata?.threshold !== undefined && (
-                            <span>Threshold: {collection.metadata.threshold}</span>
+                          {collection.metadata?.match_threshold !== undefined && (
+                            <span>Threshold: {collection.metadata.match_threshold}</span>
                           )}
-                          {collection.metadata?.fallback_threshold !== undefined && (
-                            <span>Fallback: {collection.metadata.fallback_threshold}</span>
+                          {collection.metadata?.partial_threshold !== undefined && (
+                            <span>Fallback: {collection.metadata.partial_threshold}</span>
                           )}
                         </div>
                       </div>
@@ -410,12 +523,14 @@ function Collections() {
                         >
                           Upload Docs
                         </button>
-                        <button
-                          onClick={() => deleteCollection(collection.name)}
-                          className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
-                        >
-                          Delete
-                        </button>
+                        {!(isPinned && collection.name === currentWrapperInfo?.collection) && (
+                          <button
+                            onClick={() => deleteCollection(collection.name)}
+                            className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -439,13 +554,35 @@ function Collections() {
                 </label>
                 <input
                   type="text"
-                  value={newCollection.name}
-                  onChange={(e) => setNewCollection({ ...newCollection, name: e.target.value })}
-                  placeholder="e.g., kubernetes_docs"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={newCollection.displayName}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setNewCollection({ ...newCollection, displayName: value });
+                    // Generate and validate ID on change
+                    const id = generateCollectionId(value);
+                    setCollectionId(id);
+                    const error = validateCollectionId(id);
+                    setIdError(error);
+                  }}
+                  placeholder="e.g., Tofu Magic, Kubernetes Documentation"
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                    idError 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-300 focus:border-blue-500'
+                  }`}
                   required
                 />
-                <p className="text-xs text-gray-500 mt-1">Use lowercase letters, numbers, and underscores</p>
+                {collectionId && !idError ? (
+                  <p className="text-xs text-green-600 mt-1">
+                    ✓ Will be created as: <code className="bg-gray-100 px-1 py-0.5 rounded">{collectionId}</code>
+                  </p>
+                ) : idError ? (
+                  <p className="text-xs text-red-600 mt-1">❌ {idError}</p>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enter a friendly name - we'll generate a valid ID automatically
+                  </p>
+                )}
               </div>
 
               <div>
@@ -469,11 +606,11 @@ function Collections() {
                   </label>
                   <input
                     type="number"
-                    step="0.1"
+                    step="0.05"
                     min="0"
                     max="2"
-                    value={newCollection.threshold}
-                    onChange={(e) => setNewCollection({ ...newCollection, threshold: e.target.value })}
+                    value={newCollection.match_threshold}
+                    onChange={(e) => setNewCollection({ ...newCollection, match_threshold: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">Direct match (lower = stricter)</p>
@@ -485,11 +622,11 @@ function Collections() {
                   </label>
                   <input
                     type="number"
-                    step="0.1"
+                    step="0.05"
                     min="0"
                     max="2"
-                    value={newCollection.fallback_threshold}
-                    onChange={(e) => setNewCollection({ ...newCollection, fallback_threshold: e.target.value })}
+                    value={newCollection.partial_threshold}
+                    onChange={(e) => setNewCollection({ ...newCollection, partial_threshold: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">For LLM assist (if no direct match)</p>
@@ -554,11 +691,11 @@ function Collections() {
                   </label>
                   <input
                     type="number"
-                    step="0.1"
+                    step="0.05"
                     min="0"
                     max="2"
-                    value={editForm.threshold}
-                    onChange={(e) => setEditForm({ ...editForm, threshold: e.target.value })}
+                    value={editForm.match_threshold}
+                    onChange={(e) => setEditForm({ ...editForm, match_threshold: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">Direct match (lower = stricter)</p>
@@ -570,11 +707,11 @@ function Collections() {
                   </label>
                   <input
                     type="number"
-                    step="0.1"
+                    step="0.05"
                     min="0"
                     max="2"
-                    value={editForm.fallback_threshold}
-                    onChange={(e) => setEditForm({ ...editForm, fallback_threshold: e.target.value })}
+                    value={editForm.partial_threshold}
+                    onChange={(e) => setEditForm({ ...editForm, partial_threshold: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">For LLM assist (if no direct match)</p>
@@ -609,7 +746,7 @@ function Collections() {
                 required
               >
                 <option value="">Choose a collection...</option>
-                {collections.map((c) => (
+                {displayCollections.map((c) => (
                   <option key={c.name} value={c.name}>
                     {c.name} ({c.count} docs)
                   </option>
