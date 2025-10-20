@@ -1,7 +1,7 @@
 /**
- * Profile Builder - Phase 1b of request flow
+ * Profile Builder - Phase 4 of request flow
  * 
- * Builds a normalized profile object from RAG results.
+ * Builds a normalized profile object from topic, RAG results envelope, and intent.
  * The profile is used for response matching and variable substitution.
  */
 
@@ -16,7 +16,7 @@ function buildProfileFromMatch(matchResult) {
     rag_results: 'match',
     service: matchResult.service,
     collection: matchResult.collection,
-    intent: matchResult.identifier,
+    intent: `${matchResult.service}/${matchResult.collection}`,
     documents: matchResult.documents
   };
 }
@@ -133,8 +133,58 @@ If nothing fits exactly, reply: other.`;
   return profile;
 }
 
+/**
+ * Unified profile builder using topic, RAG envelope, and intent.
+ * @param {string} topic
+ * @param {{ result: 'match'|'partial'|'none', data: any }} rag
+ * @param {string|undefined} intent
+ * @returns {Object} profile
+ */
+function buildProfile(topic, rag, intent) {
+  if (!rag || rag.result === 'none') {
+    return {
+      rag_results: 'none',
+      intent,
+      documents: []
+    };
+  }
+
+  if (rag.result === 'match') {
+    const m = rag.data;
+    return {
+      rag_results: 'match',
+      service: m.service,
+      collection: m.collection,
+      intent: intent || `${m.service}/${m.collection}`,
+      documents: m.documents
+    };
+  }
+
+  // partial
+  const partials = Array.isArray(rag.data) ? rag.data : [];
+  const documents = partials.flatMap(r => r.documents || []);
+
+  const profile = {
+    rag_results: 'partial',
+    intent,
+    documents
+  };
+
+  // If intent encodes service/collection, parse it for convenience
+  if (intent && intent.includes('/')) {
+    const parts = intent.split('/');
+    if (parts.length === 2) {
+      profile.service = parts[0];
+      profile.collection = parts[1];
+    }
+  }
+
+  return profile;
+}
+
 module.exports = {
   buildProfileFromMatch,
-  buildProfileFromPartials
+  buildProfileFromPartials,
+  buildProfile
 };
 

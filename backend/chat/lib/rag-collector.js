@@ -1,28 +1,29 @@
 /**
- * RAG Collector - Phase 1 of request flow
+ * RAG Collector - Phase 2 of request flow
  * 
- * Collects RAG query results from selected collections.
+ * Collects RAG query results from selected collections and returns a
+ * normalized envelope describing the outcome.
  * Does NOT make routing decisions - just collects data.
  */
 
 /**
  * Collect RAG results from selected collections
  * 
- * @param {string} userMessage - The user's query
- * @param {Array<string>} selectedCollections - Array of collection identifiers (e.g., ["service/collection"])
+ * @param {string} topic - The detected topic (normalized) used for querying RAG
+ * @param {Array<Object>} selectedCollections - Array of { service, name }
  * @param {Object} ragServicesConfig - RAG services configuration from config.rag_services
  * @param {Object} ragProviders - Map of initialized RAG provider instances
- * @returns {Promise<Object|Array>} Single match object, or array of partial results, or empty array
+ * @returns {Promise<{ result: 'match' | 'partial' | 'none', data: Object | Array | null }>} Normalized envelope
  */
-async function collectRagResults(userMessage, selectedCollections, ragServicesConfig, ragProviders) {
-  console.log(`\n🔍 Phase 1: Collecting RAG results...`);
+async function collectRagResults(topic, selectedCollections, ragServicesConfig, ragProviders) {
+  console.log(`\n🔍 Collecting RAG results...`);
   
   const ragResults = [];
   
   // If no collections selected, return empty array
   if (!selectedCollections || selectedCollections.length === 0) {
     console.log(`   ℹ️  No collections selected, skipping RAG queries`);
-    return ragResults;
+    return { result: 'none', data: null };
   }
   
   // Iterate through selected collections
@@ -51,7 +52,7 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
         top_k: 3  // TODO: make configurable
       };
       
-      const response = await provider.query(userMessage, queryOptions);
+      const response = await provider.query(topic, queryOptions);
       
       if (!response || !response.results || response.results.length === 0) {
         console.log(`   📭 No results from ${serviceName}/${collectionName}`);
@@ -110,8 +111,8 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
       
       // If this is a match, return immediately (query_mode: "first")
       if (resultType === 'match') {
-        console.log(`   🎯 Match found! Returning single match object.`);
-        return ragResult;
+        console.log(`   🎯 Match found! Returning normalized envelope.`);
+        return { result: 'match', data: ragResult };
       }
       
       // Otherwise, collect partial result
@@ -126,8 +127,11 @@ async function collectRagResults(userMessage, selectedCollections, ragServicesCo
   
   console.log(`\n   📦 Collected ${ragResults.length} partial result(s)`);
   
-  // Return array of partial results (or empty array if none)
-  return ragResults;
+  if (ragResults.length === 0) {
+    return { result: 'none', data: null };
+  }
+  
+  return { result: 'partial', data: ragResults };
 }
 
 module.exports = {

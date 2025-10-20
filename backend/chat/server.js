@@ -6,8 +6,9 @@ const { registry: aiRegistry } = require('./ai-providers/providers');
 const { registry: ragRegistry } = require('./retrieval-providers/providers');
 const { identifyTopic } = require('./lib/topic-detector');
 const { collectRagResults } = require('./lib/rag-collector');
-const { buildProfileFromMatch, buildProfileFromPartials } = require('./lib/profile-builder');
-const { matchResponseRule } = require('./lib/response-matcher');
+const { buildProfileFromMatch, buildProfileFromPartials, buildProfile } = require('./lib/profile-builder');
+const { detectIntent } = require('./lib/intent-detector');
+const { findResponseHandler } = require('./lib/response-matcher');
 const { generateResponse } = require('./lib/response-generator');
 const { 
   listCollections, 
@@ -362,37 +363,32 @@ app.post('/chat/api', async (req, res) => {
     console.log(`   Latest topic: ${currentTopic}`);
     // console.log(`   previous Messages: ${JSON.stringify(previousMessages)}`);
 
+    // Phase 1: Topic detection
     const topic = await identifyTopic(userMessage, previousMessages, currentTopic, config.intent, aiProviders);
-    // suggested upgrade direction....
-    // const { topic, status } = await identifyTopic(...);
+    // const { topic, status } = await identifyTopic(...); // future enhancement
     // if (status === 'new_topic') clearRagCache();
 
     const normalizedTopic = topic.replace(/\s+/g, ' ').trim().toLowerCase();
 
-    const result = await collectRagResults(
+    // Phase 2: RAG collection
+    const rag = await collectRagResults(
       normalizedTopic,
       selectedCollections,
       config.rag_services || {},
       ragProviders
     );
 
-    // Phase 1b: Build profile based on RAG results
-    let profile;
+    // Phase 3: Intent detection (with inline refinement on 'other' + partials)
+    const intent = await detectIntent(topic, rag, config.intent, aiProviders);
 
-    if (result && typeof result === 'object' && !Array.isArray(result)) {
-      // Single match object - intent is set to identifier
-      profile = buildProfileFromMatch(result);
-    } else {
-      // Array of partials or empty array - perform intent detection
-      // Use the detected topic (not raw message) for better classification
-      profile = await buildProfileFromPartials(result, topic, config.intent, aiProviders);
-    }
+    // Phase 4: Build profile
+    const profile = buildProfile(topic, rag, intent);
 
-    // Phase 3: Match response rule
-    const responseRule = matchResponseRule(profile, config.responses);
+    // Phase 5: Match response rule
+    const responseHandler = findResponseHandler(profile, config.responses);
 
-    // Phase 4: Generate response
-    const responseData = await generateResponse(profile, responseRule, aiProviders, userMessage, previousMessages);
+    // Phase 6: Generate response
+    const responseData = await generateResponse(profile, responseHandler, aiProviders, userMessage, previousMessages);
 
     res.json({
       response: responseData.content,

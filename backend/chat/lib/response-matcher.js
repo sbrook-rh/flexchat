@@ -1,5 +1,5 @@
 /**
- * Response Matcher - Phase 3 of request flow
+ * Response Matcher - Phase 5 of request flow
  * 
  * Matches a response rule from config against the profile.
  * First match wins, fallback response has no match clause.
@@ -73,8 +73,8 @@ function evaluateMatch(matchClause, profile) {
  * @returns {Object} The matched response rule
  * @throws {Error} If no response rule matches
  */
-function matchResponseRule(profile, responses) {
-  console.log(`\n🎯 Phase 3: Matching response rule... against rag_results:${profile.rag_results}, service:${profile.service}, collection:${profile.collection}`);
+function findResponseHandler(profile, responses) {
+  console.log(`\n🎯 Finding response handler against rag_results:${profile.rag_results}, service:${profile.service}, collection:${profile.collection}`);
   
   if (!responses || responses.length === 0) {
     throw new Error('No response rules defined in configuration');
@@ -100,7 +100,6 @@ function matchResponseRule(profile, responses) {
 }
 
 module.exports = {
-  matchResponseRule,
-  evaluateMatch
+  findResponseHandler
 };
 

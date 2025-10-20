@@ -1,5 +1,5 @@
 /**
- * Response Generator - Phase 4 of request flow
+ * Response Generator - Phase 6 of request flow
  * 
  * Generates the final response by:
  * 1. Substituting template variables {{var}} in prompt
@@ -18,7 +18,7 @@
  * @returns {Promise<Object>} Object with { content, service, model }
  */
 async function generateResponse(profile, responseRule, aiProviders, userMessage, previousMessages) {
-  console.log(`\n💬 Phase 4: Generating response...`);
+  console.log(`\n💬 Generating response...`);
   
   // Get LLM provider
   const providerName = responseRule.llm;
