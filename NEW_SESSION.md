@@ -50,13 +50,14 @@ git branch
 ```
 backend/
   chat/
-    server.js - Main chat server with 4-phase processing flow
+    server.js - Main chat server with 6-phase processing flow
     lib/ - Core processing modules
       topic-detector.js - Phase 1: Topic detection
       rag-collector.js - Phase 2: RAG collection search
-      profile-builder.js - Phase 3: Profile building
-      response-matcher.js - Phase 4a: Response handler matching
-      response-generator.js - Phase 4b: Response generation
+      intent-detector.js - Phase 3: Intent detection
+      profile-builder.js - Phase 4: Profile building
+      response-matcher.js - Phase 5: Response handler matching
+      response-generator.js - Phase 6: Response generation
     ai-providers/ - AI provider abstraction (OpenAI, Ollama)
     retrieval-providers/ - RAG service abstraction (ChromaDB wrapper)
     __tests__/ - Jest tests
@@ -80,10 +81,11 @@ docs/
 ```
 
 ### Key Technical Concepts (v2.0)
-- **4-Phase Processing Flow**: Topic Detection → RAG Collection → Profile Building → Response Generation
+- **6-Phase Processing Flow**: Topic Detection → RAG Collection → Intent Detection → Profile Building → Response Handler Matching → Response Generation
 - **Response Handlers** (not "strategies"): Rules in `responses` array with match criteria
 - **RAG Services** (not "knowledge bases"): Vector databases configured in `rag_services`
-- **Profile Object**: Context built in Phase 3, contains topic, intent, rag_result, documents
+- **RAG Envelope**: Normalized `{ result: "match"|"partial"|"none", data }` format
+- **Profile Object**: Context built in Phase 4, contains topic, intent, rag_results, documents
 - **Topic Awareness**: UI displays current topic and per-message topics
 - **Model Transparency**: Each response shows which LLM/model was used
 - **Dynamic Collections**: UI-created collections with metadata-driven behavior

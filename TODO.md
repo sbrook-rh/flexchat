@@ -16,7 +16,7 @@ This document tracks **future work and improvements**. For completed features an
 - [x] End-to-end testing with real services
   - [x] Test Ollama + ChromaDB integration
   - [x] Test OpenAI provider
-  - [x] Test Gemini provider
+  - [ ] Test Gemini provider
   - [x] Test all collection CRUD operations
   - [x] Test topic persistence across sessions
   - [x] Test pinned vs dynamic collections
@@ -393,20 +393,23 @@ Response:
 ## 🔧 Backend Enhancements
 
 ### Topic-Aware RAG Flow (REFACTOR_FLOW.md)
-**Status**: Planning phase - see `logs/REFACTOR_FLOW.md` for detailed design
 
 - [ ] **Phase 1: Topic Detection Enhancements**
   - [ ] Accept `topicHint` parameter from frontend (user override)
   - [ ] Use `topicHint || currentTopic` for RAG search (user override takes precedence)
   - [ ] Return topic status: `{ topic, status: 'new'|'continued'|'overridden' }`
 
-- [ ] **Phase 2: RAG Result Standardization**
-  - [ ] Refactor `collectRagResults()` to return structured format:
+- [x] **Phase 2: RAG Result Standardization** ✅ COMPLETED
+  - [x] Refactor `collectRagResults()` to return structured format:
     ```js
-    { result: "match" | "partial" | "none", data: {...} | [...] | undefined }
+    { result: "match" | "partial" | "none", data: {...} | [...] | null }
     ```
-  - [ ] Update profile builders to handle new format
-  - [ ] Add per-collection threshold configuration
+  - [x] Update profile builders to handle new format
+  - [x] Add per-collection threshold configuration
+  - [x] Extract intent detection into separate `intent-detector.js` module
+  - [x] Create unified `buildProfile()` function handling all RAG result types
+  - [x] Refactor server.js to use new 6-phase flow
+  - [x] Update phase annotations across all modules
 
 - [ ] **Phase 3: Conditional Intent Detection (OPTIMIZATION)**
   - [ ] Skip intent detection entirely when `rag.result === "match"`

@@ -17,11 +17,13 @@ A configuration-driven, AI-powered chat application with topic-aware RAG (Retrie
 - Metadata-driven behavior (system prompts, thresholds)
 - Upload documents through web interface
 
-### 🎯 **4-Phase Processing Flow**
+### 🎯 **6-Phase Processing Flow**
 1. **Topic Detection** - Extract user intent as a topic
-2. **RAG Collection Search** - Query relevant knowledge bases
-3. **Profile Building** - Construct context with intent detection
-4. **Response Generation** - Match and execute response handlers
+2. **RAG Collection** - Query relevant knowledge bases with normalized envelope
+3. **Intent Detection** - Detect user intent with fast path for matches
+4. **Profile Building** - Construct context from RAG results and intent
+5. **Response Handler Matching** - Find first matching response rule
+6. **Response Generation** - Generate final response using matched handler
 
 ### 🔧 **Configuration-Driven Architecture**
 - All behavior controlled by JSON configuration
@@ -291,13 +293,14 @@ flex-chat/
 │       └── Home.jsx       # Landing page
 ├── backend/
 │   ├── chat/              # Node.js chat server
-│   │   ├── server.js      # Main server with 4-phase flow
+│   │   ├── server.js      # Main server with 6-phase flow
 │   │   ├── lib/           # Core processing modules
 │   │   │   ├── topic-detector.js      # Phase 1: Topic detection
-│   │   │   ├── rag-collector.js       # Phase 2: RAG search
-│   │   │   ├── profile-builder.js     # Phase 3: Profile building
-│   │   │   ├── response-matcher.js    # Phase 4a: Handler matching
-│   │   │   └── response-generator.js  # Phase 4b: Response generation
+│   │   │   ├── rag-collector.js       # Phase 2: RAG collection
+│   │   │   ├── intent-detector.js     # Phase 3: Intent detection
+│   │   │   ├── profile-builder.js     # Phase 4: Profile building
+│   │   │   ├── response-matcher.js    # Phase 5: Handler matching
+│   │   │   └── response-generator.js  # Phase 6: Response generation
 │   │   ├── ai-providers/  # AI provider abstraction
 │   │   └── retrieval-providers/ # RAG service abstraction
 │   └── rag/               # Python ChromaDB wrapper

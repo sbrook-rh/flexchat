@@ -102,18 +102,21 @@ When investigating or changing complex multi-step logic (e.g., strategy detectio
   7. Provider abstraction interfaces
 
 ## Project Architecture (v2.0)
-Flex Chat uses a **4-phase processing flow** for all chat requests:
+Flex Chat uses a **6-phase processing flow** for all chat requests:
 
 1. **Topic Detection** (`lib/topic-detector.js`) - Extract user intent as a topic
-2. **RAG Collection Search** (`lib/rag-collector.js`) - Query configured RAG services with topic
-3. **Profile Building** (`lib/profile-builder.js`) - Construct context with intent detection
-4. **Response Generation** (`lib/response-generator.js`) - Match and execute response handlers
+2. **RAG Collection** (`lib/rag-collector.js`) - Query configured RAG services with topic, return normalized envelope
+3. **Intent Detection** (`lib/intent-detector.js`) - Detect user intent with fast path for matches
+4. **Profile Building** (`lib/profile-builder.js`) - Construct context from RAG results and intent
+5. **Response Handler Matching** (`lib/response-matcher.js`) - Find first matching response rule
+6. **Response Generation** (`lib/response-generator.js`) - Generate final response using matched handler
 
 **Key Terminology:**
 - **Response Handlers** (not "strategies") - Rules in `responses` array with match criteria
 - **RAG Services** (not "knowledge bases") - Vector databases configured in `rag_services`
-- **Profile** - Context object built in Phase 3, used for response handler matching
+- **Profile** - Context object built in Phase 4, used for response handler matching
 - **Topic** - User intent extracted in Phase 1, used for RAG queries
+- **RAG Envelope** - Normalized `{ result: "match"|"partial"|"none", data }` format from Phase 2
 
 **Configuration Structure:**
 - `llms` - AI provider connections

@@ -42,9 +42,9 @@ Chat API (Express/Node.js)
 
 ---
 
-## Core Architecture: 4-Phase Flow
+## Core Architecture: 6-Phase Flow
 
-All chat requests follow a predictable linear flow through 4 phases:
+All chat requests follow a predictable linear flow through 6 phases:
 
 ### **Phase 1: Topic Detection**
 - **Module**: `lib/topic-detector.js`
@@ -68,46 +68,69 @@ All chat requests follow a predictable linear flow through 4 phases:
     - `distance < partial_threshold` → **PARTIAL** (candidate results)
     - `distance ≥ partial_threshold` → **NONE** (no relevant content)
   - Returns first MATCH found, or all PARTIAL candidates
-- **Output**: 
-  - Single match object (when confident match found)
-  - Array of partial candidates (when multiple possibilities)
-  - Empty array (when no relevant content)
+- **Output**: Normalized envelope:
+  ```javascript
+  {
+    result: "match" | "partial" | "none",
+    data: {
+      service: "recipes_wrapper",
+      collection: "comfort_soups", 
+      documents: [...],
+      distance: 0.23,
+      description: "..."
+    } | [...] | null
+  }
+  ```
 
-### **Phase 3: Profile Building**
+### **Phase 3: Intent Detection**
+- **Module**: `lib/intent-detector.js`
+- **Purpose**: Detect user intent with fast path for strong RAG matches
+- **Input**: Topic, RAG envelope, intent config, AI providers
+- **Process**:
+  - **Fast path**: If RAG result is "match", return `${service}/${collection}`
+  - **LLM path**: For "partial" or "none", classify using configured intents + partial summaries
+  - **Inline refinement**: If LLM returns "other" and partials exist, pick best by distance
+- **Output**: Intent string (e.g., "recipe", "recipes_wrapper/comfort_soups", "other")
+
+### **Phase 4: Profile Building**
 - **Module**: `lib/profile-builder.js`
 - **Purpose**: Build canonical profile object for response generation
-- **Input**: RAG results, topic, intent config
+- **Input**: Topic, RAG envelope, intent
 - **Process**:
-  - **If MATCH**: Build profile from single result (intent = collection identifier)
-  - **If PARTIAL/NONE**: Perform intent detection with LLM
-    - For PARTIAL: Include partial collections in prompt context
-    - For NONE: Use only configured intents
-    - Classify user intent (e.g., "recipe", "general", "other")
+  - **Match**: `{ rag_results: "match", service, collection, intent, documents }`
+  - **Partial**: `{ rag_results: "partial", intent, documents: merged }`
+  - **None**: `{ rag_results: "none", intent, documents: [] }`
 - **Output**: Profile object with:
   ```javascript
   {
+    rag_results: "match" | "partial" | "none",
     intent: "recipe",
     service: "recipes_wrapper",
     collection: "comfort_soups",
     documents: [...],  // RAG context documents
-    rag_result: "match" | "partial" | "none",
     // ... other metadata
   }
   ```
 
-### **Phase 4: Response Generation**
-- **Module**: `lib/response-generator.js`
-- **Purpose**: Match response rule and generate final response
-- **Input**: Profile, response rules, AI providers, user message
+### **Phase 5: Response Handler Matching**
+- **Module**: `lib/response-matcher.js`
+- **Purpose**: Find the first matching response handler
+- **Input**: Profile, response rules
 - **Process**:
-  1. **Response Matching** (`lib/response-matcher.js`):
-     - Sequential first-match pattern through response rules
-     - Match clauses: `{ intent, service, collection, rag_result }`
-     - First matching rule wins
-  2. **Template Substitution**:
+  - Sequential first-match pattern through response rules
+  - Match clauses: `{ intent, service, collection, rag_results }`
+  - First matching rule wins
+- **Output**: Response handler object
+
+### **Phase 6: Response Generation**
+- **Module**: `lib/response-generator.js`
+- **Purpose**: Generate final response using matched handler
+- **Input**: Profile, response handler, AI providers, user message
+- **Process**:
+  1. **Template Substitution**:
      - Replace `{{rag_context}}` with formatted document text
      - Replace `{{intent}}`, `{{topic}}`, etc. from profile
-  3. **LLM Call**:
+  2. **LLM Call**:
      - Call configured LLM provider with system prompt + conversation history
 - **Output**: 
   ```javascript
@@ -204,22 +227,37 @@ User Message
 │  Phase 2: RAG Collection                   │
 │  - Query selected collections              │
 │  - Classify by distance thresholds         │
-│  → Output: MATCH / PARTIAL / NONE          │
+│  - Return normalized envelope              │
+│  → Output: { result: "match", data: {...} }│
 └─────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────┐
-│  Phase 3: Profile Building                 │
-│  - If MATCH: use collection directly       │
-│  - If PARTIAL/NONE: detect intent via LLM  │
-│  → Output: Profile object                  │
+│  Phase 3: Intent Detection                 │
+│  - Fast path: match → service/collection   │
+│  - LLM path: classify with intents         │
+│  - Refine "other" with best partial        │
+│  → Output: "recipe" or "service/collection"│
 └─────────────────────────────────────────────┘
     ↓
 ┌─────────────────────────────────────────────┐
-│  Phase 4: Response Generation              │
-│  - Match response rule                     │
+│  Phase 4: Profile Building                 │
+│  - Build profile from RAG + intent         │
+│  - Set rag_results, documents, metadata    │
+│  → Output: { rag_results, intent, ... }    │
+└─────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────┐
+│  Phase 5: Response Handler Matching        │
+│  - Find first matching response rule       │
+│  - Match on intent, service, rag_results   │
+│  → Output: Response handler object         │
+└─────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────┐
+│  Phase 6: Response Generation              │
 │  - Substitute template variables           │
-│  - Call LLM with context                   │
-│  → Output: Response + metadata             │
+│  - Call LLM with system prompt + history  │
+│  → Output: { content, service, model }     │
 └─────────────────────────────────────────────┘
     ↓
 Response to User
