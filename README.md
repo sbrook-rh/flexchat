@@ -139,11 +139,13 @@ npm run dev
 ┌─────────────────────────────────────────┐
 │    Chat Server (Node.js + Express)      │
 │  ┌───────────────────────────────────┐  │
-│  │ 4-Phase Processing Flow:          │  │
+│  │ 6-Phase Processing Flow:          │  │
 │  │ 1. Topic Detection                │  │
-│  │ 2. RAG Collection Search          │  │
-│  │ 3. Profile Building               │  │
-│  │ 4. Response Generation            │  │
+│  │ 2. RAG Collection                 │  │
+│  │ 3. Intent Detection               │  │
+│  │ 4. Profile Building               │  │
+│  │ 5. Response Handler Matching      │  │
+│  │ 6. Response Generation            │  │
 │  └───────────────────────────────────┘  │
 │  - AI Provider Abstraction              │
 │  - RAG Service Abstraction              │
