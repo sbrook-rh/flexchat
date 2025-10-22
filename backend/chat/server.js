@@ -4,19 +4,9 @@ const path = require('path');
 const { loadConfig, resolveConfigPath } = require('./lib/config-loader');
 const { registry: aiRegistry } = require('./ai-providers/providers');
 const { registry: ragRegistry } = require('./retrieval-providers/providers');
-const { identifyTopic } = require('./lib/topic-detector');
-const { collectRagResults } = require('./lib/rag-collector');
-const { buildProfileFromMatch, buildProfileFromPartials, buildProfile } = require('./lib/profile-builder');
-const { detectIntent } = require('./lib/intent-detector');
-const { findResponseHandler } = require('./lib/response-matcher');
-const { generateResponse } = require('./lib/response-generator');
-const { 
-  listCollections, 
-  createCollection, 
-  deleteCollection, 
-  updateCollectionMetadata, 
-  addDocuments 
-} = require('./lib/collection-manager');
+const { createHealthRouter } = require('./routes/health');
+const { createCollectionsRouter } = require('./routes/collections');
+const { createChatRouter } = require('./routes/chat');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -161,6 +151,11 @@ async function initialize() {
 
   console.log('\n✅ Server initialized successfully\n');
 
+  // Mount route modules
+  app.use('/', createHealthRouter(config, aiProviders, ragProviders));
+  app.use('/api', createCollectionsRouter(config, ragProviders));
+  app.use('/chat', createChatRouter(config, aiProviders, ragProviders));
+
   // Start server
   const PORT = options.port;
   app.listen(PORT, () => {
@@ -174,238 +169,8 @@ async function initialize() {
 // API Endpoints
 // ============================================================================
 
-/**
- * Health check endpoint
- */
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    version: '2.0.0',
-    config_loaded: config !== null,
-    ai_providers: Object.keys(aiProviders),
-    rag_providers: Object.keys(ragProviders)
-  });
-});
 
-/**
- * List all collections from all RAG services
- * Returns collections, wrapper info, and hasWrappers flag for frontend
- */
-app.get('/api/collections', async (req, res) => {
-  try {
-    const result = await listCollections(config.rag_services, ragProviders);
-    res.json(result);  // Returns { collections, wrappers }
-  } catch (error) {
-    console.error('❌ Error listing collections:', error);
-    res.status(500).json({ 
-      error: 'Failed to list collections',
-      message: error.message 
-    });
-  }
-});
 
-/**
- * Get complete UI configuration
- * Returns collections, wrappers, and model selection config in one call
- */
-app.get('/api/ui-config', async (req, res) => {
-  try {
-    // Get collections and wrappers
-    const collectionsData = await listCollections(config.rag_services, ragProviders);
-    
-    // TODO: Build model selection config
-    // For now, return empty structure
-    const modelSelection = {
-      enabled: false,
-      providers: {}
-    };
-    
-    res.json({
-      collections: collectionsData.collections,
-      wrappers: collectionsData.wrappers,
-      modelSelection
-    });
-  } catch (error) {
-    console.error('❌ Error getting UI config:', error);
-    res.status(500).json({ 
-      error: 'Failed to get UI configuration',
-      message: error.message 
-    });
-  }
-});
-
-/**
- * Create a new collection
- * Requires service name to avoid ambiguity
- */
-app.post('/api/collections', async (req, res) => {
-  try {
-    const { name, metadata, service } = req.body;
-    
-    if (!name) {
-      return res.status(400).json({ error: 'Collection name is required' });
-    }
-    
-    if (!service) {
-      return res.status(400).json({ error: 'Service name is required' });
-    }
-    
-    const result = await createCollection(service, name, metadata, config.rag_services, ragProviders);
-    res.json(result);
-  } catch (error) {
-    console.error('❌ Error creating collection:', error);
-    res.status(500).json({ 
-      error: 'Failed to create collection',
-      message: error.message 
-    });
-  }
-});
-
-/**
- * Add documents to a collection
- * Requires service name to avoid ambiguity
- */
-app.post('/api/collections/:name/documents', async (req, res) => {
-  try {
-    const { name } = req.params;
-    const { documents, service } = req.body;
-    
-    if (!documents || !Array.isArray(documents)) {
-      return res.status(400).json({ error: 'Documents array is required' });
-    }
-    
-    if (!service) {
-      return res.status(400).json({ error: 'Service name is required' });
-    }
-    
-    const result = await addDocuments(service, name, documents, config.rag_services, ragProviders);
-    res.json(result);
-  } catch (error) {
-    console.error(`❌ Error adding documents to collection ${req.params.name}:`, error);
-    res.status(500).json({ 
-      error: 'Failed to add documents',
-      message: error.message 
-    });
-  }
-});
-
-/**
- * Update collection metadata
- * Requires service name to avoid ambiguity
- */
-app.put('/api/collections/:name/metadata', async (req, res) => {
-  try {
-    const { name } = req.params;
-    const { metadata, service } = req.body;
-    
-    if (!metadata || typeof metadata !== 'object') {
-      return res.status(400).json({ error: 'Metadata object is required' });
-    }
-    
-    if (!service) {
-      return res.status(400).json({ error: 'Service name is required' });
-    }
-    
-    const result = await updateCollectionMetadata(service, name, metadata, config.rag_services, ragProviders);
-    res.json(result);
-  } catch (error) {
-    console.error(`❌ Error updating metadata for collection ${req.params.name}:`, error);
-    res.status(500).json({ 
-      error: 'Failed to update metadata',
-      message: error.message 
-    });
-  }
-});
-
-/**
- * Delete a collection
- * Requires service name to avoid ambiguity
- */
-app.delete('/api/collections/:name', async (req, res) => {
-  try {
-    const { name } = req.params;
-    const { service } = req.query;
-    
-    if (!service) {
-      return res.status(400).json({ error: 'Service name is required (query parameter)' });
-    }
-    
-    await deleteCollection(service, name, config.rag_services, ragProviders);
-    res.json({ success: true, message: `Collection ${name} deleted` });
-  } catch (error) {
-    console.error(`❌ Error deleting collection ${req.params.name}:`, error);
-    res.status(500).json({ 
-      error: 'Failed to delete collection',
-      message: error.message 
-    });
-  }
-});
-
-/**
- * Main chat endpoint
- */
-app.post('/chat/api', async (req, res) => {
-  try {
-    const userMessage = req.body.prompt;
-    const selectedCollections = req.body.selectedCollections || [];
-    const previousMessages = req.body.previousMessages || [];
-    const currentTopic = req.body.topic; 
-    // Validate request
-    if (!userMessage || typeof userMessage !== 'string') {
-      return res.status(400).json({
-        error: 'Invalid request: prompt is required and must be a string'
-      });
-    }
-
-    console.log(`\n📨 Received chat request:`);
-    console.log(`   Message: "${userMessage.substring(0, 50)}${userMessage.length > 50 ? '...' : ''}"`);
-    console.log(`   Selected collections: ${JSON.stringify(selectedCollections)}`);
-    console.log(`   Latest topic: ${currentTopic}`);
-    // console.log(`   previous Messages: ${JSON.stringify(previousMessages)}`);
-
-    // Phase 1: Topic detection
-    const topic = await identifyTopic(userMessage, previousMessages, currentTopic, config.intent, aiProviders);
-    // const { topic, status } = await identifyTopic(...); // future enhancement
-    // if (status === 'new_topic') clearRagCache();
-
-    const normalizedTopic = topic.replace(/\s+/g, ' ').trim().toLowerCase();
-
-    // Phase 2: RAG collection
-    const rag = await collectRagResults(
-      normalizedTopic,
-      selectedCollections,
-      config.rag_services || {},
-      ragProviders
-    );
-
-    // Phase 3: Intent detection (with inline refinement on 'other' + partials)
-    const intent = await detectIntent(topic, rag, config.intent, aiProviders);
-
-    // Phase 4: Build profile
-    const profile = buildProfile(topic, rag, intent);
-
-    // Phase 5: Match response rule
-    const responseHandler = findResponseHandler(profile, config.responses);
-
-    // Phase 6: Generate response
-    const responseData = await generateResponse(profile, responseHandler, aiProviders, userMessage, previousMessages);
-
-    res.json({
-      response: responseData.content,
-      status: 'success',
-      topic,
-      service: responseData.service,
-      model: responseData.model
-    });
-
-  } catch (error) {
-    console.error('❌ Error handling chat request:', error);
-    res.status(500).json({
-      error: 'Internal server error',
-      message: error.message
-    });
-  }
-});
 
 // ============================================================================
 // Start Server
