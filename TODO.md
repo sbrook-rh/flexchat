@@ -2,7 +2,7 @@
 
 ## 📋 About This Document
 
-This document tracks **new ideas and ideas in progress**. For detailed implementation plans, see files referenced in parentheses
+This document tracks **immediate priorities and next features**. For detailed implementation plans, see files referenced in parentheses.
 
 ---
 
@@ -37,25 +37,6 @@ This document tracks **new ideas and ideas in progress**. For detailed implement
   - [ ] Real-time typing indicators
   - [ ] Partial response handling
   - [ ] Stream interruption
-
-### Advanced Capabilities
-- [ ] **Provider Implementations** (provider-implementations)
-  - [ ] Anthropic Claude provider
-  - [ ] Milvus RAG provider
-  - [ ] Provider health monitoring
-
-- [ ] **Advanced RAG Features** (advanced-rag-features)
-  - [ ] Provider data structure specialization
-  - [ ] Enhanced document ingestion
-  - [ ] Query enhancement
-  - [ ] RAG caching
-  - [ ] Multi-collection queries
-
-- [ ] **Maintenance & Operations** (maintenance-operations)
-  - [ ] Documentation updates
-  - [ ] Dependency updates
-  - [ ] Performance monitoring
-  - [ ] Security updates
 
 ---
 
@@ -103,15 +84,44 @@ This document tracks **new ideas and ideas in progress**. For detailed implement
   - [ ] Save/load named configurations
   - [ ] Share presets between team members
   - [ ] Quick switching between setups
+---
+
+## 🔄 In Progress
 
 ### Core Features
 - [ ] **Connection Builder Interface** (connection-builder)
   - [ ] Complete 949-line specification documented
   - [ ] All user flows and API endpoints designed
   - [ ] Security model thoroughly documented
-  - [ ] Phase 1: Core Infrastructure
-  - [ ] Phase 2: Enhanced UX - Model discovery, env var dropdown, name clash detection
-  - [ ] Phase 3: Advanced Features - Health monitoring, batch setup, templates
+  - [ ] Ready for Phase 1 implementation
+
+
+---
+
+## 🚀 Ready to Start
+
+---
+
+## 🔮 Future Ideas
+
+### Advanced Capabilities
+- [ ] **Provider Implementations** (provider-implementations)
+  - [ ] Anthropic Claude provider
+  - [ ] Milvus RAG provider
+  - [ ] Provider health monitoring
+
+- [ ] **Advanced RAG Features** (advanced-rag-features)
+  - [ ] Provider data structure specialization
+  - [ ] Enhanced document ingestion
+  - [ ] Query enhancement
+  - [ ] RAG caching
+  - [ ] Multi-collection queries
+
+- [ ] **Maintenance & Operations** (maintenance-operations)
+  - [ ] Documentation updates
+  - [ ] Dependency updates
+  - [ ] Performance monitoring
+  - [ ] Security updates
 
 ---
 
