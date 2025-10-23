@@ -8,6 +8,15 @@ This document tracks **immediate priorities and next features**. For detailed im
 
 ## 🆕 New Ideas
 
+## 🧭 In Planning
+
+### Core Infrastructure
+- [ ] **Connection Management Infrastructure** (connection-management)
+  - [ ] Shared infrastructure layer for connection testing
+  - [ ] Provider discovery and schema interface
+  - [ ] Environment variable management
+  - [ ] Unified API endpoints for connection operations
+
 ### UI/UX Improvements
 - [ ] **Topic Interaction** (topic-interaction)
   - [ ] Edit previous message topics
@@ -64,6 +73,7 @@ This document tracks **immediate priorities and next features**. For detailed im
   - [ ] Display current config in UI
   - [ ] Test connections
   - [ ] Future: Live editing
+  - [ ] **Dependency**: Connection Management Infrastructure (connection-management)
 
 - [ ] **Streaming Responses** (streaming-responses)
   - [ ] Server-Sent Events for real-time responses
@@ -86,7 +96,7 @@ This document tracks **immediate priorities and next features**. For detailed im
   - [ ] Quick switching between setups
 ---
 
-## 🔄 In Progress
+## 🧭 In Planning
 
 ### Core Features
 - [ ] **Connection Builder Interface** (connection-builder)
@@ -94,6 +104,7 @@ This document tracks **immediate priorities and next features**. For detailed im
   - [ ] All user flows and API endpoints designed
   - [ ] Security model thoroughly documented
   - [ ] Ready for Phase 1 implementation
+  - [ ] **Dependency**: Connection Management Infrastructure (connection-management)
 
 
 ---
