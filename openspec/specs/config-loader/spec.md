@@ -4,7 +4,18 @@
 The config loader is responsible for loading and validating configuration files for the Flex Chat system. It handles path resolution, environment variable substitution, and configuration validation.
 ## Requirements
 ### Requirement: Config Path Resolution
-The system SHALL resolve configuration file paths correctly regardless of the current working directory, respecting the `FLEX_CHAT_CONFIG_DIR` environment variable and providing proper fallback behavior.
+The system SHALL resolve configuration file paths correctly regardless of the current working directory, respecting environment variables and providing proper fallback behavior.
+
+**Environment Variables:**
+- `FLEX_CHAT_CONFIG_FILE` - Custom filename (defaults to 'config.json')
+- `FLEX_CHAT_CONFIG_FILE_PATH` - Full file path to config file
+- `FLEX_CHAT_CONFIG_DIR` - Directory containing config file
+
+**Precedence Order:**
+1. CLI argument (--config)
+2. FLEX_CHAT_CONFIG_FILE_PATH (full file path)
+3. FLEX_CHAT_CONFIG_DIR + FLEX_CHAT_CONFIG_FILE (directory + filename)
+4. Default: ./config/config.json from current working directory
 
 #### Scenario: Relative Path from Project Root
 - **WHEN** the server is started from the project root with `--config config/examples/05-gemini-multi-llm.json`
@@ -22,10 +33,17 @@ The system SHALL resolve configuration file paths correctly regardless of the cu
 - **THEN** the system resolves the path to `{PROJECT_ROOT}/config/examples/05-gemini-multi-llm.json`
 - **AND** the configuration loads successfully
 
-#### Scenario: Flexible Config Filename
+#### Scenario: Custom Config Filename
 - **WHEN** `FLEX_CHAT_CONFIG_FILE` is set to a custom filename like `my-config.json`
-- **AND** a directory path is provided via CLI or `FLEX_CHAT_CONFIG_DIR`
-- **THEN** the system uses the custom filename instead of defaulting to `config.json`
+- **AND** `FLEX_CHAT_CONFIG_DIR` is set to `{PROJECT_ROOT}/config`
+- **AND** no CLI argument is provided
+- **THEN** the system resolves the path to `{PROJECT_ROOT}/config/my-config.json`
+- **AND** the configuration loads successfully
+
+#### Scenario: Custom Filename with CLI Directory
+- **WHEN** `FLEX_CHAT_CONFIG_FILE` is set to `production.json`
+- **AND** a directory path is provided via CLI argument
+- **THEN** the system looks for `production.json` inside that directory
 - **AND** the configuration loads successfully
 
 #### Scenario: Absolute Path Handling
