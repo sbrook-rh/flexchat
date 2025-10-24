@@ -1,0 +1,38 @@
+{
+    "_comment": "GEMINI PROVIDER TESTING STRATEGY - Simple Chat Test",
+    "_description": "This config tests the Gemini provider in chat-only mode without RAG integration.",
+    "_testing_scenarios": [
+        "1. Basic chat completion - Test Gemini-2.0-flash-exp response generation",
+        "2. Speed test - Verify fast response times with flash model",
+        "3. Error handling - Test with invalid prompts or API failures",
+        "4. Model classification - Verify correct model type detection",
+        "5. Health checks - Ensure provider initialization works"
+    ],
+    "_expected_behavior": [
+        "✅ Server starts successfully with Gemini provider",
+        "✅ Chat completions work with fast response times",
+        "✅ No RAG services configured (chat-only mode)",
+        "✅ Single response rule handles all queries"
+    ],
+    "_test_commands": [
+        "Start server: node backend/chat/server.js --config examples/06-gemini-simple-test.json",
+        "Test chat: curl -X POST http://localhost:5005/chat/api -H 'Content-Type: application/json' -d '{\"prompt\": \"Hello! Can you tell me a short joke?\", \"previousMessages\": [], \"retryCount\": 0, \"selectedCollections\": [], \"selectedModels\": [], \"topic\": \"\"}'"
+    ],
+    "llms":
+    {
+        "gemini":
+        {
+            "api_key": "${FLEX_CHAT_GEMINI_KEY}",
+            "provider": "gemini"
+        }
+    },
+    "responses":
+    [
+        {
+            "prompt": "You are a helpful AI assistant. Answer the user's question clearly and concisely.",
+            "max_tokens": 500,
+            "llm": "gemini",
+            "model": "gemini-2.0-flash-exp"
+        }
+    ]
+}

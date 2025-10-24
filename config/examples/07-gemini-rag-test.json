@@ -1,0 +1,103 @@
+{
+    "_comment": "GEMINI PROVIDER TESTING STRATEGY - Full RAG Integration Test",
+    "_description": "This config tests the Gemini provider with full RAG integration using Red Hat products knowledge base.",
+    "_testing_scenarios": [
+        "1. RAG integration - Test Gemini with RAG context retrieval",
+        "2. Multi-provider setup - Test Gemini (chat) + Ollama (embeddings)",
+        "3. Collection-specific queries - Test openshift-ai collection selection",
+        "4. 6-phase processing - Verify complete workflow end-to-end",
+        "5. Response quality - Test with domain-specific questions",
+        "6. Performance - Test response times with RAG context"
+    ],
+    "_expected_behavior": [
+        "✅ Server starts with both Gemini and Ollama providers",
+        "✅ RAG service connects to Red Hat products knowledge base",
+        "✅ Collection selection works (openshift-ai)",
+        "✅ RAG context is retrieved and included in responses",
+        "✅ Gemini generates responses using RAG context",
+        "✅ Response matching works with RAG results"
+    ],
+    "_test_commands": [
+        "Start server: node backend/chat/server.js --config examples/07-gemini-rag-test.json",
+        "Test RAG: curl -X POST http://localhost:5005/chat/api -H 'Content-Type: application/json' -d '{\"prompt\": \"What is OpenShift AI and how does it work?\", \"previousMessages\": [], \"retryCount\": 0, \"selectedCollections\": [{\"service\": \"red_hat_products\", \"name\": \"openshift-ai\"}], \"selectedModels\": [], \"topic\": \"\"}'"
+    ],
+    "_prerequisites": [
+        "✅ Red Hat products RAG server running on localhost:5006",
+        "✅ Ollama server running on localhost:11434",
+        "✅ FLEX_CHAT_GEMINI_KEY environment variable set"
+    ],
+    "llms":
+    {
+        "gemini":
+        {
+            "api_key": "${FLEX_CHAT_GEMINI_KEY}",
+            "provider": "gemini"
+        },
+        "local":
+        {
+            "base_url": "http://localhost:11434",
+            "provider": "ollama"
+        }
+    },
+    "rag_services":
+    {
+        "red_hat_products":
+        {
+            "url": "http://localhost:5006",
+            "match_threshold": 0.2,
+            "intent_identifier": "knowledge_base",
+            "provider": "chromadb-wrapper",
+            "partial_threshold": 0.45
+        }
+    },
+    "embedding":
+    {
+        "model": "nomic-embed-text",
+        "llm": "local"
+    },
+    "intent":
+    {
+        "provider":
+        {
+            "llm": "local",
+            "model": "qwen2.5:3b-instruct"
+        },
+        "detection":
+        {
+            "support": "The request is about Red Hat products or is about RHEL, Linux, Command line tools, Satellite",
+            "subscriptions": "They are asking about Red Hat subscriptions or RHSM or subscription manager"
+        }
+    },
+    "responses":
+    [
+        {
+            "match":
+            {
+                "rag_results": "any",
+                "service": "red_hat_products",
+                "collection_contains": "openshift-ai"
+            },
+            "prompt": "You are a Red Hat OpenShift support engineer. Help the user with their query as best you can from the information given and what you know\n\nContext from knowledge base:\n{{rag_context}}",
+            "max_tokens": 800,
+            "llm": "gemini",
+            "model": "gemini-2.0-flash-exp"
+        },
+        {
+            "match":
+            {
+                "rag_results": "match",
+                "service": "red_hat_products"
+            },
+            "prompt": "You are a Red Hat Product Support engineer with some understanding of various Red Hat products.\n\nContext from knowledge base:\n{{rag_context}}",
+            "max_tokens": 1200,
+            "llm": "gemini",
+            "model": "gemini-2.0-flash-exp"
+        },
+        {
+            "prompt": "You are a helpful AI assistant. Answer the user's question clearly and concisely.",
+            "max_tokens": 500,
+            "llm": "gemini",
+            "model": "gemini-2.0-flash-exp"
+        }
+    ]
+}

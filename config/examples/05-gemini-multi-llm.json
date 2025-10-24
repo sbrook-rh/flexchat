@@ -1,0 +1,104 @@
+{
+    "_comment": "GEMINI PROVIDER TESTING STRATEGY - Multi-LLM Configuration",
+    "_description": "This config demonstrates Gemini provider alongside other AI providers (OpenAI, Ollama) for comprehensive testing.",
+    "_testing_scenarios": [
+        "1. Multi-provider initialization - Test all providers start successfully",
+        "2. Model selection - Test different models for different use cases",
+        "3. Provider switching - Test switching between providers",
+        "4. Performance comparison - Compare response times across providers",
+        "5. Error handling - Test provider failures and fallbacks"
+    ],
+    "_expected_behavior": [
+        "✅ All three providers (Gemini, OpenAI, Ollama) initialize successfully",
+        "✅ Different models used for different response rules",
+        "✅ Intent detection uses Gemini for fast processing",
+        "✅ Response generation uses appropriate models",
+        "✅ Fallback responses work when providers fail"
+    ],
+    "_test_commands": [
+        "Start server: node backend/chat/server.js --config examples/05-gemini-multi-llm.json",
+        "Test multi-LLM: curl -X POST http://localhost:5005/chat/api -H 'Content-Type: application/json' -d '{\"prompt\": \"Test different providers\", \"previousMessages\": [], \"retryCount\": 0, \"selectedCollections\": [], \"selectedModels\": [], \"topic\": \"\"}'"
+    ],
+    "llms":
+    {
+        "gemini":
+        {
+            "api_key": "${FLEX_CHAT_GEMINI_KEY}",
+            "provider": "gemini"
+        },
+        "chatgpt":
+        {
+            "api_key": "${OPENAI_API_KEY}",
+            "base_url": "https://api.openai.com/v1",
+            "provider": "openai"
+        },
+        "local":
+        {
+            "base_url": "http://localhost:11434",
+            "provider": "ollama"
+        }
+    },
+    "rag_services":
+    {
+        "recipes":
+        {
+            "url": "http://localhost:5007",
+            "embedding":
+            {
+                "model": "text-embedding-ada-002",
+                "llm": "chatgpt"
+            },
+            "match_threshold": 0.2,
+            "provider": "chromadb-wrapper"
+        }
+    },
+    "embedding":
+    {
+        "model": "text-embedding-3-small",
+        "llm": "chatgpt"
+    },
+    "intent":
+    {
+        "provider":
+        {
+            "llm": "gemini",
+            "model": "gemini-2.0-flash-exp"
+        },
+        "detection":
+        {
+            "support": "The request is about cooking, recipes, or food preparation",
+            "general": "The request is a general conversation or question"
+        }
+    },
+    "responses":
+    [
+        {
+            "match":
+            {
+                "rag_results": "match",
+                "service": "recipes"
+            },
+            "prompt": "You are a helpful cooking assistant. Here are some recipes that might help with the user's query:\n\n{{rag_context}}\n\nUser: {{user_message}}",
+            "max_tokens": 1000,
+            "llm": "gemini",
+            "model": "gemini-2.0-flash-thinking-exp"
+        },
+        {
+            "match":
+            {
+                "intent": "support",
+                "rag_results": "partial"
+            },
+            "prompt": "You are a helpful cooking assistant. The following information may be helpful: {{rag_context}}. Try to help the user with their cooking question as best you can.",
+            "llm": "gemini",
+            "model": "gemini-2.0-flash-exp",
+            "max_tokens": 800
+        },
+        {
+            "prompt": "You are a helpful AI assistant. Answer the user's question clearly and concisely.",
+            "max_tokens": 500,
+            "llm": "gemini",
+            "model": "gemini-2.0-flash-exp"
+        }
+    ]
+}
