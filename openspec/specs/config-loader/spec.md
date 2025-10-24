@@ -8,18 +8,18 @@ The system SHALL resolve configuration file paths correctly regardless of the cu
 
 #### Scenario: Relative Path from Project Root
 - **WHEN** the server is started from the project root with `--config config/examples/05-gemini-multi-llm.json`
-- **THEN** the system resolves the path to `/Users/sbrook/Projects/flex-chat/config/examples/05-gemini-multi-llm.json`
+- **THEN** the system resolves the path to `{PROJECT_ROOT}/config/examples/05-gemini-multi-llm.json`
 - **AND** the configuration loads successfully
 
 #### Scenario: Relative Path from Backend Directory
 - **WHEN** the server is started from `backend/chat` directory with `--config config/examples/05-gemini-multi-llm.json`
-- **THEN** the system resolves the path to `/Users/sbrook/Projects/flex-chat/config/examples/05-gemini-multi-llm.json` (not relative to backend/chat)
+- **THEN** the system resolves the path to `{PROJECT_ROOT}/config/examples/05-gemini-multi-llm.json` (not relative to backend/chat)
 - **AND** the configuration loads successfully
 
 #### Scenario: FLEX_CHAT_CONFIG_DIR Environment Variable
-- **WHEN** `FLEX_CHAT_CONFIG_DIR` is set to `/Users/sbrook/Projects/flex-chat/config`
+- **WHEN** `FLEX_CHAT_CONFIG_DIR` is set to `{PROJECT_ROOT}/config`
 - **AND** a relative path `examples/05-gemini-multi-llm.json` is provided
-- **THEN** the system resolves the path to `/Users/sbrook/Projects/flex-chat/config/examples/05-gemini-multi-llm.json`
+- **THEN** the system resolves the path to `{PROJECT_ROOT}/config/examples/05-gemini-multi-llm.json`
 - **AND** the configuration loads successfully
 
 #### Scenario: Flexible Config Filename
