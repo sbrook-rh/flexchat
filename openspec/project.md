@@ -21,7 +21,7 @@ Flex Chat is a configuration-driven, AI-powered chat application with topic-awar
 - **Functions**: Keep small and focused, single responsibility principle
 
 ### Architecture Patterns
-- **6-Phase Processing Flow**: Topic Detection → RAG Collection → Intent Detection → Profile Building → Response Handler Matching → Response Generation
+- **Multi-Phase Processing Flow**: Topic Detection → RAG Collection → Intent Detection → Profile Building → Response Handler Matching → Response Generation
 - **Provider Abstraction**: Pluggable AI and RAG providers with unified interfaces
 - **Configuration-Driven**: All behavior controlled by JSON configuration files
 - **Microservices**: Separate frontend, chat server, and RAG wrapper services
@@ -40,7 +40,6 @@ Flex Chat is a configuration-driven, AI-powered chat application with topic-awar
 - **Commits**: Conventional commit messages (feat:, fix:, docs:, refactor:)
 - **Atomic Commits**: Each commit contains complete logical changes
 - **No `git add .`**: Explicit file staging, avoid committing unrelated changes
-- **Pull Requests**: Required for all changes, CI/CD validation
 
 ## Domain Context
 - **AI Chat System**: Multi-provider AI chat with RAG capabilities
