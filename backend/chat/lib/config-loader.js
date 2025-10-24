@@ -128,25 +128,36 @@ function resolveConfigPath(providedPath) {
   
   if (providedPath) {
     // 1. CLI argument provided - can be file or directory
-    const resolvedPath = path.isAbsolute(providedPath) 
-      ? providedPath 
-      : path.resolve(process.cwd(), providedPath);
+    let resolvedPath;
     
+    function resolveFileName() {
+      return process.env.FLEX_CHAT_CONFIG_FILE || 'config.json';
+    }
+    
+    if (path.isAbsolute(providedPath)) {
+      // Absolute path - use as-is
+      resolvedPath = providedPath;
+    } else {
+      // Relative path - resolve relative to FLEX_CHAT_CONFIG_DIR if set, otherwise process.cwd()
+      const baseDir = process.env.FLEX_CHAT_CONFIG_DIR || process.cwd();
+      resolvedPath = path.resolve(baseDir, providedPath);
+    }
+
     // If it's a directory, look for config.json inside
     if (fs.existsSync(resolvedPath) && fs.statSync(resolvedPath).isDirectory()) {
-      configPath = path.join(resolvedPath, 'config.json');
+      configPath = path.join(resolvedPath, resolveFileName());
       console.log(`📝 Using config from CLI directory: ${resolvedPath}`);
     } else {
       configPath = resolvedPath;
       console.log(`📝 Using config from CLI argument: ${providedPath}`);
     }
-  } else if (process.env.FLEX_CHAT_CONFIG_FILE || process.env.FLEX_CHAT_CONFIG_FILE_PATH) {
+  } else if (process.env.FLEX_CHAT_CONFIG_FILE_PATH) {
     // 2. Environment variable - full file path
-    configPath = process.env.FLEX_CHAT_CONFIG_FILE || process.env.FLEX_CHAT_CONFIG_FILE_PATH;
+    configPath = process.env.FLEX_CHAT_CONFIG_FILE_PATH;
     console.log(`📝 Using config from env var: ${configPath}`);
   } else if (process.env.FLEX_CHAT_CONFIG_DIR) {
     // 3. Environment variable - directory path
-    configPath = path.join(process.env.FLEX_CHAT_CONFIG_DIR, 'config.json');
+    configPath = path.join(process.env.FLEX_CHAT_CONFIG_DIR, resolveFileName());
     console.log(`📝 Using config from FLEX_CHAT_CONFIG_DIR: ${process.env.FLEX_CHAT_CONFIG_DIR}`);
   } else {
     // 4. Default: config/config.json relative to project root (cwd)

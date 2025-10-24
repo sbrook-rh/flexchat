@@ -135,6 +135,20 @@ class AIProvider {
   }
 
   /**
+   * Classify model type and capabilities
+   * 
+   * NOTE: When implementing this method, prefer using actual API data over model name patterns.
+   * For example, use supportedActions, capabilities, or other API-provided metadata
+   * instead of guessing from model names. This provides more accurate classification.
+   * 
+   * @param {Object} model - Model object from API
+   * @returns {Object} Classification with type and capabilities
+   */
+  classifyModelType(model) {
+    throw new Error('classifyModelType() must be implemented by subclass');
+  }
+
+  /**
    * Helper method for retry logic
    * @param {Function} operation - Operation to retry
    * @param {number} maxRetries - Maximum number of retries

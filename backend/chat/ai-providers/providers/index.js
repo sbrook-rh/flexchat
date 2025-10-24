@@ -1,5 +1,6 @@
 const OpenAIProvider = require('./OpenAIProvider');
 const OllamaProvider = require('./OllamaProvider');
+const GeminiProvider = require('./GeminiProvider');
 
 /**
  * Provider Registry - Central registry for all AI providers
@@ -48,9 +49,9 @@ class ProviderRegistry {
   registerDefaultProviders() {
     this.register('openai', OpenAIProvider);
     this.register('ollama', OllamaProvider);
+    this.register('gemini', GeminiProvider);
     // Future providers will be registered here
     // this.register('anthropic', AnthropicProvider);
-    // this.register('gemini', GeminiProvider);
   }
 }
 
@@ -61,5 +62,6 @@ module.exports = {
   ProviderRegistry,
   registry,
   OpenAIProvider,
-  OllamaProvider
+  OllamaProvider,
+  GeminiProvider
 };
