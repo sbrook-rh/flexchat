@@ -13,7 +13,7 @@ The system SHALL resolve configuration file paths correctly regardless of the cu
 
 #### Scenario: Relative Path from Backend Directory
 - **WHEN** the server is started from `backend/chat` directory with `--config config/examples/05-gemini-multi-llm.json`
-- **THEN** the system resolves the path to `{PROJECT_ROOT}/config/examples/05-gemini-multi-llm.json` (not relative to backend/chat)
+- **THEN** the system resolves the path to `{PROJECT_ROOT}/backend/chat/config/examples/05-gemini-multi-llm.json` (relative to current working directory)
 - **AND** the configuration loads successfully
 
 #### Scenario: FLEX_CHAT_CONFIG_DIR Environment Variable
