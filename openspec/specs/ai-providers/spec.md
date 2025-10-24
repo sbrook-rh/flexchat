@@ -1,66 +1,78 @@
 # ai-providers Specification
 
 ## Purpose
-TBD - created by archiving change add-gemini-provider. Update Purpose after archive.
+The AI Providers capability defines the standardized requirements for integrating AI providers into Flex Chat. This specification ensures consistent behavior, interface compliance, and proper integration when adding new AI providers (OpenAI, Gemini, Anthropic, etc.) to the system.
 ## Requirements
-### Requirement: Gemini AI Provider
-The system SHALL provide a Gemini AI provider that integrates with Google's Generative AI API using the `@google/genai` package for dynamic model discovery, chat completion, and embedding generation.
 
-#### Scenario: Provider Loading
-- **WHEN** the system loads with Gemini provider configuration
-- **THEN** the GeminiProvider class initializes successfully with API key validation using `@google/genai` package
+### Requirement: Base AI Provider Interface
+All AI providers SHALL implement a standardized interface that ensures consistent behavior across different AI services.
 
-#### Scenario: Dynamic Model Discovery
-- **WHEN** the system requests available models from Gemini provider
-- **THEN** it calls the Google API endpoint `https://generativelanguage.googleapis.com/v1beta/models` and returns classified models including:
-  - Chat models: `gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.0-flash-001`
-  - Embedding models: `text-embedding-004`, `embedding-001`
-  - Specialized models: Gemma models, Imagen models, reasoning models
+#### Scenario: Provider Initialization
+- **WHEN** a provider is instantiated with configuration
+- **THEN** it validates required configuration fields and initializes successfully
 
-#### Scenario: Model Classification
-- **WHEN** the system processes model metadata from the API
-- **THEN** it correctly classifies models by type (chat, embedding, image) and capabilities (reasoning, fast, etc.) based on model name and metadata
+#### Scenario: Model Discovery
+- **WHEN** the system requests available models from any provider
+- **THEN** it returns a standardized list of models with type, capabilities, and metadata
 
 #### Scenario: Chat Completion
-- **WHEN** a user sends a message through the Gemini provider
-- **THEN** the system uses `@google/genai` to generate content with the specified model, supporting thinking/reasoning models
+- **WHEN** a chat request is made to any provider
+- **THEN** it generates responses using the specified model with consistent message format
 
 #### Scenario: Embedding Generation
-- **WHEN** the system requests embeddings from Gemini provider
-- **THEN** it uses supported embedding models like `text-embedding-004` for text embedding generation
-
-#### Scenario: Configuration Validation
-- **WHEN** the system validates Gemini provider configuration
-- **THEN** it checks for required API key and validates model names against discovered models
-
-#### Scenario: Error Handling
-- **WHEN** the Gemini API returns an error or rate limit
-- **THEN** the system handles the error gracefully with retry logic and provides appropriate feedback
+- **WHEN** embedding requests are made to any provider
+- **THEN** it generates embeddings using supported models with consistent output format
 
 #### Scenario: Health Check
-- **WHEN** the system checks Gemini provider health
-- **THEN** it calls the models API and returns status (healthy/unhealthy) with timestamp and error details if applicable
-
-#### Scenario: Configuration Schema
-- **WHEN** the system requests Gemini provider configuration schema
-- **THEN** it returns a JSON schema defining required fields (api_key), optional fields (timeout, retries), and validation rules
-
-#### Scenario: Default Models
-- **WHEN** the system needs fallback models for Gemini provider
-- **THEN** it returns default model IDs for chat (gemini-2.5-flash) and embedding (text-embedding-004) when API discovery fails
+- **WHEN** the system checks provider health
+- **THEN** it returns standardized health status with timestamp and error details
 
 #### Scenario: Configuration Validation
-- **WHEN** the system validates Gemini provider configuration
-- **THEN** it checks for required API key, validates field formats, and returns validation results with specific error messages
+- **WHEN** provider configuration is validated
+- **THEN** it checks required fields and returns validation results with specific error messages
 
-### Requirement: Gemini Provider Integration
-The Gemini provider SHALL integrate seamlessly with the existing 6-phase processing flow and provider abstraction system.
+### Requirement: Provider Registry Integration
+All AI providers SHALL integrate with the provider registry system for discovery and management.
 
-#### Scenario: 6-Phase Flow Integration
-- **WHEN** a chat request is processed through the 6-phase flow
-- **THEN** the Gemini provider works with topic detection, RAG collection, and response generation using the correct API format
+#### Scenario: Provider Registration
+- **WHEN** a new provider is added to the system
+- **THEN** it registers itself with the provider registry and becomes discoverable
 
-#### Scenario: Provider Abstraction
-- **WHEN** the system switches between AI providers
-- **THEN** the Gemini provider follows the same interface as OpenAI and Ollama providers with proper message format conversion
+#### Scenario: Provider Discovery
+- **WHEN** the system needs to find available providers
+- **THEN** it queries the registry and returns all registered providers with their capabilities
+
+#### Scenario: Provider Selection
+- **WHEN** a provider is selected for use
+- **THEN** the system loads the provider instance with proper configuration and error handling
+
+### Requirement: 6-Phase Flow Integration
+All AI providers SHALL integrate seamlessly with the 6-phase processing flow.
+
+#### Scenario: Topic Detection Integration
+- **WHEN** a chat request is processed through topic detection
+- **THEN** the provider works with topic detection using the correct API format
+
+#### Scenario: RAG Integration
+- **WHEN** RAG context is provided to the provider
+- **THEN** it processes the context and generates responses that incorporate the retrieved information
+
+#### Scenario: Response Handler Integration
+- **WHEN** response handlers are applied
+- **THEN** the provider generates responses that work with the response handler system
+
+### Requirement: Provider Implementations
+The system SHALL provide specific AI provider implementations that follow the base interface requirements.
+
+#### Scenario: Provider Implementation Structure
+- **WHEN** a new provider is implemented
+- **THEN** it follows the standardized interface and is documented in `specs/ai-providers/providers/[provider-name].md`
+
+#### Scenario: Provider Documentation
+- **WHEN** a provider implementation is completed
+- **THEN** it has its own specification file with detailed requirements and scenarios
+
+#### Scenario: Provider Testing
+- **WHEN** a provider is implemented
+- **THEN** it includes comprehensive test scenarios covering all interface requirements
 
