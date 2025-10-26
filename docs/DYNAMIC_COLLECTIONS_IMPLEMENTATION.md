@@ -111,7 +111,7 @@ We implemented a complete **metadata-driven dynamic collection management system
 - Auto-selects all by default
 - Sends with each chat message
 
-### 7. Frontend - Conditional Navigation (`frontend/src/NavBar.jsx`)
+### 7. Frontend - Conditional Navigation (`frontend/src/NavBar.jsx`) ** NOW REMOVED **
 
 **Features:**
 - ✅ Checks for wrapper provider availability

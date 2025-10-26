@@ -197,7 +197,6 @@ React application with Vite build system:
 - `src/Chat.jsx` - Chat interface with message handling
 - `src/Collections.jsx` - Collection management UI
 - `src/Home.jsx` - Landing page
-- `src/NavBar.jsx` - Navigation component
 - `src/LogoSection.jsx` - Branding/logo component
 
 **Key Features**:
