@@ -828,3 +828,41 @@ The Configuration Builder System enables zero-config startup while maintaining b
 
 These decisions balance ease-of-use for new users with reliability for production deployments.
 
+---
+
+## Implementation Notes
+
+### Route File Structure (Decided: Phase 1)
+
+**Decision:** Route files should NOT include redundant path prefixes. The mount point in `server.js` defines the URL namespace.
+
+**Correct Pattern (used in `routes/connections.js`):**
+```javascript
+// server.js
+app.use('/api/connections', connectionsRouter);
+
+// routes/connections.js
+router.get('/providers', ...);         // Mounted at /api/connections/providers
+router.post('/test', ...);             // Mounted at /api/connections/test
+```
+
+**Incorrect Pattern (currently in `routes/collections.js`):**
+```javascript
+// server.js  
+app.use('/api', collectionsRouter);    // ❌ Too broad
+
+// routes/collections.js
+router.get('/collections', ...);       // ❌ Redundant prefix
+router.get('/ui-config', ...);         // ❌ Unrelated endpoint
+```
+
+**Phase 5 Refactoring TODO:**
+1. Move `/api/ui-config` from `collections.js` to new `routes/config.js`
+2. Change `collections.js` routes from `/collections` to `/`
+3. Update server.js: `app.use('/api/collections', collectionsRouter)`
+
+**Rationale:**
+- Clear separation of concerns (one file = one resource domain)
+- Mount point defines URL namespace, route file defines resource operations
+- Easier to find and maintain endpoints
+
