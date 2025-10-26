@@ -36,7 +36,7 @@
 - [x] 1.5.1 Create `backend/chat/routes/connections.js` route module
 - [x] 1.5.2 Implement `GET /api/connections/providers` endpoint (list all providers)
 - [x] 1.5.3 Implement `GET /api/connections/providers/:id/schema` endpoint (get schema)
-- [ ] 1.5.4 Implement `GET /api/connections/providers/:id/models` endpoint (discover models)
+- [x] 1.5.4 Implement `POST /api/connections/providers/:id/models` endpoint (discover models)
 - [x] 1.5.5 Implement `POST /api/connections/test` endpoint (test connection)
 - [x] 1.5.6 Implement `GET /api/connections/env-vars` endpoint (list available env vars)
 - [x] 1.5.7 Register connections routes in `server.js`
@@ -48,8 +48,8 @@
 - [x] 1.6.1 Modify `loadConfig()` to return raw config (no env var substitution)
 - [x] 1.6.2 Create `getProcessedConfig()` helper function for on-demand substitution
 - [x] 1.6.3 Update provider initialization to use `getProcessedConfig()`
-- [ ] 1.6.4 Track provider connection status globally
-- [ ] 1.6.5 Modify `/api/ui-config` endpoint to include:
+- [x] 1.6.4 Track provider connection status globally
+- [x] 1.6.5 Modify `/api/ui-config` endpoint to include:
   - `hasConfig`, `isZeroConfig`, `providerStatus`
   - `hasWorkingProviders`, `hasResponseHandlers`, `chatReady`
 - [ ] 1.6.6 Write unit tests for raw/processed config handling

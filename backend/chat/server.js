@@ -31,6 +31,12 @@ let config = null;
 let aiProviders = {};
 let ragProviders = {};
 
+// Track provider connection status (Phase 1.6.4)
+let providerStatus = {
+  llms: {},
+  rag_services: {}
+};
+
 /**
  * Parse command line arguments
  */
@@ -100,9 +106,11 @@ async function initialize() {
       }
 
       aiProviders[name] = provider;
+      providerStatus.llms[name] = { connected: true };
       console.log(`   ✅ ${name} initialized successfully`);
     } catch (error) {
       console.error(`   ❌ Failed to initialize AI provider ${name}: ${error.message}`);
+      providerStatus.llms[name] = { connected: false, error: error.message };
       console.error(`\n❌ Cannot start server with failed AI provider\n`);
       process.exit(1);
     }
@@ -142,9 +150,11 @@ async function initialize() {
         }
 
         ragProviders[name] = provider;
+        providerStatus.rag_services[name] = { connected: true };
         console.log(`   ✅ ${name} initialized successfully`);
       } catch (error) {
         console.error(`   ❌ Failed to initialize RAG service ${name}: ${error.message}`);
+        providerStatus.rag_services[name] = { connected: false, error: error.message };
         console.error(`\n❌ Cannot start server with failed RAG service\n`);
         process.exit(1);
       }
@@ -157,7 +167,7 @@ async function initialize() {
 
   // Mount route modules
   app.use('/', createHealthRouter(config, aiProviders, ragProviders));
-  app.use('/api', createCollectionsRouter(config, ragProviders));
+  app.use('/api', createCollectionsRouter(config, ragProviders, aiProviders, providerStatus));
   app.use('/api/connections', connectionsRouter);
   app.use('/chat', createChatRouter(config, aiProviders, ragProviders));
 

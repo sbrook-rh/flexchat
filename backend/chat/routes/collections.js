@@ -10,11 +10,13 @@ const {
 
 /**
  * Create collections router with dependency injection
- * @param {Object} config - Server configuration
+ * @param {Object} config - Server configuration (raw with placeholders)
  * @param {Object} ragProviders - RAG provider instances
+ * @param {Object} aiProviders - AI provider instances (Phase 1.6.5)
+ * @param {Object} providerStatus - Provider connection status (Phase 1.6.5)
  * @returns {express.Router} Configured collections router
  */
-function createCollectionsRouter(config, ragProviders) {
+function createCollectionsRouter(config, ragProviders, aiProviders = {}, providerStatus = null) {
   /**
    * List all collections from all RAG services
    * Returns collections, wrapper info, and hasWrappers flag for frontend
@@ -35,8 +37,10 @@ function createCollectionsRouter(config, ragProviders) {
 
   /**
    * Get complete UI configuration
-   * Returns collections, wrappers, and model selection config in one call
+   * Returns collections, wrappers, model selection, and provider status
    * GET /api/ui-config
+   * 
+   * Phase 1.6.5: Extended with provider status tracking
    */
   router.get('/ui-config', async (req, res) => {
     try {
@@ -50,10 +54,37 @@ function createCollectionsRouter(config, ragProviders) {
         providers: {}
       };
       
+      // Phase 1.6.5: Add provider status fields
+      const hasConfig = Boolean(config && Object.keys(config).length > 0);
+      const isZeroConfig = !hasConfig; // TODO: Update when zero-config mode is implemented
+      
+      // Check if we have at least one working LLM provider
+      const hasWorkingProviders = providerStatus && 
+        Object.values(providerStatus.llms || {}).some(p => p.connected);
+      
+      // Check if we have at least one response handler configured
+      const hasResponseHandlers = Boolean(
+        config.responses && 
+        Array.isArray(config.responses) && 
+        config.responses.length > 0
+      );
+      
+      // Chat is ready if we have both working providers AND response handlers
+      const chatReady = hasWorkingProviders && hasResponseHandlers;
+      
       res.json({
+        // Existing fields
         collections: collectionsData.collections,
         wrappers: collectionsData.wrappers,
-        modelSelection
+        modelSelection,
+        
+        // Phase 1.6.5: New fields for Configuration Builder
+        hasConfig,
+        isZeroConfig,
+        providerStatus: providerStatus || { llms: {}, rag_services: {} },
+        hasWorkingProviders,
+        hasResponseHandlers,
+        chatReady
       });
     } catch (error) {
       console.error('❌ Error getting UI config:', error);

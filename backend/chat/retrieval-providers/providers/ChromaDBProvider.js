@@ -179,50 +179,50 @@ class ChromaDBProvider extends VectorProvider {
     }
   }
 
-  /**
-   * Get configuration schema
-   */
-  getConfigSchema() {
-    return {
-      type: 'object',
-      properties: {
-        url: {
-          type: 'string',
-          description: 'ChromaDB server URL'
-        },
-        collection: {
-          type: 'string',
-          description: 'Collection name'
-        },
-        embedding: {
-          type: 'object',
-          description: 'Embedding configuration',
-          required: ['llm', 'model'],
-          properties: {
-            llm: {
-              type: 'string',
-              description: 'LLM provider name for embeddings'
-            },
-            model: {
-              type: 'string',
-              description: 'Model to use for embeddings'
-            }
-          }
-        },
-        timeout: {
-          type: 'number',
-          description: 'Request timeout in milliseconds',
-          default: 30000
-        },
-        retries: {
-          type: 'number',
-          description: 'Number of retries for failed requests',
-          default: 3
-        }
-      },
-      required: ['url', 'collection', 'embedding']
-    };
-  }
+  // /**
+  //  * Get configuration schema
+  //  */
+  // getConfigSchema() {
+  //   return {
+  //     type: 'object',
+  //     properties: {
+  //       url: {
+  //         type: 'string',
+  //         description: 'ChromaDB server URL'
+  //       },
+  //       collection: {
+  //         type: 'string',
+  //         description: 'Collection name'
+  //       },
+  //       embedding: {
+  //         type: 'object',
+  //         description: 'Embedding configuration',
+  //         required: ['llm', 'model'],
+  //         properties: {
+  //           llm: {
+  //             type: 'string',
+  //             description: 'LLM provider name for embeddings'
+  //           },
+  //           model: {
+  //             type: 'string',
+  //             description: 'Model to use for embeddings'
+  //           }
+  //         }
+  //       },
+  //       timeout: {
+  //         type: 'number',
+  //         description: 'Request timeout in milliseconds',
+  //         default: 30000
+  //       },
+  //       retries: {
+  //         type: 'number',
+  //         description: 'Number of retries for failed requests',
+  //         default: 3
+  //       }
+  //     },
+  //     required: ['url', 'collection', 'embedding']
+  //   };
+  // }
 
   /**
    * Validate configuration

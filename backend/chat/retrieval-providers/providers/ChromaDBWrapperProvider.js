@@ -152,89 +152,89 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
   /**
    * Get configuration schema
    */
-  getConfigSchema() {
-    return {
-      type: 'object',
-      required: ['url'],
-      properties: {
-        url: {
-          type: 'string',
-          description: 'Base URL of the ChromaDB wrapper service',
-          examples: ['http://localhost:5006']
-        },
-        collection: {
-          type: 'string',
-          description: 'ChromaDB collection name to query (optional for dynamic collections)'
-        },
-        top_k: {
-          type: 'number',
-          description: 'Default number of results to return',
-          default: 3,
-          minimum: 1
-        },
-        timeout: {
-          type: 'number',
-          description: 'Request timeout in milliseconds',
-          default: 30000,
-          minimum: 1000
-        },
-        default_threshold: {
-          type: 'number',
-          description: 'Default distance threshold for filtering results',
-          default: 0.3,
-          minimum: 0,
-          maximum: 2
-        },
-        max_distance: {
-          type: 'number',
-          description: 'Maximum distance - results beyond this are ignored',
-          default: 1.0,
-          minimum: 0,
-          maximum: 2
-        },
-        auth: {
-          type: 'object',
-          description: 'Authentication configuration',
-          properties: {
-            type: {
-              type: 'string',
-              enum: ['bearer', 'basic', 'api-key']
-            },
-            token: { type: 'string' },
-            username: { type: 'string' },
-            password: { type: 'string' },
-            key: { type: 'string' },
-            header: { type: 'string' }
-          }
-        },
-        headers: {
-          type: 'object',
-          description: 'Custom HTTP headers to send with requests'
-        },
-        retry: {
-          type: 'object',
-          description: 'Retry configuration',
-          properties: {
-            max_attempts: {
-              type: 'number',
-              default: 3,
-              minimum: 1
-            },
-            delay: {
-              type: 'number',
-              default: 1000,
-              minimum: 0
-            }
-          }
-        },
-        health_check_endpoint: {
-          type: 'string',
-          description: 'Health check endpoint path',
-          default: '/health'
-        }
-      }
-    };
-  }
+  // getConfigSchema() {
+  //   return {
+  //     type: 'object',
+  //     required: ['url'],
+  //     properties: {
+  //       url: {
+  //         type: 'string',
+  //         description: 'Base URL of the ChromaDB wrapper service',
+  //         examples: ['http://localhost:5006']
+  //       },
+  //       collection: {
+  //         type: 'string',
+  //         description: 'ChromaDB collection name to query (optional for dynamic collections)'
+  //       },
+  //       top_k: {
+  //         type: 'number',
+  //         description: 'Default number of results to return',
+  //         default: 3,
+  //         minimum: 1
+  //       },
+  //       timeout: {
+  //         type: 'number',
+  //         description: 'Request timeout in milliseconds',
+  //         default: 30000,
+  //         minimum: 1000
+  //       },
+  //       default_threshold: {
+  //         type: 'number',
+  //         description: 'Default distance threshold for filtering results',
+  //         default: 0.3,
+  //         minimum: 0,
+  //         maximum: 2
+  //       },
+  //       max_distance: {
+  //         type: 'number',
+  //         description: 'Maximum distance - results beyond this are ignored',
+  //         default: 1.0,
+  //         minimum: 0,
+  //         maximum: 2
+  //       },
+  //       auth: {
+  //         type: 'object',
+  //         description: 'Authentication configuration',
+  //         properties: {
+  //           type: {
+  //             type: 'string',
+  //             enum: ['bearer', 'basic', 'api-key']
+  //           },
+  //           token: { type: 'string' },
+  //           username: { type: 'string' },
+  //           password: { type: 'string' },
+  //           key: { type: 'string' },
+  //           header: { type: 'string' }
+  //         }
+  //       },
+  //       headers: {
+  //         type: 'object',
+  //         description: 'Custom HTTP headers to send with requests'
+  //       },
+  //       retry: {
+  //         type: 'object',
+  //         description: 'Retry configuration',
+  //         properties: {
+  //           max_attempts: {
+  //             type: 'number',
+  //             default: 3,
+  //             minimum: 1
+  //           },
+  //           delay: {
+  //             type: 'number',
+  //             default: 1000,
+  //             minimum: 0
+  //           }
+  //         }
+  //       },
+  //       health_check_endpoint: {
+  //         type: 'string',
+  //         description: 'Health check endpoint path',
+  //         default: '/health'
+  //       }
+  //     }
+  //   };
+  // }
 
   /**
    * Validate configuration

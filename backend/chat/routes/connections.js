@@ -49,30 +49,82 @@ router.get('/providers/:id/schema', (req, res) => {
 });
 
 /**
- * GET /api/connections/providers/:id/models
- * Discover available models from a provider (requires connection details)
+ * POST /api/connections/providers/:id/models
+ * Discover available models from a provider
+ * 
+ * Request body:
+ * {
+ *   "config": { ... provider configuration with ${ENV_VAR} placeholders ... }
+ * }
  */
-router.get('/providers/:id/models', async (req, res) => {
+router.post('/providers/:id/models', async (req, res) => {
   try {
     const { id } = req.params;
-    const config = req.query; // Config params passed as query string
+    const { config: rawConfig } = req.body;
 
-    // TODO: Implement model discovery
-    // This will require instantiating the provider with the given config
-    // and calling listModels()
+    if (!rawConfig) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Request must include config object'
+      });
+    }
+
+    // Process environment variables in config
+    const { getProcessedConfig } = require('../lib/config-loader');
+    const processedConfig = getProcessedConfig({ temp: rawConfig }).temp;
+
+    // Dynamically load the provider class
+    const ProviderClass = loadProviderClass('llm', id);
     
-    res.status(501).json({
-      error: 'Not implemented',
-      message: 'Model discovery endpoint not yet implemented'
+    // Create temporary instance (not added to global aiProviders)
+    const tempProvider = new ProviderClass(processedConfig);
+    
+    // Discover models
+    const models = await tempProvider.listModels();
+    
+    // Return sanitized model list
+    res.json({
+      provider: id,
+      count: models.length,
+      models: models.map(m => ({
+        id: m.id,
+        name: m.name || m.id,
+        type: m.type,
+        capabilities: m.capabilities || [],
+        maxTokens: m.maxTokens,
+        description: m.description
+      }))
     });
   } catch (error) {
     console.error(`Error discovering models for provider ${req.params.id}:`, error);
-    res.status(500).json({
-      error: 'Failed to discover models',
-      message: error.message
+    res.status(400).json({
+      error: 'Model discovery failed',
+      message: error.message,
+      provider: req.params.id
     });
   }
 });
+
+/**
+ * Helper function to load provider class dynamically
+ */
+function loadProviderClass(type, providerId) {
+  // Convert provider ID to class file name
+  // 'openai' -> 'OpenAIProvider'
+  const parts = providerId.split(/[-_]/);
+  const className = parts
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+  const filename = `${className}Provider`;
+  
+  if (type === 'llm') {
+    return require(`../ai-providers/providers/${filename}`);
+  } else if (type === 'rag') {
+    return require(`../retrieval-providers/${filename}`);
+  } else {
+    throw new Error(`Unknown provider type: ${type}`);
+  }
+}
 
 /**
  * POST /api/connections/test

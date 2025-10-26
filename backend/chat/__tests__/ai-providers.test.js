@@ -132,13 +132,6 @@ describe('AI Provider Tests', () => {
       expect(() => geminiProvider.validateConfig(validConfig)).not.toThrow();
       expect(() => geminiProvider.validateConfig(invalidConfig)).toThrow();
     });
-
-    test('should return configuration schema', () => {
-      const schema = geminiProvider.getConfigSchema();
-      expect(schema).toBeDefined();
-      expect(schema.type).toBe('object');
-      expect(schema.properties).toHaveProperty('api_key');
-    });
   });
 
   describe('Default Models', () => {

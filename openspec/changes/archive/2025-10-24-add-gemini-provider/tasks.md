@@ -21,7 +21,6 @@
 - [x] 2.1.4 Implement generateChat() method using `@google/genai` for content generation
 - [x] 2.1.5 Implement generateEmbeddings() method using `text-embedding-004` and other embedding models
 - [x] 2.1.6 Implement healthCheck() method with API health verification
-- [x] 2.1.7 Implement getConfigSchema() method with Gemini-specific configuration options
 - [x] 2.1.8 Implement getDefaultModels() method with fallback model IDs
 - [x] 2.1.9 Implement validateConfig() method with API key and format validation
 - [x] 2.1.10 Add error handling for API failures, rate limits, and model discovery failures
