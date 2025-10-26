@@ -167,7 +167,7 @@ Main server implementation with Express API:
 - `retrieval-providers/` - RAG/vector database provider implementations
   - `base/RetrievalProvider.js` - Base class for retrieval providers
   - `providers/ChromaDBWrapperProvider.js` - ChromaDB via Python wrapper
-  - `RetrievalService.js` - Service orchestration
+  - `providers/index.js` - Provider registry
 
 **Main Files**:
 - `server.js` - Express server with 4-phase flow implementation

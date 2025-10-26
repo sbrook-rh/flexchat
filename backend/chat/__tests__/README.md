@@ -72,7 +72,7 @@ The test files are ready to use as patterns, but to actually run them, we need t
 
 2. **Make functions testable by accepting dependencies as parameters**
    
-   Currently the functions use global `config`, `retrievalService`, and `aiService`. 
+   Currently the functions use global `config`, `aiProviders`, and `ragProviders`. 
    For testing, we should either:
    - Accept these as parameters (better for testing)
    - Or use Jest's module mocking (easier but less explicit)
@@ -86,8 +86,8 @@ The test files are ready to use as patterns, but to actually run them, we need t
    async function detectStrategyWithDynamicCollections(
      selectedCollections, 
      userQuery,
-     config,           // Injected
-     retrievalService  // Injected
+     config,        // Injected
+     ragProviders   // Injected
    ) {
      // ...
    }
@@ -96,8 +96,8 @@ The test files are ready to use as patterns, but to actually run them, we need t
    **Approach B: Module Mocking** (Jest magic)
    ```javascript
    // In test file
-   jest.mock('../retrieval-providers/RetrievalService');
-   jest.mock('../ai-providers/AIService');
+   jest.mock('../retrieval-providers/providers');
+   jest.mock('../ai-providers/providers');
    
    // Jest will automatically mock these modules
    ```
