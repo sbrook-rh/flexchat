@@ -3,51 +3,51 @@
 ## Phase 1: Connection Management Infrastructure
 
 ### 1.1 Provider Schema Interface
-- [ ] 1.1.1 Define `getConnectionSchema()` interface in BaseAIProvider
-- [ ] 1.1.2 Implement schema method in OllamaProvider
-- [ ] 1.1.3 Implement schema method in OpenAIProvider
-- [ ] 1.1.4 Implement schema method in GeminiProvider
-- [ ] 1.1.5 Define schema format (JSON Schema or custom format)
+- [x] 1.1.1 Define `getConnectionSchema()` interface in BaseAIProvider
+- [x] 1.1.2 Implement schema method in OllamaProvider
+- [x] 1.1.3 Implement schema method in OpenAIProvider
+- [x] 1.1.4 Implement schema method in GeminiProvider
+- [x] 1.1.5 Define schema format (JSON Schema or custom format)
 - [ ] 1.1.6 Add schema validation tests
 
 ### 1.2 Provider Discovery Service
-- [ ] 1.2.1 Create ProviderDiscovery service class
-- [ ] 1.2.2 Implement provider enumeration logic
-- [ ] 1.2.3 Implement capability detection
-- [ ] 1.2.4 Add caching for discovered providers
+- [x] 1.2.1 Create ProviderDiscovery service class
+- [x] 1.2.2 Implement provider enumeration logic
+- [x] 1.2.3 Implement capability detection
+- [x] 1.2.4 Add caching for discovered providers
 - [ ] 1.2.5 Write unit tests for discovery service
 
 ### 1.3 Connection Testing Service
-- [ ] 1.3.1 Create ConnectionTester service class
-- [ ] 1.3.2 Implement test connection logic for LLM providers
-- [ ] 1.3.3 Implement test connection logic for RAG providers
-- [ ] 1.3.4 Add timeout and error handling
-- [ ] 1.3.5 Return standardized test results
+- [x] 1.3.1 Create ConnectionTester service class
+- [x] 1.3.2 Implement test connection logic for LLM providers
+- [x] 1.3.3 Implement test connection logic for RAG providers
+- [x] 1.3.4 Add timeout and error handling
+- [x] 1.3.5 Return standardized test results
 - [ ] 1.3.6 Write unit tests for connection testing
 
 ### 1.4 Environment Variable Management
-- [ ] 1.4.1 Create EnvVarManager service class
-- [ ] 1.4.2 Implement secure env var filtering (allowlist pattern)
-- [ ] 1.4.3 Implement env var validation
-- [ ] 1.4.4 Add env var suggestion logic
+- [x] 1.4.1 Create EnvVarManager service class
+- [x] 1.4.2 Implement secure env var filtering (allowlist pattern)
+- [x] 1.4.3 Implement env var validation
+- [x] 1.4.4 Add env var suggestion logic
 - [ ] 1.4.5 Write unit tests for env var management
 
 ### 1.5 Backend API Endpoints
-- [ ] 1.5.1 Create `backend/chat/routes/connections.js` route module
-- [ ] 1.5.2 Implement `GET /api/connections/providers` endpoint (list all providers)
-- [ ] 1.5.3 Implement `GET /api/connections/providers/:id/schema` endpoint (get schema)
+- [x] 1.5.1 Create `backend/chat/routes/connections.js` route module
+- [x] 1.5.2 Implement `GET /api/connections/providers` endpoint (list all providers)
+- [x] 1.5.3 Implement `GET /api/connections/providers/:id/schema` endpoint (get schema)
 - [ ] 1.5.4 Implement `GET /api/connections/providers/:id/models` endpoint (discover models)
-- [ ] 1.5.5 Implement `POST /api/connections/test` endpoint (test connection)
-- [ ] 1.5.6 Implement `GET /api/connections/env-vars` endpoint (list available env vars)
-- [ ] 1.5.7 Register connections routes in `server.js`
+- [x] 1.5.5 Implement `POST /api/connections/test` endpoint (test connection)
+- [x] 1.5.6 Implement `GET /api/connections/env-vars` endpoint (list available env vars)
+- [x] 1.5.7 Register connections routes in `server.js`
 - [ ] 1.5.8 Add request validation middleware
 - [ ] 1.5.9 Add error handling middleware
 - [ ] 1.5.10 Write integration tests for all endpoints
 
 ### 1.6 Configuration Loader Updates
-- [ ] 1.6.1 Modify `loadConfig()` to return raw config (no env var substitution)
-- [ ] 1.6.2 Create `getProcessedConfig()` helper function for on-demand substitution
-- [ ] 1.6.3 Update provider initialization to use `getProcessedConfig()`
+- [x] 1.6.1 Modify `loadConfig()` to return raw config (no env var substitution)
+- [x] 1.6.2 Create `getProcessedConfig()` helper function for on-demand substitution
+- [x] 1.6.3 Update provider initialization to use `getProcessedConfig()`
 - [ ] 1.6.4 Track provider connection status globally
 - [ ] 1.6.5 Modify `/api/ui-config` endpoint to include:
   - `hasConfig`, `isZeroConfig`, `providerStatus`

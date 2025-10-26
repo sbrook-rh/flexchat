@@ -3,9 +3,10 @@ const path = require('path');
 
 /**
  * Load configuration file and validate structure
+ * Returns RAW config with ${VAR} placeholders intact
  * 
  * @param {string} configPath - Path to configuration file
- * @returns {Object} Parsed and validated configuration
+ * @returns {Object} Parsed and validated configuration (RAW with placeholders)
  * @throws {Error} If config is invalid or missing required sections
  */
 function loadConfig(configPath) {
@@ -24,29 +25,43 @@ function loadConfig(configPath) {
     throw new Error(`Cannot read configuration file: ${error.message}`);
   }
   
-  // Substitute environment variables (${VAR_NAME})
-  const processedContent = configContent.replace(/\$\{([^}]+)\}/g, (match, varName) => {
-    const value = process.env[varName];
-    if (value === undefined) {
-      // Keep original if not found (might be a template variable for later substitution)
-      return match;
-    }
-    return value;
-  });
-  
-  // Parse JSON
+  // Parse JSON WITHOUT substitution (keep ${VAR} placeholders intact)
   let config;
   try {
-    config = JSON.parse(processedContent);
+    config = JSON.parse(configContent);
   } catch (error) {
     throw new Error(`Invalid JSON in configuration file: ${error.message}`);
   }
   
-  // Validate configuration structure
-  validateConfig(config);
+  // Validate configuration structure (on processed config)
+  const processedConfig = getProcessedConfig(config);
+  validateConfig(processedConfig);
   
-  console.log(`✅ Configuration loaded successfully`);
-  return config;
+  console.log(`✅ Configuration loaded successfully (raw with placeholders)`);
+  return config; // Return RAW config
+}
+
+/**
+ * Get processed configuration with environment variable substitution
+ * This performs on-demand substitution without mutating the raw config
+ * 
+ * @param {Object} rawConfig - Raw configuration with ${VAR} placeholders
+ * @returns {Object} Processed configuration with substituted values
+ */
+function getProcessedConfig(rawConfig) {
+  // Convert to JSON string, substitute, and parse back
+  const jsonStr = JSON.stringify(rawConfig);
+  const processedStr = jsonStr.replace(/"\$\{([^}]+)\}"/g, (match, varName) => {
+    const value = process.env[varName];
+    if (value === undefined) {
+      // Keep original placeholder if env var not found
+      return match;
+    }
+    // Return as JSON string value (with quotes)
+    return JSON.stringify(value);
+  });
+  
+  return JSON.parse(processedStr);
 }
 
 /**
@@ -170,6 +185,7 @@ function resolveConfigPath(providedPath) {
 
 module.exports = {
   loadConfig,
+  getProcessedConfig,
   validateConfig,
   resolveConfigPath
 };

@@ -58,11 +58,12 @@ class AIProvider {
   }
 
   /**
-   * Get the configuration schema for this provider
-   * @returns {Object} JSON schema for provider configuration
+   * Get the connection schema for UI-driven configuration
+   * Returns a schema describing configuration fields for dynamic form generation
+   * @returns {Object} Connection schema with display_name, fields, and metadata
    */
-  getConfigSchema() {
-    throw new Error('getConfigSchema() must be implemented by subclass');
+  static getConnectionSchema() {
+    throw new Error('getConnectionSchema() must be implemented by subclass');
   }
 
   /**

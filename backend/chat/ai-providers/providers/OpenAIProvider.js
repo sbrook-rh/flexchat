@@ -186,50 +186,64 @@ class OpenAIProvider extends AIProvider {
   }
 
   /**
-   * Get configuration schema
+   * Get connection schema for UI-driven configuration
    */
-  getConfigSchema() {
+  static getConnectionSchema() {
     return {
-      type: 'object',
-      properties: {
-        api_key: {
-          type: 'string',
-          description: 'OpenAI API key (also accepts apiKey for backwards compatibility)'
+      provider: 'openai',
+      display_name: 'OpenAI',
+      description: 'Connect to OpenAI API for GPT models and embeddings',
+      fields: [
+        {
+          name: 'api_key',
+          type: 'secret',
+          label: 'API Key',
+          description: 'Your OpenAI API key',
+          required: true,
+          env_var_suggestion: 'OPENAI_API_KEY',
+          placeholder: '${OPENAI_API_KEY}'
         },
-        base_url: {
-          type: 'string',
-          description: 'OpenAI API base URL (also accepts baseUrl)',
-          default: 'https://api.openai.com/v1'
+        {
+          name: 'base_url',
+          type: 'url',
+          label: 'Base URL',
+          description: 'API endpoint URL',
+          required: false,
+          default: 'https://api.openai.com/v1',
+          placeholder: 'https://api.openai.com/v1'
         },
-        timeout: {
+        {
+          name: 'timeout',
           type: 'number',
+          label: 'Timeout (ms)',
           description: 'Request timeout in milliseconds',
-          default: 30000
+          required: false,
+          default: 30000,
+          min: 1000,
+          max: 300000
         },
-        retries: {
+        {
+          name: 'max_tokens',
           type: 'number',
-          description: 'Number of retries for failed requests',
-          default: 3
-        },
-        retry_delay: {
-          type: 'number',
-          description: 'Delay between retries in milliseconds',
-          default: 1000
-        },
-        max_tokens: {
-          type: 'number',
+          label: 'Max Tokens',
           description: 'Maximum tokens for responses',
-          default: 1000
+          required: false,
+          default: 1000,
+          min: 1,
+          max: 128000
         },
-        temperature: {
+        {
+          name: 'temperature',
           type: 'number',
-          description: 'Temperature for response generation',
-          minimum: 0,
-          maximum: 2,
-          default: 0.7
+          label: 'Temperature',
+          description: 'Controls randomness (0 = focused, 2 = creative)',
+          required: false,
+          default: 0.7,
+          min: 0,
+          max: 2,
+          step: 0.1
         }
-      },
-      required: ['api_key']
+      ]
     };
   }
 

@@ -168,45 +168,38 @@ class OllamaProvider extends AIProvider {
   /**
    * Get configuration schema
    */
-  getConfigSchema() {
+  /**
+   * Get connection schema for UI-driven configuration
+   */
+  static getConnectionSchema() {
     return {
-      type: 'object',
-      properties: {
-        baseUrl: {
-          type: 'string',
-          description: 'Ollama server URL',
-          default: 'http://localhost:11434'
+      provider: 'ollama',
+      display_name: 'Ollama',
+      description: 'Connect to local Ollama server for open-source models',
+      fields: [
+        {
+          name: 'baseUrl',
+          type: 'url',
+          label: 'Server URL',
+          description: 'Ollama server endpoint',
+          required: false,
+          default: 'http://localhost:11434',
+          placeholder: 'http://localhost:11434'
         },
-        timeout: {
+        {
+          name: 'timeout',
           type: 'number',
+          label: 'Timeout (ms)',
           description: 'Request timeout in milliseconds',
-          default: 60000
-        },
-        retries: {
-          type: 'number',
-          description: 'Number of retries for failed requests',
-          default: 3
-        },
-        retryDelay: {
-          type: 'number',
-          description: 'Delay between retries in milliseconds',
-          default: 1000
-        },
-        maxTokens: {
-          type: 'number',
-          description: 'Maximum tokens for responses',
-          default: 1000
-        },
-        temperature: {
-          type: 'number',
-          description: 'Temperature for response generation',
-          minimum: 0,
-          maximum: 2,
-          default: 0.7
+          required: false,
+          default: 60000,
+          min: 1000,
+          max: 300000
         }
-      }
+      ]
     };
   }
+
 
   /**
    * Get default models

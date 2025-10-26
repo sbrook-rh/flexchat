@@ -1,12 +1,13 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const path = require('path');
-const { loadConfig, resolveConfigPath } = require('./lib/config-loader');
+const { loadConfig, getProcessedConfig, resolveConfigPath } = require('./lib/config-loader');
 const { registry: aiRegistry } = require('./ai-providers/providers');
 const { registry: ragRegistry } = require('./retrieval-providers/providers');
 const { createHealthRouter } = require('./routes/health');
 const { createCollectionsRouter } = require('./routes/collections');
 const { createChatRouter } = require('./routes/chat');
+const connectionsRouter = require('./routes/connections');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -59,10 +60,10 @@ async function initialize() {
   const options = parseArguments();
   console.log(options);
 
-  // Load configuration
+  // Load configuration (raw with placeholders)
   try {
     const configPath = resolveConfigPath(options.config);
-    config = loadConfig(configPath);
+    config = loadConfig(configPath); // Raw config
     console.log(`   ✅ Loaded ${Object.keys(config.llms || {}).length} LLM(s)`);
     console.log(`   ✅ Loaded ${Object.keys(config.rag_services || {}).length} RAG service(s)`);
     console.log(`   ✅ Loaded ${(config.responses || []).length} response rule(s)`);
@@ -71,9 +72,12 @@ async function initialize() {
     process.exit(1);
   }
 
+  // Get processed config for provider initialization
+  const processedConfig = getProcessedConfig(config);
+
   // Initialize AI providers
   console.log('\n🤖 Initializing AI providers...');
-  for (const [name, llmConfig] of Object.entries(config.llms)) {
+  for (const [name, llmConfig] of Object.entries(processedConfig.llms)) {
     try {
       const providerType = llmConfig.provider;
       console.log(`   Initializing ${name} (${providerType})...`);
@@ -105,16 +109,16 @@ async function initialize() {
   }
 
   // Initialize RAG services
-  if (config.rag_services && Object.keys(config.rag_services).length > 0) {
+  if (processedConfig.rag_services && Object.keys(processedConfig.rag_services).length > 0) {
     console.log('\n📚 Initializing RAG services...');
-    for (const [name, ragConfig] of Object.entries(config.rag_services)) {
+    for (const [name, ragConfig] of Object.entries(processedConfig.rag_services)) {
       try {
         const providerType = ragConfig.provider;
         console.log(`   Initializing ${name} (${providerType})...`);
 
         // Use global embedding config if service doesn't have its own
-        if (config.embedding && !ragConfig.embedding) {
-          ragConfig.embedding = config.embedding;
+        if (processedConfig.embedding && !ragConfig.embedding) {
+          ragConfig.embedding = processedConfig.embedding;
         }
 
         const provider = ragRegistry.createProvider(providerType, ragConfig);
@@ -154,6 +158,7 @@ async function initialize() {
   // Mount route modules
   app.use('/', createHealthRouter(config, aiProviders, ragProviders));
   app.use('/api', createCollectionsRouter(config, ragProviders));
+  app.use('/api/connections', connectionsRouter);
   app.use('/chat', createChatRouter(config, aiProviders, ragProviders));
 
   // Start server

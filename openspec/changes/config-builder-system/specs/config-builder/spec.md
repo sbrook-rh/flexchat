@@ -35,7 +35,8 @@ The system SHALL provide APIs for discovering available AI and RAG providers wit
 
 #### Scenario: List Available Providers
 - **WHEN** the UI requests available providers via `GET /api/connections/providers`
-- **THEN** the system returns a list of all registered providers with type, name, and capabilities
+- **THEN** the system returns providers grouped by type (`llm`, `rag`) with each provider including `id`, `display_name`, `description`, and complete `schema` object
+- **AND** the response structure enables single API call at app initialization without repeated fetches
 
 #### Scenario: Get Provider Schema
 - **WHEN** the UI requests a provider's configuration schema via `GET /api/connections/providers/:id/schema`

@@ -168,43 +168,56 @@ class GeminiProvider extends AIProvider {
   /**
    * Get configuration schema
    */
-  getConfigSchema() {
+  /**
+   * Get connection schema for UI-driven configuration
+   */
+  static getConnectionSchema() {
     return {
-      type: 'object',
-      properties: {
-        api_key: {
-          type: 'string',
-          description: 'Google Gemini API key (also accepts apiKey for backwards compatibility)'
+      provider: 'gemini',
+      display_name: 'Google Gemini',
+      description: 'Connect to Google Gemini API for advanced multimodal AI',
+      fields: [
+        {
+          name: 'api_key',
+          type: 'secret',
+          label: 'API Key',
+          description: 'Your Google Gemini API key',
+          required: true,
+          env_var_suggestion: 'GEMINI_API_KEY',
+          placeholder: '${GEMINI_API_KEY}'
         },
-        timeout: {
+        {
+          name: 'timeout',
           type: 'number',
+          label: 'Timeout (ms)',
           description: 'Request timeout in milliseconds',
-          default: 30000
+          required: false,
+          default: 30000,
+          min: 1000,
+          max: 300000
         },
-        retries: {
+        {
+          name: 'max_tokens',
           type: 'number',
-          description: 'Number of retries for failed requests',
-          default: 3
-        },
-        retry_delay: {
-          type: 'number',
-          description: 'Delay between retries in milliseconds',
-          default: 1000
-        },
-        max_tokens: {
-          type: 'number',
+          label: 'Max Tokens',
           description: 'Maximum tokens for responses',
-          default: 1000
+          required: false,
+          default: 1000,
+          min: 1,
+          max: 8192
         },
-        temperature: {
+        {
+          name: 'temperature',
           type: 'number',
-          description: 'Temperature for response generation',
-          minimum: 0,
-          maximum: 2,
-          default: 0.7
+          label: 'Temperature',
+          description: 'Controls randomness (0 = focused, 2 = creative)',
+          required: false,
+          default: 0.7,
+          min: 0,
+          max: 2,
+          step: 0.1
         }
-      },
-      required: ['api_key']
+      ]
     };
   }
 
