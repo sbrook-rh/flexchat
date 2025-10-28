@@ -79,23 +79,36 @@ The system SHALL provide secure environment variable discovery and management fo
 - **WHEN** configuring a provider that requires an API key
 - **THEN** the system suggests relevant environment variables (e.g., `OPENAI_API_KEY` for OpenAI provider)
 
-### Requirement: Zero-Config Bootstrap
-The system SHALL support starting with no configuration file and building configuration through the UI.
+### Requirement: Zero-Config Bootstrap Welcome Screen
+The system SHALL display a welcome screen when no configuration exists, providing a user-friendly entry point to the configuration builder.
 
 #### Scenario: No Configuration on Startup
 - **WHEN** the application starts and no configuration file exists
-- **THEN** the system initializes with an empty configuration structure
-- **AND** displays a welcome screen prompting the user to build configuration
+- **THEN** the server starts successfully with empty configuration `{ llms: {}, rag_services: {}, responses: [] }`
+- **AND** the UI displays a welcome screen (gradient background, centered card) explaining that configuration is needed
+- **AND** shows "Build Configuration" button as primary action
+- **AND** shows "Import Configuration File" button as secondary action
+- **AND** displays recommended provider suggestions (Ollama, OpenAI, Gemini) with brief descriptions
+- **AND** clicking "Build Configuration" navigates to the configuration builder (Phase 2.2+ Provider List)
 
-#### Scenario: Default Provider Suggestions
-- **WHEN** starting with zero configuration
-- **THEN** the system suggests default providers based on detected environment (e.g., Ollama if running locally)
-  
-  Note: Deferred enhancement — not required for initial Phase 2. Manual provider selection via the wizard is the primary path.
+Note: The welcome screen is purely a nicer entry point for first-time users. The actual configuration builder UI (Provider List, Connection Wizard, etc.) is the same whether creating a new config or editing an existing one.
 
-#### Scenario: Minimal Viable Configuration
-- **WHEN** a user adds their first provider
-- **THEN** the system creates a minimal viable configuration with sensible defaults
+#### Scenario: Configuration Exists
+- **WHEN** the application starts with an existing configuration file
+- **THEN** the `/config` route shows the configuration builder with current providers displayed
+- **AND** users can add, edit, or remove providers using the same UI as zero-config mode
+
+#### Scenario: Always-Accessible Configuration Builder
+- **WHEN** a user navigates to `/config` manually at any time
+- **THEN** the configuration builder is accessible regardless of configuration state
+- **AND** shows welcome screen if `hasConfig: false`
+- **AND** shows provider list/editor if `hasConfig: true`
+
+#### Scenario: Home Page Configuration Link
+- **WHEN** viewing the home page
+- **THEN** a "Configuration" button is visible in the top-right corner
+- **AND** clicking it navigates to `/config` for viewing or editing configuration
+- **AND** when `!chatReady`, home page also shows a warning banner with a link to configure providers
 
 ### Requirement: Provider Configuration UI
 The system SHALL provide a complete UI for adding, editing, and removing AI and RAG providers.

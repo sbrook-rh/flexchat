@@ -69,7 +69,7 @@ const Home = ({ uiConfig }) => {
               <div className="text-3xl mb-3">⚙️</div>
               <h3 className="text-lg font-semibold mb-2">Fully Configurable</h3>
               <p className="text-gray-600 text-sm">
-                Strategy-based detection and response generation via JSON config
+                Build and manage your configuration through the UI
               </p>
             </div>
           </div>
