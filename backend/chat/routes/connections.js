@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const ProviderDiscovery = require('../ai-providers/discovery');
 const { ConnectionTester, EnvVarManager } = require('../ai-providers/services');
+const { normalizeConnectionPayload } = require('../lib/connection-payload');
 
 /**
  * GET /api/connections/providers
@@ -59,22 +60,10 @@ router.get('/providers/:id/schema', (req, res) => {
  */
 router.post('/providers/:id/models', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { config: rawConfig } = req.body;
-
-    if (!rawConfig) {
-      return res.status(400).json({
-        error: 'Invalid request',
-        message: 'Request must include config object'
-      });
-    }
-
-    // Process environment variables in config
-    const { getProcessedConfig } = require('../lib/config-loader');
-    const processedConfig = getProcessedConfig({ temp: rawConfig }).temp;
+    const { provider: id, processedConfig, type } = normalizeConnectionPayload(req);
 
     // Dynamically load the provider class
-    const ProviderClass = loadProviderClass('llm', id);
+    const ProviderClass = loadProviderClass(type || 'llm', id);
     
     // Create temporary instance (not added to global aiProviders)
     const tempProvider = new ProviderClass(processedConfig);
@@ -139,15 +128,7 @@ function loadProviderClass(type, providerId) {
  */
 router.post('/test', async (req, res) => {
   try {
-    const { type, provider, config } = req.body;
-
-    // Validate request
-    if (!type || !provider || !config) {
-      return res.status(400).json({
-        error: 'Invalid request',
-        message: 'Request must include type, provider, and config'
-      });
-    }
+    const { type, provider, processedConfig } = normalizeConnectionPayload(req);
 
     if (!['llm', 'rag'].includes(type)) {
       return res.status(400).json({
@@ -157,7 +138,7 @@ router.post('/test', async (req, res) => {
     }
 
     // Test the connection
-    const result = await ConnectionTester.testConnection(type, provider, config);
+    const result = await ConnectionTester.testConnection(type, provider, processedConfig);
 
     if (result.success) {
       res.json(result);
