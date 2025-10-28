@@ -76,12 +76,16 @@ class GeminiProvider extends AIProvider {
         const model = response.getItem(i);
         const classification = this.classifyModelType(model);
 
+        // Strip "models/" prefix from Gemini model names for cleaner UX
+        const modelId = model.name.replace(/^models\//, '');
+        const displayName = model.displayName ? model.displayName.replace(/^models\//, '') : modelId;
+
         models.push(this.createModelInfo({
-          id: model.name,
-          name: model.displayName || model.name,
+          id: modelId,
+          name: displayName,
           type: classification.type,
           maxTokens: model.inputTokenLimit || 4096,
-          description: model.description || `Gemini model: ${model.name}`,
+          description: model.description || `Gemini model: ${modelId}`,
           capabilities: classification.capabilities,
           modified: new Date().toISOString()
         }));
@@ -99,8 +103,11 @@ class GeminiProvider extends AIProvider {
    */
   async generateChat(messages, model, options = {}) {
     try {
+      // Gemini API expects "models/" prefix, add it if not present
+      const fullModelName = model.startsWith('models/') ? model : `models/${model}`;
+      
       const result = await this.genAI.models.generateContent({
-        model: model,
+        model: fullModelName,
         contents: this.convertMessagesToContents(messages),
         generationConfig: {
           temperature: options.temperature || this.config.temperature || 0.7,
