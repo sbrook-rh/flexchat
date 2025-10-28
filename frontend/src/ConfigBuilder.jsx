@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProviderList from './ProviderList';
+import ConnectionWizard from './ConnectionWizard';
 
 /**
  * Configuration Builder - Main component for UI-driven configuration
  * Phase 2.1: Zero-Config Bootstrap welcome screen
  * Phase 2.2: Provider List UI
- * Phase 2.3+: Connection Wizard, Testing, etc.
+ * Phase 2.3: Connection Wizard
  */
 function ConfigBuilder({ uiConfig, reloadConfig }) {
   const navigate = useNavigate();
   const [workingConfig, setWorkingConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
+  const [wizardEditData, setWizardEditData] = useState(null);
   
   const hasConfig = uiConfig?.hasConfig;
 
@@ -46,19 +48,21 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
 
   // Handlers for provider management
   const handleAddProvider = () => {
+    setWizardEditData(null);
     setShowWizard(true);
-    console.log('Opening connection wizard... (Phase 2.3)');
-    // TODO Phase 2.3: Show ConnectionWizard component
   };
 
   const handleEditProvider = (name, config, type) => {
-    console.log(`Edit ${type} provider: ${name}`, config);
-    // TODO Phase 2.3: Open wizard in edit mode
-    alert(`Edit provider "${name}" - wizard coming in Phase 2.3`);
+    setWizardEditData({
+      name,
+      config,
+      type: type === 'LLM' ? 'llm' : 'rag',
+      provider: config.provider
+    });
+    setShowWizard(true);
   };
 
   const handleDeleteProvider = (name, type) => {
-    console.log(`Delete ${type} provider: ${name}`);
     const newConfig = { ...workingConfig };
     if (type === 'LLM') {
       delete newConfig.llms[name];
@@ -66,7 +70,30 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       delete newConfig.rag_services[name];
     }
     setWorkingConfig(newConfig);
-    // TODO: Mark config as dirty, show unsaved changes indicator
+    // TODO Phase 2.7: Mark config as dirty, show unsaved changes indicator
+  };
+  
+  const handleWizardSave = (providerData) => {
+    const newConfig = { ...workingConfig };
+    
+    // Add or update provider
+    if (providerData.type === 'llm') {
+      if (!newConfig.llms) newConfig.llms = {};
+      newConfig.llms[providerData.name] = providerData.config;
+    } else {
+      if (!newConfig.rag_services) newConfig.rag_services = {};
+      newConfig.rag_services[providerData.name] = providerData.config;
+    }
+    
+    setWorkingConfig(newConfig);
+    setShowWizard(false);
+    setWizardEditData(null);
+    // TODO Phase 2.7: Mark config as dirty
+  };
+  
+  const handleWizardCancel = () => {
+    setShowWizard(false);
+    setWizardEditData(null);
   };
 
   // Phase 2.2: Show Provider List (works for both create and edit)
@@ -103,6 +130,16 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
 
           {/* TODO Phase 2.7: Unsaved changes banner and Apply/Export/Cancel buttons */}
         </div>
+        
+        {/* Phase 2.3: Connection Wizard */}
+        {showWizard && (
+          <ConnectionWizard
+            onSave={handleWizardSave}
+            onCancel={handleWizardCancel}
+            editMode={wizardEditData !== null}
+            initialData={wizardEditData}
+          />
+        )}
       </div>
     );
   }

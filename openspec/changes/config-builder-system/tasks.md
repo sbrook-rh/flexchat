@@ -86,38 +86,38 @@
  - [x] 2.2.7 Enforce env-var-only for secret fields across UI (displays ${ENV_VAR} references)
 
 ### 2.3 Connection Wizard
-- [ ] 2.3.1 Create ConnectionWizard component
-- [ ] 2.3.2 Step 1: Select provider type (LLM/RAG)
-- [ ] 2.3.3 Step 2: Select provider (Ollama, OpenAI, Gemini, ChromaDB)
-- [ ] 2.3.4 Step 3: Configure connection (URL, API key, etc.)
- - [ ] 2.3.4.1 Secret fields only accept environment variable references
-- [ ] 2.3.5 Step 4: Test connection
-- [ ] 2.3.6 Step 5: Name and save
-- [ ] 2.3.7 Add form validation
-- [ ] 2.3.8 Add back/next navigation
- - [ ] 2.3.9 Block navigation away while unapplied (builder mode guard)
+- [x] 2.3.1 Create ConnectionWizard component
+- [x] 2.3.2 Step 1: Select provider type (LLM/RAG)
+- [x] 2.3.3 Step 2: Select provider (Ollama, OpenAI, Gemini, ChromaDB)
+- [x] 2.3.4 Step 3: Configure connection (URL, API key, etc.)
+ - [x] 2.3.4.1 Secret fields only accept environment variable references
+- [x] 2.3.5 Step 4: Test connection
+- [x] 2.3.6 Step 5: Name and save
+- [x] 2.3.7 Add form validation (canProceed checks required fields)
+- [x] 2.3.8 Add back/next navigation
+ - [ ] 2.3.9 Block navigation away while unapplied (builder mode guard) - Phase 2.7
 
-### 2.4 Connection Testing UI
-- [ ] 2.4.1 Create ConnectionTest component
-- [ ] 2.4.2 Show "Test Connection" button
-- [ ] 2.4.3 Display loading state during test
-- [ ] 2.4.4 Show success/failure results
-- [ ] 2.4.5 Display error messages with suggestions
-- [ ] 2.4.6 Add retry logic
+### 2.4 Connection Testing UI (Integrated in Wizard Step 4)
+- [x] 2.4.1 Create ConnectionTest component (integrated in wizard)
+- [x] 2.4.2 Show "Test Connection" button
+- [x] 2.4.3 Display loading state during test (spinner animation)
+- [x] 2.4.4 Show success/failure results (green/red panels)
+- [x] 2.4.5 Display error messages with suggestions
+- [x] 2.4.6 Add retry logic (Try Again button on failure)
 
-### 2.5 Model Discovery UI
-- [ ] 2.5.1 Create ModelSelector component
-- [ ] 2.5.2 Fetch available models from provider
-- [ ] 2.5.3 Display model list with metadata
-- [ ] 2.5.4 Add model search/filter
-- [ ] 2.5.5 Show model capabilities (chat, embeddings, reasoning)
+### 2.5 Model Discovery UI (Integrated in Wizard Step 4)
+- [x] 2.5.1 Create ModelSelector component (integrated in wizard)
+- [x] 2.5.2 Fetch available models from provider (auto after successful test)
+- [x] 2.5.3 Display model list with metadata (scrollable list with type badges)
+- [ ] 2.5.4 Add model search/filter (deferred - not critical for MVP)
+- [x] 2.5.5 Show model capabilities (chat, embeddings, reasoning) as type badges
 
-### 2.6 Environment Variable UI
-- [ ] 2.6.1 Create EnvVarInput component
-- [ ] 2.6.2 Show available env vars as suggestions
-- [ ] 2.6.3 Add "Use Environment Variable" toggle
-- [ ] 2.6.4 Mask sensitive values
-- [ ] 2.6.5 Add reveal/hide toggle
+### 2.6 Environment Variable UI (Integrated in Wizard Step 3)
+- [x] 2.6.1 Create EnvVarInput component (integrated in wizard config step)
+- [x] 2.6.2 Show available env vars as suggestions (button to use suggested var)
+- [x] 2.6.3 Add "Use Environment Variable" toggle (button sets ${VAR_NAME})
+- [x] 2.6.4 Mask sensitive values (shows ${ENV_VAR} references, not actual values)
+- [ ] 2.6.5 Add reveal/hide toggle (not needed - env vars are references, not secrets)
 
 ### 2.7 State Management
 - [ ] 2.7.1 Set up configuration state management (Context/Zustand)
