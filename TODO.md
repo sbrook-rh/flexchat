@@ -96,15 +96,11 @@ This document tracks **immediate priorities and next features**. For detailed im
   - [ ] Quick switching between setups
 ---
 
-## 🧭 In Planning
+## 🚀 In Progress
 
-### Core Features
-- [ ] **Connection Builder Interface** (connection-builder)
-  - [ ] Complete 949-line specification documented
-  - [ ] All user flows and API endpoints designed
-  - [ ] Security model thoroughly documented
-  - [ ] Ready for Phase 1 implementation
-  - [ ] **Dependency**: Connection Management Infrastructure (connection-management)
+- [ ] **Configuration Builder System** (config-builder-system)
+  - [ ] Phase 2: Provider Configuration UI (Provider List, Wizard, Model Discovery, Env Var UI)
+  - [ ] Phase 1 follow-ups: request validation, error middleware, endpoint integration tests, shared connection payload validator
 
 
 ---
