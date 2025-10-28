@@ -44,6 +44,13 @@
 - [ ] 1.5.9 Add error handling middleware
 - [ ] 1.5.10 Write integration tests for all endpoints
 
+### 1.8 Shared Connection Payload (DRY)
+- [ ] 1.8.1 Define shared `connection` payload shape `{ provider_id, type, fields }`
+- [ ] 1.8.2 Add server-side validator/normalizer for the payload
+- [ ] 1.8.3 Update `/api/connections/test` to use shared validator
+- [ ] 1.8.4 Update `/api/connections/providers/:id/models` to use shared validator
+- [ ] 1.8.5 Add unit tests for shared validator
+
 ### 1.6 Configuration Loader Updates
 - [x] 1.6.1 Modify `loadConfig()` to return raw config (no env var substitution)
 - [x] 1.6.2 Create `getProcessedConfig()` helper function for on-demand substitution
@@ -76,16 +83,19 @@
 - [ ] 2.2.4 Add "Add Provider" button
 - [ ] 2.2.5 Add edit/delete actions per provider
 - [ ] 2.2.6 Show connection status indicators
+ - [ ] 2.2.7 Enforce env-var-only for secret fields across UI
 
 ### 2.3 Connection Wizard
 - [ ] 2.3.1 Create ConnectionWizard component
 - [ ] 2.3.2 Step 1: Select provider type (LLM/RAG)
 - [ ] 2.3.3 Step 2: Select provider (Ollama, OpenAI, Gemini, ChromaDB)
 - [ ] 2.3.4 Step 3: Configure connection (URL, API key, etc.)
+ - [ ] 2.3.4.1 Secret fields only accept environment variable references
 - [ ] 2.3.5 Step 4: Test connection
 - [ ] 2.3.6 Step 5: Name and save
 - [ ] 2.3.7 Add form validation
 - [ ] 2.3.8 Add back/next navigation
+ - [ ] 2.3.9 Block navigation away while unapplied (builder mode guard)
 
 ### 2.4 Connection Testing UI
 - [ ] 2.4.1 Create ConnectionTest component
@@ -114,6 +124,8 @@
 - [ ] 2.7.2 Implement add/edit/delete provider actions
 - [ ] 2.7.3 Implement configuration persistence
 - [ ] 2.7.4 Add undo/redo support (optional)
+ - [ ] 2.7.5 Initialize builder from `GET /api/config/export` (applied snapshot)
+ - [ ] 2.7.6 After successful Apply, refresh `/api/ui-config` and navigate to Home
 
 ## Phase 3: Embedding & Intent Configuration UI
 
@@ -195,7 +207,7 @@
 - [ ] 5.1.1 Create `backend/chat/routes/config.js` route module
 - [ ] 5.1.2 Implement `POST /api/config/reload` endpoint (hot-reload config)
 - [ ] 5.1.3 Implement `GET /api/config/export` endpoint (export current config as JSON)
-- [ ] 5.1.4 Implement `GET /api/config/validate` endpoint (validate config)
+- [ ] 5.1.4 Implement `POST /api/config/validate` endpoint (validate config)
 - [ ] 5.1.5 Register config routes in `server.js`
 - [ ] 5.1.6 Add authorization/security checks
 - [ ] 5.1.7 Write integration tests for config endpoints
@@ -229,6 +241,8 @@
 - [ ] 5.5.3 Add confirmation before applying
 - [ ] 5.5.4 Handle apply errors gracefully
 - [ ] 5.5.5 Display success confirmation with reload status
+ - [ ] 5.5.6 Add global route guard when `hasUnappliedChanges` (except Export/Cancel)
+ - [ ] 5.5.7 Add Validate button and gating logic (Apply/Export disabled until valid)
 
 ### 5.6 Configuration Diff/Preview
 - [ ] 5.6.1 Create ConfigDiff component

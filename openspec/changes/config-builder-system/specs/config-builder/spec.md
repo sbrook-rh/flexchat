@@ -43,7 +43,7 @@ The system SHALL provide APIs for discovering available AI and RAG providers wit
 - **THEN** the system returns the provider's `getConnectionSchema()` output with required fields, optional fields, and field types
 
 #### Scenario: Discover Provider Models
-- **WHEN** the UI requests available models via `GET /api/connections/providers/:id/models` with connection details
+- **WHEN** the UI requests available models via `POST /api/connections/providers/:id/models` with connection details
 - **THEN** the system connects to the provider and returns available models with metadata (type, capabilities, context length)
 
 ### Requirement: Connection Testing
@@ -90,6 +90,8 @@ The system SHALL support starting with no configuration file and building config
 #### Scenario: Default Provider Suggestions
 - **WHEN** starting with zero configuration
 - **THEN** the system suggests default providers based on detected environment (e.g., Ollama if running locally)
+  
+  Note: Deferred enhancement — not required for initial Phase 2. Manual provider selection via the wizard is the primary path.
 
 #### Scenario: Minimal Viable Configuration
 - **WHEN** a user adds their first provider
@@ -261,6 +263,7 @@ The system SHALL support applying configuration changes without restarting the s
 - **THEN** the system sends the updated configuration to the backend
 - **AND** the backend hot-reloads the configuration
 - **AND** displays success confirmation or error details
+ - **AND** the UI refreshes `/api/ui-config` and navigates to Home on success
 
 #### Scenario: Unsaved Changes Indicator
 - **WHEN** configuration is modified but not applied
@@ -297,6 +300,52 @@ The system SHALL provide real-time validation feedback for configuration changes
 - **WHEN** a validation error occurs
 - **THEN** the system provides actionable suggestions for fixing
 - **AND** offers "Quick Fix" buttons where possible
+
+### Requirement: Validation Workflow Gating
+The system SHALL require explicit validation of the working configuration before enabling Apply or Export actions in the builder.
+
+#### Scenario: Require Validate Before Apply/Export
+- **WHEN** the user edits the working configuration
+- **THEN** the builder sets validation status to `dirty` (not validated)
+- **AND** the "Apply" and "Export" buttons are disabled
+- **AND** the user can click "Validate" to send the working configuration to `POST /api/config/validate`
+- **AND** if validation passes, buttons become enabled; if it fails, errors are displayed and buttons remain disabled
+
+### Requirement: Secret Handling Policy
+The system SHALL enforce that secret values are provided via environment variables in the UI and never entered or displayed as plaintext.
+
+#### Scenario: Secrets via Environment Variables Only
+- **WHEN** configuring a provider field that is marked as secret (e.g., API key)
+- **THEN** the UI requires selecting an environment variable reference (e.g., `OPENAI_API_KEY`)
+- **AND** plaintext entry is disallowed in the UI
+- **AND** secret values are never exposed to the browser; only variable names are shown
+
+### Requirement: Reusable Connection Payload (DRY)
+The system SHALL use a shared connection payload structure and validation for both connection testing and model discovery.
+
+#### Scenario: Shared Connection Payload
+- **WHEN** calling either `POST /api/connections/test` or `POST /api/connections/providers/:id/models`
+- **THEN** the request includes a `connection` object with `{ provider_id, type, fields }`
+- **AND** the backend applies the same validation and normalization pipeline to this payload
+- **AND** environment variable placeholders are resolved on-demand (without mutating stored configuration)
+
+### Requirement: Builder Mode Navigation Guard
+The system SHALL prevent accidental navigation away from the live configuration builder while there are unapplied changes, except for explicit export or cancel actions.
+
+#### Scenario: Block Navigation Until Apply or Cancel
+- **WHEN** the user is in the configuration builder with unapplied changes
+- **THEN** route transitions are blocked with a guard
+- **AND** the user can either Apply Changes (hot-reload) or Cancel (discard working changes and return to home)
+- **AND** Export remains allowed and does not apply changes
+
+### Requirement: Builder Initialization
+The system SHALL initialize the configuration builder with the current applied configuration snapshot.
+
+#### Scenario: Load Current Configuration for Editing
+- **WHEN** the user opens the configuration builder
+- **THEN** the UI loads the full raw configuration via `GET /api/config/export`
+- **AND** initializes `workingConfig` from this snapshot (equal to applied configuration at entry)
+- **AND** subsequent edits are kept in `workingConfig` until applied or cancelled
 
 ### Requirement: Backward Compatibility
 The system SHALL maintain full backward compatibility with existing JSON-based configuration workflows.

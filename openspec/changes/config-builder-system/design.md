@@ -666,6 +666,69 @@ app.post('/api/chat', (req, res) => {
 
 ---
 
+### Decision 9: Secret Handling Policy (UI)
+
+**Decision:** Secret fields in the UI must be provided via environment variable references. Plaintext entry is disallowed, and secret values are never exposed in the browser.
+
+**Rationale:** Eliminates risk of secrets leaking via UI state, logs, or network captures; aligns with raw-config-with-placeholders strategy.
+
+**Implications:**
+- Provider schemas mark secret fields; UI renders env-var picker only.
+- EnvVarManager supplies allowlisted suggestions by name (never value).
+- Validation rejects plaintext-like inputs for secret fields.
+
+---
+
+### Decision 10: DRY Connection Payload for Test/Models
+
+**Decision:** Use a shared `connection` payload `{ provider_id, type, fields }` and a single validation/normalization pipeline for both `/api/connections/test` and `/api/connections/providers/:id/models`.
+
+**Rationale:** Reduces duplication, ensures consistent validation across endpoints, simplifies frontend integration.
+
+**Implications:**
+- Both endpoints accept the same body structure.
+- Backend resolves env placeholders on-demand for operation only.
+- Add unit tests for the shared validator.
+
+---
+
+### Decision 11: Builder Mode Navigation Guard
+
+**Decision:** While there are unapplied changes in the configuration builder, block route navigation except for explicit Export or Cancel. Apply triggers hot-reload.
+
+**Rationale:** Prevents user confusion from diverging UI state vs runtime config.
+
+**Implications:**
+- Global route guard keyed on `hasUnappliedChanges`.
+- Export does not apply changes; Cancel discards and returns to home.
+
+---
+
+### Decision 12: Endpoint Separation (ui-config vs export/reload)
+
+**Decision:** Use `/api/ui-config` for summarized status across the app, and `/api/config/export` (full raw config) + `/api/config/reload` (apply) for the builder.
+
+**Rationale:** Keeps general UI fast and safe while giving the builder the full authoring payload; clear separation of concerns.
+
+**Implications:**
+- Builder initializes from `GET /api/config/export` and applies via `POST /api/config/reload`.
+- After apply, UI refreshes `/api/ui-config` and returns to Home.
+
+---
+
+### Decision 13: Validation Gating (Apply/Export)
+
+**Decision:** Require an explicit validation step in the builder. Edits mark the draft as dirty; Apply and Export remain disabled until `POST /api/config/validate` succeeds. Apply still re-validates server-side.
+
+**Rationale:** Improves UX predictability and prevents exporting invalid configs.
+
+**Implications:**
+- Add `POST /api/config/validate` endpoint.
+- Builder tracks `validationStatus: 'dirty' | 'valid' | 'invalid'`.
+- Buttons state derives from validation status.
+
+---
+
 ## Risks / Trade-offs
 
 ### Risk 1: Zero-config complexity
