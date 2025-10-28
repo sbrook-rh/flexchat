@@ -333,6 +333,19 @@ The system SHALL enforce that secret values are provided via environment variabl
 - **AND** plaintext entry is disallowed in the UI
 - **AND** secret values are never exposed to the browser; only variable names are shown
 
+#### Scenario: Auto-Wrap User Input with ${} Syntax
+- **WHEN** a user types an environment variable name without `${}` syntax (e.g., types "OPENAI_API_KEY")
+- **AND** the user tabs away or clicks out of the field
+- **THEN** the system automatically wraps the input with `${}` syntax (becomes `${OPENAI_API_KEY}`)
+- **AND** displays a tooltip explaining the auto-wrap behavior
+
+#### Scenario: Dynamic Environment Variable Suggestions
+- **WHEN** a secret field is displayed in the connection wizard
+- **THEN** the system fetches available environment variables from `GET /api/connections/env-vars`
+- **AND** displays quick-fill buttons for relevant env vars (matching field name or provider name)
+- **AND** shows both static schema suggestions (blue) and dynamic available vars (green with checkmark)
+- **AND** limits display to top 3 most relevant suggestions to avoid UI clutter
+
 ### Requirement: Reusable Connection Payload (DRY)
 The system SHALL use a shared connection payload structure and validation for both connection testing and model discovery.
 

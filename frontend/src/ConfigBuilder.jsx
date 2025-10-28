@@ -12,11 +12,22 @@ import ConnectionWizard from './ConnectionWizard';
 function ConfigBuilder({ uiConfig, reloadConfig }) {
   const navigate = useNavigate();
   const [workingConfig, setWorkingConfig] = useState(null);
+  const [appliedConfig, setAppliedConfig] = useState(null); // Track what's currently applied
   const [loading, setLoading] = useState(true);
   const [showWizard, setShowWizard] = useState(false);
   const [wizardEditData, setWizardEditData] = useState(null);
   
+  // Phase 2.7: Validation state tracking
+  const [validationState, setValidationState] = useState('clean'); // 'clean' | 'dirty' | 'validating' | 'valid' | 'invalid'
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [validationWarnings, setValidationWarnings] = useState([]);
+  const [isApplying, setIsApplying] = useState(false);
+  
   const hasConfig = uiConfig?.hasConfig;
+  
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = workingConfig && appliedConfig && 
+    JSON.stringify(workingConfig) !== JSON.stringify(appliedConfig);
 
   // Load current configuration for editing (Decision 12: use /api/config/export)
   useEffect(() => {
@@ -25,6 +36,8 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
         .then(res => res.json())
         .then(data => {
           setWorkingConfig(data);
+          setAppliedConfig(JSON.parse(JSON.stringify(data))); // Deep copy for comparison
+          setValidationState('clean');
           setLoading(false);
         })
         .catch(err => {
@@ -33,7 +46,10 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
         });
     } else {
       // Initialize empty config for zero-config mode
-      setWorkingConfig({ llms: {}, rag_services: {}, responses: [] });
+      const emptyConfig = { llms: {}, rag_services: {}, responses: [] };
+      setWorkingConfig(emptyConfig);
+      setAppliedConfig(JSON.parse(JSON.stringify(emptyConfig))); // Deep copy
+      setValidationState('dirty'); // New config needs validation
       setLoading(false);
     }
   }, [hasConfig]);
@@ -70,7 +86,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       delete newConfig.rag_services[name];
     }
     setWorkingConfig(newConfig);
-    // TODO Phase 2.7: Mark config as dirty, show unsaved changes indicator
+    setValidationState('dirty'); // Mark as dirty
   };
   
   const handleWizardSave = (providerData) => {
@@ -88,12 +104,108 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     setWorkingConfig(newConfig);
     setShowWizard(false);
     setWizardEditData(null);
-    // TODO Phase 2.7: Mark config as dirty
+    setValidationState('dirty'); // Mark as dirty
   };
   
   const handleWizardCancel = () => {
     setShowWizard(false);
     setWizardEditData(null);
+  };
+  
+  // Phase 2.7: Validation handler
+  const handleValidate = async () => {
+    setValidationState('validating');
+    setValidationErrors([]);
+    setValidationWarnings([]);
+    
+    try {
+      const response = await fetch('/api/config/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(workingConfig)
+      });
+      
+      const result = await response.json();
+      
+      if (result.valid) {
+        setValidationState('valid');
+        setValidationWarnings(result.warnings || []);
+      } else {
+        setValidationState('invalid');
+        setValidationErrors(result.errors || []);
+        setValidationWarnings(result.warnings || []);
+      }
+    } catch (error) {
+      console.error('Validation failed:', error);
+      setValidationState('invalid');
+      setValidationErrors([`Validation request failed: ${error.message}`]);
+    }
+  };
+  
+  // Phase 2.7: Apply configuration (hot-reload)
+  const handleApply = async () => {
+    if (validationState !== 'valid') {
+      alert('Please validate your configuration before applying.');
+      return;
+    }
+    
+    setIsApplying(true);
+    
+    try {
+      const response = await fetch('/api/config/reload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(workingConfig)
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Update applied config snapshot
+        setAppliedConfig(JSON.parse(JSON.stringify(workingConfig)));
+        setValidationState('clean');
+        
+        // Refresh UI config and navigate to Home
+        await reloadConfig();
+        navigate('/');
+      } else {
+        alert(`Failed to apply configuration: ${result.message}`);
+      }
+    } catch (error) {
+      console.error('Apply failed:', error);
+      alert(`Failed to apply configuration: ${error.message}`);
+    } finally {
+      setIsApplying(false);
+    }
+  };
+  
+  // Phase 2.7: Export configuration as JSON
+  const handleExport = () => {
+    if (validationState !== 'valid') {
+      alert('Please validate your configuration before exporting.');
+      return;
+    }
+    
+    const jsonString = JSON.stringify(workingConfig, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'flex-chat-config.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+  
+  // Phase 2.7: Cancel and discard changes
+  const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      if (!window.confirm('You have unsaved changes. Are you sure you want to discard them?')) {
+        return;
+      }
+    }
+    navigate('/');
   };
 
   // Phase 2.2: Show Provider List (works for both create and edit)
@@ -120,6 +232,43 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             </button>
           </div>
 
+          {/* Phase 2.7: Unsaved Changes Banner */}
+          {hasUnsavedChanges && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-yellow-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span className="text-sm font-medium text-yellow-800">
+                  You have unsaved changes. Validate your configuration to enable Apply/Export.
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Phase 2.7: Validation Status and Errors */}
+          {validationState === 'invalid' && validationErrors.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <h3 className="text-sm font-medium text-red-800 mb-2">Configuration Errors:</h3>
+              <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
+                {validationErrors.map((error, idx) => (
+                  <li key={idx}>{error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {validationWarnings.length > 0 && (
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+              <h3 className="text-sm font-medium text-orange-800 mb-2">Configuration Warnings:</h3>
+              <ul className="list-disc list-inside space-y-1 text-sm text-orange-700">
+                {validationWarnings.map((warning, idx) => (
+                  <li key={idx}>{warning}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {/* Phase 2.2: Provider List Component */}
           <ProviderList
             workingConfig={workingConfig}
@@ -128,7 +277,112 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             onDeleteProvider={handleDeleteProvider}
           />
 
-          {/* TODO Phase 2.7: Unsaved changes banner and Apply/Export/Cancel buttons */}
+          {/* Phase 2.7: Action Buttons */}
+          <div className="mt-8 bg-white rounded-lg shadow-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm font-medium text-gray-700">Status:</span>
+                {validationState === 'clean' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    ✓ Clean
+                  </span>
+                )}
+                {validationState === 'dirty' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    ⚠ Not Validated
+                  </span>
+                )}
+                {validationState === 'validating' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    ⏳ Validating...
+                  </span>
+                )}
+                {validationState === 'valid' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                    ✓ Valid
+                  </span>
+                )}
+                {validationState === 'invalid' && (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                    ✗ Invalid
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              {/* Validate Button */}
+              <button
+                onClick={handleValidate}
+                disabled={validationState === 'validating'}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {validationState === 'validating' ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-700" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Validating...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Validate
+                  </>
+                )}
+              </button>
+
+              {/* Apply Button */}
+              <button
+                onClick={handleApply}
+                disabled={validationState !== 'valid' || isApplying}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isApplying ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Applying...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Apply Changes
+                  </>
+                )}
+              </button>
+
+              {/* Export Button */}
+              <button
+                onClick={handleExport}
+                disabled={validationState !== 'valid'}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export JSON
+              </button>
+
+              {/* Cancel Button */}
+              <button
+                onClick={handleCancel}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
         
         {/* Phase 2.3: Connection Wizard */}

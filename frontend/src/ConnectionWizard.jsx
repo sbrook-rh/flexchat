@@ -27,12 +27,23 @@ function ConnectionWizard({ onSave, onCancel, editMode = false, initialData = nu
   // Available providers list
   const [availableProviders, setAvailableProviders] = useState({ llm: [], rag: [] });
   
+  // Available environment variables
+  const [availableEnvVars, setAvailableEnvVars] = useState([]);
+  
   // Load available providers on mount
   useEffect(() => {
     fetch('/api/connections/providers')
       .then(res => res.json())
       .then(data => setAvailableProviders(data))
       .catch(err => console.error('Failed to load providers:', err));
+  }, []);
+  
+  // Load available env vars on mount
+  useEffect(() => {
+    fetch('/api/connections/env-vars?mask=true')
+      .then(res => res.json())
+      .then(data => setAvailableEnvVars(data.variables || []))
+      .catch(err => console.error('Failed to load env vars:', err));
   }, []);
   
   // Load provider schema when provider is selected
@@ -58,6 +69,15 @@ function ConnectionWizard({ onSave, onCancel, editMode = false, initialData = nu
         .catch(err => console.error('Failed to load schema:', err));
     }
   }, [selectedProvider, providerType]);
+  
+  // Helper: Auto-wrap env var with ${} if not already wrapped (Phase 2.6 enhancement)
+  const handleEnvVarBlur = (fieldName) => {
+    const value = config[fieldName];
+    if (value && value.trim() && !value.trim().startsWith('${')) {
+      // Auto-wrap with ${}
+      setConfig({ ...config, [fieldName]: `\${${value.trim()}}` });
+    }
+  };
   
   // Task 2.3.7: Form validation
   const canProceed = () => {
@@ -251,23 +271,62 @@ function ConnectionWizard({ onSave, onCancel, editMode = false, initialData = nu
                   {/* Task 2.3.4.1 & Phase 2.6: Secret fields only accept env vars */}
                   {field.type === 'secret' ? (
                     <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={config[field.name] || ''}
-                        onChange={(e) => setConfig({ ...config, [field.name]: e.target.value })}
-                        placeholder={field.placeholder || field.env_var_suggestion || '${ENV_VAR_NAME}'}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                      />
-                      {field.env_var_suggestion && (
-                        <button
-                          onClick={() => setConfig({ ...config, [field.name]: `\${${field.env_var_suggestion}}` })}
-                          className="text-xs text-blue-600 hover:text-blue-700"
-                        >
-                          Use ${field.env_var_suggestion}
-                        </button>
-                      )}
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={config[field.name] || ''}
+                          onChange={(e) => setConfig({ ...config, [field.name]: e.target.value })}
+                          onBlur={() => handleEnvVarBlur(field.name)}
+                          placeholder={field.placeholder || field.env_var_suggestion || 'VAR_NAME (will auto-wrap with ${})'}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                        />
+                      </div>
+                      
+                      {/* Quick-fill buttons for suggested/available env vars */}
+                      <div className="flex flex-wrap gap-2">
+                        {/* Static schema suggestion */}
+                        {field.env_var_suggestion && (
+                          <button
+                            type="button"
+                            onClick={() => setConfig({ ...config, [field.name]: `\${${field.env_var_suggestion}}` })}
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 transition-colors"
+                          >
+                            <svg className="w-3 h-3 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Use ${field.env_var_suggestion}
+                          </button>
+                        )}
+                        
+                        {/* Dynamic available env vars (Phase 2.6 enhancement) */}
+                        {availableEnvVars
+                          .filter(ev => 
+                            ev.name.toLowerCase().includes(field.name.toLowerCase()) || 
+                            ev.name.toLowerCase().includes(selectedProvider.toLowerCase())
+                          )
+                          .slice(0, 3)
+                          .map(envVar => (
+                            <button
+                              key={envVar.name}
+                              type="button"
+                              onClick={() => setConfig({ ...config, [field.name]: `\${${envVar.name}}` })}
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200 transition-colors"
+                              title={`Available: ${envVar.value || '(set)'}`}
+                            >
+                              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                              </svg>
+                              ${envVar.name}
+                            </button>
+                          ))
+                        }
+                      </div>
+                      
                       <p className="text-xs text-gray-500">
-                        {field.description} (Environment variable reference required)
+                        <span className="font-medium">💡 Tip:</span> Type the variable name (e.g., "OPENAI_API_KEY") and it will auto-wrap with <code className="bg-gray-100 px-1 rounded">${'${}'}</code> when you tab away.
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {field.description}
                       </p>
                     </div>
                   ) : field.type === 'number' ? (

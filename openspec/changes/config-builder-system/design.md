@@ -724,6 +724,25 @@ app.post('/api/chat', (req, res) => {
 
 **Implications:**
 - Add `POST /api/config/validate` endpoint.
+
+### Decision 14: Auto-Wrap Environment Variables and Dynamic Suggestions
+
+**Decision:** Automatically wrap user input with `${}` syntax when they tab out of secret fields, and display dynamic env var suggestions from the backend.
+
+**Rationale:** Users were confused about needing to type `${VARNAME}` manually. Auto-wrapping on blur reduces cognitive load while maintaining flexibility for users who type the full syntax. Dynamic suggestions from `GET /api/connections/env-vars` show which vars are actually available vs. just schema suggestions.
+
+**Implications:**
+- `onBlur` handler checks if input starts with `${` and auto-wraps if not
+- Fetch available env vars on wizard mount
+- Display static (blue) and dynamic (green checkmark) suggestions
+- Filter suggestions by field name and provider name relevance
+- Limit to top 3 suggestions to avoid UI clutter
+- Show tooltip explaining auto-wrap behavior
+
+**UX Flow:**
+1. User types "OPENAI_API_KEY" in secret field
+2. User tabs to next field → auto-wraps to `${OPENAI_API_KEY}`
+3. Or user clicks green "✓ $OPENAI_API_KEY" button → fills `${OPENAI_API_KEY}`
 - Builder tracks `validationStatus: 'dirty' | 'valid' | 'invalid'`.
 - Buttons state derives from validation status.
 

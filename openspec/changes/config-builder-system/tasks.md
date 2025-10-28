@@ -118,14 +118,22 @@
 - [x] 2.6.3 Add "Use Environment Variable" toggle (button sets ${VAR_NAME})
 - [x] 2.6.4 Mask sensitive values (shows ${ENV_VAR} references, not actual values)
 - [ ] 2.6.5 Add reveal/hide toggle (not needed - env vars are references, not secrets)
+- [x] 2.6.6 Auto-wrap user input with ${} on blur (Decision 14)
+- [x] 2.6.7 Fetch dynamic env vars from GET /api/connections/env-vars
+- [x] 2.6.8 Display static (blue) and dynamic (green) suggestions with filtering
+- [x] 2.6.9 Add tooltip explaining auto-wrap behavior
 
 ### 2.7 State Management
-- [ ] 2.7.1 Set up configuration state management (Context/Zustand)
-- [ ] 2.7.2 Implement add/edit/delete provider actions
-- [ ] 2.7.3 Implement configuration persistence
-- [ ] 2.7.4 Add undo/redo support (optional)
- - [ ] 2.7.5 Initialize builder from `GET /api/config/export` (applied snapshot)
- - [ ] 2.7.6 After successful Apply, refresh `/api/ui-config` and navigate to Home
+- [x] 2.7.1 Add "Unsaved Changes" banner (shows when workingConfig differs from applied)
+- [x] 2.7.2 Add Apply/Export/Cancel buttons to ConfigBuilder
+- [x] 2.7.3 Implement validation state tracking (dirty/validating/valid/invalid)
+- [x] 2.7.4 Add "Validate" button (calls POST /api/config/validate)
+- [x] 2.7.5 Disable Apply/Export until validation passes (Decision 13: Validation Gating)
+- [x] 2.7.6 Display validation errors/warnings in UI
+- [x] 2.7.7 Implement "Cancel" (discard changes, navigate away with confirmation)
+- [x] 2.7.8 Implement "Export" (download JSON file with workingConfig)
+- [x] 2.7.9 Implement "Apply" (POST /api/config/reload, refresh /api/ui-config, navigate to Home)
+- [x] 2.7.10 Add builder mode guard (confirms before navigating with unsaved changes)
 
 ## Phase 3: Embedding & Intent Configuration UI
 
