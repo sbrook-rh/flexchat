@@ -118,10 +118,13 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       console.log('🔍 Debug response handler creation:', {
         hasNoResponses,
         selectedModel: providerData.selectedModel,
-        willCreate: hasNoResponses && providerData.selectedModel
+        replaceDefaultHandler: providerData.replaceDefaultHandler,
+        willCreate: hasNoResponses && providerData.selectedModel,
+        willReplace: !hasNoResponses && providerData.replaceDefaultHandler
       });
       
       if (hasNoResponses && providerData.selectedModel) {
+        // First LLM: Create default response handler
         if (!newConfig.responses) newConfig.responses = [];
         newConfig.responses.push({
           llm: providerData.name,
@@ -130,8 +133,16 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
         });
         console.log(`✓ Created default response handler using ${providerData.name}/${providerData.selectedModel}`);
         console.log('📝 New config responses:', newConfig.responses);
+      } else if (!hasNoResponses && providerData.replaceDefaultHandler && providerData.selectedModel) {
+        // Second+ LLM: Replace default response handler if user opted in
+        newConfig.responses[0] = {
+          llm: providerData.name,
+          model: providerData.selectedModel,
+          prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
+        };
+        console.log(`✓ Replaced default response handler with ${providerData.name}/${providerData.selectedModel}`);
       } else if (!hasNoResponses) {
-        console.log('ℹ️ Response handler already exists, skipping creation');
+        console.log('ℹ️ Response handler already exists, user chose not to replace');
       } else {
         console.log('❌ No selectedModel provided, cannot create response handler');
       }
@@ -434,6 +445,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             onCancel={handleWizardCancel}
             editMode={wizardEditData !== null}
             initialData={wizardEditData}
+            workingConfig={workingConfig}
           />
         )}
         

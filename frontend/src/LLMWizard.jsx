@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
  * LLMWizard - Step-by-step wizard for adding/editing LLM providers
  * Decision 15: Separate wizard for LLM providers with model selection
  */
-function LLMWizard({ onSave, onCancel, editMode = false, initialData = null }) {
+function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, workingConfig = null }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedProvider, setSelectedProvider] = useState(editMode ? initialData?.provider : null);
   const [providerSchema, setProviderSchema] = useState(null);
@@ -18,11 +18,16 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null }) {
   // Model discovery state
   const [models, setModels] = useState([]);
   const [modelsLoading, setModelsLoading] = useState(false);
-  const [selectedModel, setSelectedModel] = useState(null);
+  const [selectedModel, setSelectedModel] = useState(
+    editMode && initialData?.config?.default_model ? initialData.config.default_model : null
+  );
   
   // Available providers and env vars
   const [availableProviders, setAvailableProviders] = useState([]);
   const [availableEnvVars, setAvailableEnvVars] = useState([]);
+  
+  // Response handler replacement (for second+ LLM)
+  const [replaceDefaultHandler, setReplaceDefaultHandler] = useState(false);
   
   // Load available LLM providers on mount
   useEffect(() => {
@@ -156,7 +161,8 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null }) {
       name: providerName,
       type: 'llm',
       config: config,
-      selectedModel: selectedModel
+      selectedModel: selectedModel,
+      replaceDefaultHandler: replaceDefaultHandler
     });
   };
   
@@ -446,6 +452,50 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null }) {
                 </div>
               </dl>
             </div>
+            
+            {/* Decision 17: Offer to replace/update default response handler */}
+            {workingConfig?.responses?.length > 0 && selectedModel && 
+             !(editMode && workingConfig.responses[0].llm === providerName && workingConfig.responses[0].model === selectedModel) && (
+              <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <h3 className="text-sm font-medium text-amber-900 mb-2">Default Response Handler</h3>
+                <p className="text-sm text-amber-800 mb-3">
+                  {editMode && workingConfig.responses[0].llm === providerName ? (
+                    <>
+                      Your default response handler currently uses:{' '}
+                      <code className="bg-amber-100 px-2 py-0.5 rounded font-mono text-xs">
+                        {workingConfig.responses[0].llm}/{workingConfig.responses[0].model}
+                      </code>
+                    </>
+                  ) : (
+                    <>
+                      You already have a default response handler using:{' '}
+                      <code className="bg-amber-100 px-2 py-0.5 rounded font-mono text-xs">
+                        {workingConfig.responses[0].llm}/{workingConfig.responses[0].model}
+                      </code>
+                    </>
+                  )}
+                </p>
+                <label className="flex items-start cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={replaceDefaultHandler}
+                    onChange={(e) => setReplaceDefaultHandler(e.target.checked)}
+                    className="mt-1 mr-3 h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-gray-900">
+                      {editMode && workingConfig.responses[0].llm === providerName
+                        ? `Update to use ${selectedModel}`
+                        : `Replace with ${providerName}/${selectedModel}`
+                      }
+                    </span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      (You can add more response handlers later in Phase 3)
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
           </div>
         );
       
