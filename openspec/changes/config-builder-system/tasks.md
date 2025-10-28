@@ -215,7 +215,11 @@
 
 ### 5.1 Backend Config API Endpoints
 - [x] 5.1.1 Create `backend/chat/routes/config.js` route module
-- [ ] 5.1.2 Implement `POST /api/config/reload` endpoint (hot-reload config) - placeholder added
+- [x] 5.1.2 Implement `POST /api/config/reload` endpoint (hot-reload config)
+  - [x] 5.1.2.1 Refactor server.js to use getter functions for state
+  - [x] 5.1.2.2 Update all route factories to accept getters
+  - [x] 5.1.2.3 Implement reinitializeProviders() in server.js
+  - [x] 5.1.2.4 Connect POST /api/config/reload to reinitializeProviders
 - [x] 5.1.3 Implement `GET /api/config/export` endpoint (export current config as JSON)
 - [x] 5.1.4 Implement `POST /api/config/validate` endpoint (validate config)
  - [x] 5.1.4.1 Use proper validateConfig from config-loader
@@ -249,13 +253,13 @@
 - [ ] 5.4.5 Add "Fix" suggestions where possible
 
 ### 5.5 Live Configuration Updates
-- [ ] 5.5.1 Add "Apply Changes" button in UI (calls `/api/config/reload`)
-- [ ] 5.5.2 Show "Unsaved Changes" indicator
-- [ ] 5.5.3 Add confirmation before applying
-- [ ] 5.5.4 Handle apply errors gracefully
-- [ ] 5.5.5 Display success confirmation with reload status
- - [ ] 5.5.6 Add global route guard when `hasUnappliedChanges` (except Export/Cancel)
- - [ ] 5.5.7 Add Validate button and gating logic (Apply/Export disabled until valid)
+- [x] 5.5.1 Add "Apply Changes" button in UI (calls `/api/config/reload`)
+- [x] 5.5.2 Show "Unsaved Changes" indicator (yellow banner)
+- [x] 5.5.3 Add confirmation before applying (Cancel button with confirm dialog)
+- [x] 5.5.4 Handle apply errors gracefully (error alerts)
+- [x] 5.5.5 Display success confirmation with reload status (auto-navigate to Home)
+- [x] 5.5.6 Add global route guard when `hasUnappliedChanges` (except Export/Cancel)
+- [x] 5.5.7 Add Validate button and gating logic (Apply/Export disabled until valid)
 
 ### 5.6 Configuration Diff/Preview
 - [ ] 5.6.1 Create ConfigDiff component
