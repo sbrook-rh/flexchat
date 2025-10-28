@@ -18,7 +18,7 @@ class ConnectionTester {
    */
   async testConnection(providerType, providerId, config) {
     const startTime = Date.now();
-
+    console.log('testConnection', providerType, providerId, config);
     try {
       let result;
       
@@ -109,14 +109,18 @@ class ConnectionTester {
     
     // Create a temporary instance with the test config
     const provider = new ProviderClass(config);
-
+    console.log('provider', provider);
     // Test with timeout
     const result = await this.withTimeout(
       async () => {
         // Try to perform a health check
+        
         if (typeof provider.healthCheck === 'function') {
+          console.log('health check function');
           const healthResult = await provider.healthCheck();
+          console.log('health check result', healthResult);
           if (healthResult.status !== 'healthy') {
+            console.log('health check failed', healthResult.error);
             throw new Error(healthResult.error || 'Health check failed');
           }
           return { method: 'healthCheck', details: healthResult };
@@ -156,7 +160,7 @@ class ConnectionTester {
       } else if (type === 'rag') {
         // Map provider ID to RAG class name
         const className = this.getProviderClassName(providerId);
-        const ProviderClass = require(`../../../retrieval-providers/${className}`);
+        const ProviderClass = require(`../../retrieval-providers/providers/${className}`);
         return ProviderClass;
       }
     } catch (error) {
@@ -172,9 +176,16 @@ class ConnectionTester {
   getProviderClassName(providerId) {
     // Convert 'openai' -> 'OpenAIProvider'
     // Convert 'chromadb' -> 'ChromaDBProvider'
+    // Convert 'chromadb-wrapper' -> 'ChromaDBWrapperProvider'
     const parts = providerId.split(/[-_]/);
     const className = parts
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .map(part => {
+        // Special case: keep 'DB' uppercase
+        if (part.toLowerCase() === 'db') {
+          return 'DB';
+        }
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      })
       .join('');
     return `${className}Provider.js`;
   }
