@@ -1,0 +1,50 @@
+id: config-builder-navigation
+status: proposed
+created: 2025-10-28
+updated: 2025-10-28
+
+dependencies:
+  - config-builder-system  # Must complete Phase 2 first
+
+blocks:
+  - config-builder-system  # Blocks Phase 3 (Intent UI)
+
+title: Configuration Builder Navigation Refactor
+
+description: |
+  Refactor the Configuration Builder UI to use vertical tab navigation,
+  supporting scalable addition of configuration sections (Providers,
+  Embeddings, Intent, Handlers, Reasoning) with conditional enabling
+  and visual status indicators.
+
+scope:
+  - Frontend UI layout refactor
+  - NavigationSidebar component
+  - Tab state management
+  - Conditional tab enabling logic
+  - Badge indicators for counts
+  - Placeholder sections for future phases
+
+impact:
+  breaking: false
+  components:
+    - frontend/src/ConfigBuilder.jsx
+    - frontend/src/NavigationSidebar.jsx (new)
+    - frontend/src/ConfigSection.jsx (new)
+    - frontend/src/sections/ProvidersSection.jsx (new)
+    - frontend/src/sections/EmbeddingsSection.jsx (new)
+    - frontend/src/sections/IntentSection.jsx (new)
+    - frontend/src/sections/HandlersSection.jsx (new)
+    - frontend/src/sections/ReasoningSection.jsx (new)
+  specs:
+    - config-builder (MODIFIED)
+
+estimated_effort: 1-2 days
+
+notes: |
+  - Pure UI refactor, no backend changes
+  - No breaking changes to Phase 2 functionality
+  - Foundation for Phases 3-5 feature additions
+  - Simple state-based tabs (no routing library)
+  - Emoji icons for MVP (can upgrade later)
+
