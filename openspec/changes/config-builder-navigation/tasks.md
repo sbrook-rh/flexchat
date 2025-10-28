@@ -115,7 +115,7 @@
 ### 6.2 User-Facing Updates
 - [x] 6.2.1 Create design.md with navigation architecture decisions
 - [x] 6.2.2 Add ASCII mockup to design.md
-- [ ] 6.2.3 Note navigation refactor in CHANGELOG.md (deferred)
+- [x] 6.2.3 CHANGELOG update moved to config-builder-system/tasks.md (5.8.5)
 
 ## Summary
 

@@ -281,7 +281,8 @@
 - [ ] 5.8.2 Update `docs/CONFIGURATION.md` with UI workflow
 - [ ] 5.8.3 Update `README.md` getting started guide
 - [ ] 5.8.4 Add screenshots/GIFs to documentation
-- [ ] 5.8.5 Create video walkthrough (optional)
+- [ ] 5.8.5 Update `CHANGELOG.md` with config-builder-system feature summary
+- [ ] 5.8.6 Create video walkthrough (optional)
 
 ## Testing & Quality Assurance
 
