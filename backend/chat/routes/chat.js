@@ -9,18 +9,21 @@ const { generateResponse } = require('../lib/response-generator');
 
 /**
  * Create chat router with dependency injection
- * @param {Object} config - Server configuration
- * @param {Object} aiProviders - AI provider instances
- * @param {Object} ragProviders - RAG provider instances
+ * @param {Function} getConfig - Getter for current config (always up-to-date)
+ * @param {Function} getProviders - Getter for current providers (always up-to-date)
  * @returns {express.Router} Configured chat router
  */
-function createChatRouter(config, aiProviders, ragProviders) {
+function createChatRouter(getConfig, getProviders) {
   /**
    * Main chat endpoint
    * POST /chat/api
    */
   router.post('/api', async (req, res) => {
     try {
+      // Get current state via getters (always up-to-date after hot-reload)
+      const config = getConfig();
+      const { aiProviders, ragProviders } = getProviders();
+      
       const userMessage = req.body.prompt;
       const selectedCollections = req.body.selectedCollections || [];
       const previousMessages = req.body.previousMessages || [];

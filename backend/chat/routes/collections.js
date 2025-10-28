@@ -10,13 +10,12 @@ const {
 
 /**
  * Create collections router with dependency injection
- * @param {Object} config - Server configuration (raw with placeholders)
- * @param {Object} ragProviders - RAG provider instances
- * @param {Object} aiProviders - AI provider instances (Phase 1.6.5)
- * @param {Object} providerStatus - Provider connection status (Phase 1.6.5)
+ * @param {Function} getConfig - Getter for current config (always up-to-date)
+ * @param {Function} getProviders - Getter for current providers (always up-to-date)
+ * @param {Function} getProviderStatus - Getter for current provider status (always up-to-date)
  * @returns {express.Router} Configured collections router
  */
-function createCollectionsRouter(config, ragProviders, aiProviders = {}, providerStatus = null) {
+function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
   /**
    * List all collections from all RAG services
    * Returns collections, wrapper info, and hasWrappers flag for frontend
@@ -24,6 +23,8 @@ function createCollectionsRouter(config, ragProviders, aiProviders = {}, provide
    */
   router.get('/collections', async (req, res) => {
     try {
+      const config = getConfig();
+      const { ragProviders } = getProviders();
       const result = await listCollections(config.rag_services, ragProviders);
       res.json(result);  // Returns { collections, wrappers }
     } catch (error) {
@@ -44,6 +45,11 @@ function createCollectionsRouter(config, ragProviders, aiProviders = {}, provide
    */
   router.get('/ui-config', async (req, res) => {
     try {
+      // Get current state via getters (always up-to-date after hot-reload)
+      const config = getConfig();
+      const { ragProviders } = getProviders();
+      const providerStatus = getProviderStatus();
+      
       // Get collections and wrappers
       const collectionsData = await listCollections(config.rag_services, ragProviders);
       
@@ -112,6 +118,8 @@ function createCollectionsRouter(config, ragProviders, aiProviders = {}, provide
         return res.status(400).json({ error: 'Service name is required' });
       }
       
+      const config = getConfig();
+      const { ragProviders } = getProviders();
       const result = await createCollection(service, name, metadata, config.rag_services, ragProviders);
       res.json(result);
     } catch (error) {
@@ -141,6 +149,8 @@ function createCollectionsRouter(config, ragProviders, aiProviders = {}, provide
         return res.status(400).json({ error: 'Service name is required' });
       }
       
+      const config = getConfig();
+      const { ragProviders } = getProviders();
       const result = await addDocuments(service, name, documents, config.rag_services, ragProviders);
       res.json(result);
     } catch (error) {
@@ -170,6 +180,8 @@ function createCollectionsRouter(config, ragProviders, aiProviders = {}, provide
         return res.status(400).json({ error: 'Service name is required' });
       }
       
+      const config = getConfig();
+      const { ragProviders } = getProviders();
       const result = await updateCollectionMetadata(service, name, metadata, config.rag_services, ragProviders);
       res.json(result);
     } catch (error) {
@@ -195,6 +207,8 @@ function createCollectionsRouter(config, ragProviders, aiProviders = {}, provide
         return res.status(400).json({ error: 'Service name is required (query parameter)' });
       }
       
+      const config = getConfig();
+      const { ragProviders } = getProviders();
       await deleteCollection(service, name, config.rag_services, ragProviders);
       res.json({ success: true, message: `Collection ${name} deleted` });
     } catch (error) {

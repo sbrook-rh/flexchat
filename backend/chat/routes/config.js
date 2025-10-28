@@ -12,8 +12,8 @@ const path = require('path');
  */
 router.get('/export', (req, res) => {
   try {
-    // Access raw config from the closure (passed during router creation)
-    const rawConfig = router.rawConfig || {};
+    // Get current config via getter (always up-to-date after hot-reload)
+    const rawConfig = router.getConfig() || {};
     
     res.json(rawConfig);
   } catch (error) {
@@ -25,13 +25,14 @@ router.get('/export', (req, res) => {
 /**
  * POST /api/config/reload
  * Apply new configuration at runtime (hot-reload).
- * 
+ *
  * Request body: Full configuration object (raw with ${ENV_VAR} placeholders)
- * Response: { success: boolean, message: string }
+ * Response: { success: boolean, message: string, status?: object }
  */
-router.post('/reload', (req, res) => {
+router.post('/reload', async (req, res) => {
   try {
     const newConfig = req.body;
+    console.log('🔄 Reloading configuration:', newConfig);
     
     if (!newConfig || typeof newConfig !== 'object') {
       return res.status(400).json({
@@ -40,12 +41,22 @@ router.post('/reload', (req, res) => {
       });
     }
     
-    // TODO Phase 5.1.2: Implement actual hot-reload logic
-    // For now, just validate and return placeholder
-    res.status(501).json({
-      success: false,
-      message: 'Hot-reload not yet implemented (Phase 5.1.2)'
-    });
+    // Access reloadFunction from router instance (set during creation)
+    if (!router.reloadFunction) {
+      return res.status(500).json({
+        success: false,
+        message: 'Hot-reload function not initialized'
+      });
+    }
+    
+    // Call the reinitializeProviders function from server.js
+    const result = await router.reloadFunction(newConfig);
+    
+    if (result.success) {
+      return res.json(result);
+    } else {
+      return res.status(500).json(result);
+    }
   } catch (error) {
     console.error('Error reloading configuration:', error);
     res.status(500).json({ 
@@ -147,9 +158,11 @@ router.post('/validate', (req, res) => {
   }
 });
 
-module.exports = (rawConfig = {}) => {
-  // Store rawConfig on router instance for /export endpoint
-  router.rawConfig = rawConfig;
+module.exports = (getConfig, reloadFunction = null) => {
+  // Store getter function for /export endpoint (always returns current config)
+  router.getConfig = getConfig;
+  // Store reload function for /reload endpoint
+  router.reloadFunction = reloadFunction;
   return router;
 };
 

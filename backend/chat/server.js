@@ -39,6 +39,14 @@ let providerStatus = {
 };
 
 /**
+ * Getter functions for current server state
+ * These allow routes to always access the latest values after hot-reload
+ */
+const getConfig = () => config;
+const getProviders = () => ({ aiProviders, ragProviders });
+const getProviderStatus = () => providerStatus;
+
+/**
  * Parse command line arguments
  */
 const { Command } = require('commander');
@@ -56,6 +64,115 @@ function parseArguments() {
   const options = program.opts();
 
   return options;
+}
+
+/**
+ * Reinitialize providers with new configuration (hot-reload)
+ * @param {Object} newRawConfig - Raw configuration with ${ENV_VAR} placeholders
+ * @returns {Promise<Object>} - { success: boolean, message: string, status?: object }
+ */
+async function reinitializeProviders(newRawConfig) {
+  console.log('\n🔄 Hot-reloading configuration...');
+
+  try {
+    // Get processed config (resolve env vars)
+    const processedConfig = getProcessedConfig(newRawConfig);
+
+    // Clear existing providers
+    aiProviders = {};
+    ragProviders = {};
+    providerStatus.llms = {};
+    providerStatus.rag_services = {};
+
+    // Initialize AI providers
+    if (Object.keys(processedConfig.llms || {}).length > 0) {
+      console.log('   🤖 Reinitializing AI providers...');
+    }
+
+    for (const [name, llmConfig] of Object.entries(processedConfig.llms || {})) {
+      try {
+        const providerType = llmConfig.provider;
+        console.log(`      Initializing ${name} (${providerType})...`);
+
+        const provider = aiRegistry.createProvider(providerType, llmConfig);
+
+        // Validate config
+        const validation = provider.validateConfig(llmConfig);
+        if (!validation.isValid) {
+          throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
+        }
+
+        // Health check
+        const health = await provider.healthCheck();
+        if (health.status !== 'healthy') {
+          throw new Error(`Health check failed: ${health.error || 'Unknown error'}`);
+        }
+
+        aiProviders[name] = provider;
+        providerStatus.llms[name] = { connected: true };
+        console.log(`      ✅ ${name} initialized successfully`);
+      } catch (error) {
+        console.error(`      ❌ Failed to initialize ${name}: ${error.message}`);
+        throw new Error(`Failed to initialize LLM '${name}': ${error.message}`);
+      }
+    }
+
+    // Initialize RAG services
+    if (Object.keys(processedConfig.rag_services || {}).length > 0) {
+      console.log('   📚 Reinitializing RAG services...');
+    }
+
+    for (const [name, ragConfig] of Object.entries(processedConfig.rag_services || {})) {
+      try {
+        const providerType = ragConfig.provider;
+        console.log(`      Initializing ${name} (${providerType})...`);
+
+        // Use global embedding config if service doesn't have its own
+        if (processedConfig.embedding && !ragConfig.embedding) {
+          ragConfig.embedding = processedConfig.embedding;
+        }
+
+        const service = ragRegistry.createProvider(providerType, ragConfig);
+
+        // Validate config
+        const validation = service.validateConfig(ragConfig);
+        if (!validation.isValid) {
+          throw new Error(`Invalid configuration: ${validation.errors.join(', ')}`);
+        }
+
+        // Health check
+        const health = await service.healthCheck();
+        if (health.status !== 'healthy') {
+          throw new Error(`Health check failed: ${health.error || 'Unknown error'}`);
+        }
+
+        ragProviders[name] = service;
+        providerStatus.rag_services[name] = { connected: true };
+        console.log(`      ✅ ${name} initialized successfully`);
+      } catch (error) {
+        console.error(`      ❌ Failed to initialize ${name}: ${error.message}`);
+        throw new Error(`Failed to initialize RAG service '${name}': ${error.message}`);
+      }
+    }
+
+    // Update global config reference
+    config = newRawConfig;
+
+    console.log('   ✅ Configuration reloaded successfully\n');
+
+    return {
+      success: true,
+      message: 'Configuration reloaded successfully',
+      status: providerStatus
+    };
+  } catch (error) {
+    console.error(`   ❌ Hot-reload failed: ${error.message}\n`);
+    
+    return {
+      success: false,
+      message: error.message
+    };
+  }
 }
 
 /**
@@ -179,12 +296,12 @@ async function initialize() {
 
   console.log('\n✅ Server initialized successfully\n');
 
-  // Mount route modules
-  app.use('/', createHealthRouter(config, aiProviders, ragProviders));
-  app.use('/api', createCollectionsRouter(config, ragProviders, aiProviders, providerStatus));
+  // Mount route modules (pass getters for hot-reload support)
+  app.use('/', createHealthRouter(getConfig, getProviders));
+  app.use('/api', createCollectionsRouter(getConfig, getProviders, getProviderStatus));
   app.use('/api/connections', connectionsRouter);
-  app.use('/api/config', createConfigRouter(config)); // Pass raw config for /export
-  app.use('/chat', createChatRouter(config, aiProviders, ragProviders));
+  app.use('/api/config', createConfigRouter(getConfig, reinitializeProviders));
+  app.use('/chat', createChatRouter(getConfig, getProviders));
 
   // Start server
   const PORT = options.port;
