@@ -73,55 +73,69 @@ router.post('/validate', (req, res) => {
       });
     }
 
-    // Basic shape checks
     const errors = [];
     const warnings = [];
 
-    if (!config.llms || typeof config.llms !== 'object') {
-      warnings.push('No LLM providers configured');
-    }
-    if (!Array.isArray(config.responses)) {
-      warnings.push('No response handlers configured');
-    }
-
-    // Delegate to provider-specific validators when possible (best-effort)
+    // Use the proper validateConfig from config-loader (throws on errors)
     try {
-      const { getProcessedConfig } = require('../lib/config-loader');
-      const processed = getProcessedConfig(config);
-
-      const { registry: aiRegistry } = require('../ai-providers/providers');
-      const { registry: ragRegistry } = require('../retrieval-providers/providers');
-
-      // Validate LLM providers
-      for (const [name, llmConfig] of Object.entries(processed.llms || {})) {
-        const type = llmConfig.provider;
-        try {
-          const provider = aiRegistry.createProvider(type, llmConfig);
-          const v = provider.validateConfig(llmConfig);
-          if (!v.isValid) {
-            errors.push(`LLM '${name}': ${v.errors.join(', ')}`);
-          }
-        } catch (e) {
-          errors.push(`LLM '${name}': ${e.message}`);
-        }
-      }
-
-      // Validate RAG services
-      for (const [name, ragConfig] of Object.entries(processed.rag_services || {})) {
-        const type = ragConfig.provider;
-        try {
-          const service = ragRegistry.createProvider(type, ragConfig);
-          const v = service.validateConfig(ragConfig);
-          if (!v.isValid) {
-            errors.push(`RAG '${name}': ${v.errors.join(', ')}`);
-          }
-        } catch (e) {
-          errors.push(`RAG '${name}': ${e.message}`);
-        }
-      }
+      const { validateConfig } = require('../lib/config-loader');
+      validateConfig(config); // Throws if invalid (except zero-config)
     } catch (e) {
-      // If deep validation fails, report as a top-level error
-      errors.push(`Validation engine error: ${e.message}`);
+      // Validation threw - capture error message
+      errors.push(e.message);
+    }
+
+    // Check for zero-config mode explicitly
+    const hasLLMs = config.llms && typeof config.llms === 'object' && Object.keys(config.llms).length > 0;
+    const hasResponses = config.responses && Array.isArray(config.responses) && config.responses.length > 0;
+    const isZeroConfig = !hasLLMs && !hasResponses;
+
+    // If zero-config, warn but don't error
+    if (isZeroConfig) {
+      warnings.push('Configuration is empty - chat will not be functional');
+      warnings.push('Add at least one LLM provider and one response handler');
+    }
+
+    // Provider-specific validation (only if we have providers)
+    if (!isZeroConfig && errors.length === 0) {
+      try {
+        const { getProcessedConfig } = require('../lib/config-loader');
+        const processed = getProcessedConfig(config);
+
+        const { registry: aiRegistry } = require('../ai-providers/providers');
+        const { registry: ragRegistry } = require('../retrieval-providers/providers');
+
+        // Validate LLM providers
+        for (const [name, llmConfig] of Object.entries(processed.llms || {})) {
+          const type = llmConfig.provider;
+          try {
+            const provider = aiRegistry.createProvider(type, llmConfig);
+            const v = provider.validateConfig(llmConfig);
+            if (!v.isValid) {
+              errors.push(`LLM '${name}': ${v.errors.join(', ')}`);
+            }
+          } catch (e) {
+            errors.push(`LLM '${name}': ${e.message}`);
+          }
+        }
+
+        // Validate RAG services
+        for (const [name, ragConfig] of Object.entries(processed.rag_services || {})) {
+          const type = ragConfig.provider;
+          try {
+            const service = ragRegistry.createProvider(type, ragConfig);
+            const v = service.validateConfig(ragConfig);
+            if (!v.isValid) {
+              errors.push(`RAG '${name}': ${v.errors.join(', ')}`);
+            }
+          } catch (e) {
+            errors.push(`RAG '${name}': ${e.message}`);
+          }
+        }
+      } catch (e) {
+        // If deep validation fails, report as a top-level error
+        errors.push(`Validation engine error: ${e.message}`);
+      }
     }
 
     const valid = errors.length === 0;

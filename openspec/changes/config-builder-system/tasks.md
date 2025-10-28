@@ -216,6 +216,9 @@
 - [ ] 5.1.2 Implement `POST /api/config/reload` endpoint (hot-reload config) - placeholder added
 - [x] 5.1.3 Implement `GET /api/config/export` endpoint (export current config as JSON)
 - [x] 5.1.4 Implement `POST /api/config/validate` endpoint (validate config)
+ - [x] 5.1.4.1 Use proper validateConfig from config-loader
+ - [x] 5.1.4.2 Enforce: LLM + response handler required (except zero-config)
+ - [x] 5.1.4.3 Return errors for partial configs (LLM without responses, or vice versa)
 - [x] 5.1.5 Register config routes in `server.js`
 - [ ] 5.1.6 Add authorization/security checks
 - [ ] 5.1.7 Write integration tests for config endpoints
