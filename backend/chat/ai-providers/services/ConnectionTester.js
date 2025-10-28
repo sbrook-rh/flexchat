@@ -18,7 +18,7 @@ class ConnectionTester {
    */
   async testConnection(providerType, providerId, config) {
     const startTime = Date.now();
-    console.log('testConnection', providerType, providerId, config);
+    
     try {
       let result;
       
@@ -109,18 +109,14 @@ class ConnectionTester {
     
     // Create a temporary instance with the test config
     const provider = new ProviderClass(config);
-    console.log('provider', provider);
+    
     // Test with timeout
     const result = await this.withTimeout(
       async () => {
         // Try to perform a health check
-        
         if (typeof provider.healthCheck === 'function') {
-          console.log('health check function');
           const healthResult = await provider.healthCheck();
-          console.log('health check result', healthResult);
           if (healthResult.status !== 'healthy') {
-            console.log('health check failed', healthResult.error);
             throw new Error(healthResult.error || 'Health check failed');
           }
           return { method: 'healthCheck', details: healthResult };
