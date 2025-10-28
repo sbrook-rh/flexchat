@@ -83,11 +83,11 @@ class ProviderDiscovery {
    * @returns {Array} Array of RAG provider metadata
    */
   discoverRAGProviders() {
-    const providersDir = path.join(__dirname, '../../../retrieval-providers');
+    const providersDir = path.join(__dirname, '../../retrieval-providers/providers');
     const providers = [];
 
     try {
-      // Check if retrieval-providers directory exists
+      // Check if retrieval-providers/providers directory exists
       if (!fs.existsSync(providersDir)) {
         return providers;
       }
@@ -95,8 +95,8 @@ class ProviderDiscovery {
       const files = fs.readdirSync(providersDir);
       
       for (const file of files) {
-        // Skip non-JS files
-        if (!file.endsWith('.js')) {
+        // Skip index.js and non-JS files
+        if (file === 'index.js' || !file.endsWith('.js')) {
           continue;
         }
 

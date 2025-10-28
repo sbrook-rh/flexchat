@@ -253,6 +253,60 @@ class ChromaDBProvider extends VectorProvider {
       errors
     };
   }
+
+  /**
+   * Get connection schema for UI-driven configuration
+   * @static
+   * @returns {Object} Connection schema with field definitions
+   */
+  static getConnectionSchema() {
+    return {
+      provider: 'chromadb',
+      display_name: 'ChromaDB',
+      description: 'Direct ChromaDB vector database connection',
+      fields: [
+        {
+          name: 'url',
+          type: 'url',
+          label: 'ChromaDB URL',
+          description: 'Base URL of the ChromaDB server',
+          required: true,
+          default: 'http://localhost:8000',
+          placeholder: 'http://localhost:8000',
+          validation: {
+            pattern: '^https?://.+',
+            message: 'Must be a valid HTTP or HTTPS URL'
+          }
+        },
+        {
+          name: 'collection',
+          type: 'string',
+          label: 'Collection Name',
+          description: 'Name of the ChromaDB collection to use',
+          required: true,
+          placeholder: 'my-collection',
+          validation: {
+            pattern: '^[a-zA-Z0-9_-]+$',
+            message: 'Collection name can only contain letters, numbers, underscores, and hyphens'
+          }
+        },
+        {
+          name: 'timeout',
+          type: 'number',
+          label: 'Request Timeout (ms)',
+          description: 'Maximum time to wait for ChromaDB responses',
+          required: false,
+          default: 30000,
+          validation: {
+            min: 1000,
+            max: 120000,
+            message: 'Timeout must be between 1 and 120 seconds'
+          }
+        }
+      ],
+      capabilities: ['collections', 'search', 'embeddings']
+    };
+  }
 }
 
 module.exports = ChromaDBProvider;

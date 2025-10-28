@@ -1018,3 +1018,55 @@ router.get('/ui-config', ...);         // ❌ Unrelated endpoint
 - Mount point defines URL namespace, route file defines resource operations
 - Easier to find and maintain endpoints
 
+---
+
+### Decision 16: Frontend Static Data Caching
+
+**Problem:** LLMWizard and RAGWizard each fetch `/api/connections/providers` on mount, causing duplicate requests for essentially static data.
+
+**Current Behavior:**
+- Every wizard open = new fetch to `/api/connections/providers`
+- Every wizard open = new fetch to `/api/connections/env-vars` (if implemented)
+- Data doesn't change during session (backend caches for 5 minutes anyway)
+
+**Decision:** Fetch static data once at ConfigBuilder level, pass as props to wizards
+
+**Implementation:**
+```javascript
+// ConfigBuilder.jsx
+const [staticData, setStaticData] = useState(null);
+
+useEffect(() => {
+  Promise.all([
+    fetch('/api/connections/providers').then(r => r.json()),
+    fetch('/api/connections/env-vars').then(r => r.json())
+  ]).then(([providers, envVars]) => {
+    setStaticData({ providers, envVars });
+  });
+}, []);
+
+// Pass to wizards
+<LLMWizard 
+  llmProviders={staticData?.providers.llm}
+  envVars={staticData?.envVars}
+  ... 
+/>
+
+<RAGWizard 
+  ragProviders={staticData?.providers.rag}
+  envVars={staticData?.envVars}
+  ... 
+/>
+```
+
+**Benefits:**
+- ✅ Eliminates duplicate network requests
+- ✅ Faster wizard open (no loading state for providers)
+- ✅ Simpler wizard code (no fetch logic)
+- ✅ Consistent data across wizards
+- ✅ Single source of truth
+
+**Deferred to:** Phase 3 (Performance & UX Polish)
+
+**Rationale:** Current behavior works correctly, just not optimally. Backend caching (5min TTL) mitigates the issue. Frontend optimization is a nice-to-have improvement, not blocking Phase 2 completion.
+

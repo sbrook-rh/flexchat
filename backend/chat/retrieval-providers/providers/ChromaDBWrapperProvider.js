@@ -588,6 +588,48 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
     this.isInitialized = false;
     console.log(`Cleaned up ChromaDB Wrapper Provider: ${this.baseUrl}`);
   }
+
+  /**
+   * Get connection schema for UI-driven configuration
+   * @static
+   * @returns {Object} Connection schema with field definitions
+   */
+  static getConnectionSchema() {
+    return {
+      provider: 'chromadb-wrapper',
+      display_name: 'ChromaDB Wrapper',
+      description: 'ChromaDB connection via Python wrapper service with dynamic collections',
+      fields: [
+        {
+          name: 'url',
+          type: 'url',
+          label: 'Wrapper Service URL',
+          description: 'Base URL of the ChromaDB Python wrapper service',
+          required: true,
+          default: 'http://localhost:5006',
+          placeholder: 'http://localhost:5006',
+          validation: {
+            pattern: '^https?://.+',
+            message: 'Must be a valid HTTP or HTTPS URL'
+          }
+        },
+        {
+          name: 'timeout',
+          type: 'number',
+          label: 'Request Timeout (ms)',
+          description: 'Maximum time to wait for wrapper service responses',
+          required: false,
+          default: 30000,
+          validation: {
+            min: 1000,
+            max: 120000,
+            message: 'Timeout must be between 1 and 120 seconds'
+          }
+        }
+      ],
+      capabilities: ['collections', 'search', 'embeddings', 'dynamic_collections']
+    };
+  }
 }
 
 module.exports = ChromaDBWrapperProvider;
