@@ -4,10 +4,15 @@ import React from 'react';
  * ProviderList - Displays configured LLM and RAG providers in separate sections
  * Phase 2.2: Provider List UI
  * Decision 15: Separate LLM and RAG workflows
+ * Phase 2.5: Added filterType prop to show only LLM or RAG providers
  */
-function ProviderList({ workingConfig, onAddLLMProvider, onAddRAGService, onEditProvider, onDeleteProvider }) {
+function ProviderList({ workingConfig, onAddLLMProvider, onAddRAGService, onEditProvider, onDeleteProvider, filterType = null }) {
   const llmProviders = Object.entries(workingConfig?.llms || {});
   const ragProviders = Object.entries(workingConfig?.rag_services || {});
+  
+  // Filter based on filterType prop
+  const displayLLMs = filterType === null || filterType === 'llm';
+  const displayRAGs = filterType === null || filterType === 'rag';
   
   const hasAnyProviders = llmProviders.length > 0 || ragProviders.length > 0;
 
@@ -101,41 +106,9 @@ function ProviderList({ workingConfig, onAddLLMProvider, onAddRAGService, onEdit
   );
 
   return (
-    <div className="space-y-8">
-      {/* Global Empty State - shown only when no providers at all */}
-      {!hasAnyProviders && (
-        <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-          <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No providers configured</h3>
-          <p className="mt-1 text-sm text-gray-500">Get started by adding an LLM provider for chat or a RAG service for knowledge retrieval.</p>
-          <div className="mt-6 flex justify-center gap-3">
-            <button
-              onClick={onAddLLMProvider}
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Add LLM Provider
-            </button>
-            <button
-              onClick={onAddRAGService}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Add RAG Service
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Decision 15: Separate sections for LLM and RAG with their own Add buttons */}
-      
+    <div className="space-y-6">
       {/* LLM Providers Section */}
+      {displayLLMs && (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -175,8 +148,10 @@ function ProviderList({ workingConfig, onAddLLMProvider, onAddRAGService, onEdit
           </div>
         )}
       </div>
+      )}
 
       {/* RAG Services Section */}
+      {displayRAGs && (
       <div className="bg-white rounded-lg border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
@@ -216,6 +191,7 @@ function ProviderList({ workingConfig, onAddLLMProvider, onAddRAGService, onEdit
           </div>
         )}
       </div>
+      )}
     </div>
   );
 }

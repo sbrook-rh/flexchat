@@ -1,6 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ProviderList from './ProviderList';
+import NavigationSidebar from './NavigationSidebar';
+import LLMProvidersSection from './sections/LLMProvidersSection';
+import RAGServicesSection from './sections/RAGServicesSection';
+import EmbeddingsSection from './sections/EmbeddingsSection';
+import IntentSection from './sections/IntentSection';
+import HandlersSection from './sections/HandlersSection';
+import ReasoningSection from './sections/ReasoningSection';
 import LLMWizard from './LLMWizard';
 import RAGWizard from './RAGWizard';
 
@@ -9,6 +15,7 @@ import RAGWizard from './RAGWizard';
  * Phase 2.1: Zero-Config Bootstrap welcome screen
  * Phase 2.2: Provider List UI
  * Phase 2.3: Connection Wizard
+ * Phase 2.5: Navigation refactor with vertical tabs
  */
 function ConfigBuilder({ uiConfig, reloadConfig }) {
   const navigate = useNavigate();
@@ -24,6 +31,9 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
   const [validationErrors, setValidationErrors] = useState([]);
   const [validationWarnings, setValidationWarnings] = useState([]);
   const [isApplying, setIsApplying] = useState(false);
+  
+  // Phase 2.5: Tab navigation state
+  const [activeTab, setActiveTab] = useState('llm-providers');
   
   const hasConfig = uiConfig?.hasConfig;
   
@@ -231,6 +241,39 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     }
   };
   
+  // Phase 2.5: Tab state calculation helpers
+  const getTabStates = () => {
+    if (!workingConfig) {
+      return {
+        embeddings: { enabled: false },
+        intent: { enabled: false },
+        reasoning: { enabled: false },
+        badges: { providers: 0, handlers: 0 }
+      };
+    }
+    
+    const llmCount = Object.keys(workingConfig.llms || {}).length;
+    const ragCount = Object.keys(workingConfig.rag_services || {}).length;
+    const handlerCount = (workingConfig.responses || []).length;
+    
+    return {
+      embeddings: { 
+        enabled: ragCount > 0 
+      },
+      intent: { 
+        enabled: llmCount > 0 
+      },
+      reasoning: { 
+        enabled: handlerCount > 0 
+      },
+      badges: {
+        llmProviders: llmCount,
+        ragServices: ragCount,
+        handlers: handlerCount
+      }
+    };
+  };
+  
   // Phase 2.7: Export configuration as JSON
   const handleExport = () => {
     if (validationState !== 'valid') {
@@ -260,15 +303,46 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     navigate('/');
   };
 
+  // Phase 2.5: Render section for active tab
+  const renderActiveSection = () => {
+    const sectionProps = {
+      workingConfig,
+      appliedConfig,
+      onSave: handleWizardSave,
+      onDelete: handleDeleteProvider,
+      onAddLLMProvider: handleAddLLMProvider,
+      onAddRAGService: handleAddRAGService,
+      onEditProvider: handleEditProvider
+    };
+    
+    switch (activeTab) {
+      case 'llm-providers':
+        return <LLMProvidersSection {...sectionProps} />;
+      case 'rag-services':
+        return <RAGServicesSection {...sectionProps} />;
+      case 'embeddings':
+        return <EmbeddingsSection />;
+      case 'intent':
+        return <IntentSection />;
+      case 'handlers':
+        return <HandlersSection workingConfig={workingConfig} />;
+      case 'reasoning':
+        return <ReasoningSection />;
+      default:
+        return <LLMProvidersSection {...sectionProps} />;
+    }
+  };
+
   // Phase 2.2: Show Provider List (works for both create and edit)
   if (hasConfig || workingConfig) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+    const tabStates = getTabStates();
+    const mainContent = (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Configuration Builder</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Configuration Builder</h1>
               <p className="text-sm text-gray-600 mt-1">
                 Manage your AI providers and system configuration
               </p>
@@ -283,10 +357,12 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
               Back to Home
             </button>
           </div>
+        </div>
 
-          {/* Phase 2.7: Unsaved Changes Banner */}
+        {/* Phase 2.7: Status Banners */}
+        <div className="px-6">
           {hasUnsavedChanges && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4">
               <div className="flex items-center">
                 <svg className="w-5 h-5 text-yellow-600 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -298,9 +374,8 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             </div>
           )}
 
-          {/* Phase 2.7: Validation Status and Errors */}
           {validationState === 'invalid' && validationErrors.length > 0 && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
               <h3 className="text-sm font-medium text-red-800 mb-2">Configuration Errors:</h3>
               <ul className="list-disc list-inside space-y-1 text-sm text-red-700">
                 {validationErrors.map((error, idx) => (
@@ -311,7 +386,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
           )}
 
           {validationWarnings.length > 0 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mt-4">
               <h3 className="text-sm font-medium text-orange-800 mb-2">Configuration Warnings:</h3>
               <ul className="list-disc list-inside space-y-1 text-sm text-orange-700">
                 {validationWarnings.map((warning, idx) => (
@@ -320,21 +395,29 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
               </ul>
             </div>
           )}
+        </div>
 
-          {/* Phase 2.2: Provider List Component (Decision 15: Separate LLM/RAG) */}
-          <ProviderList
-            workingConfig={workingConfig}
-            onAddLLMProvider={handleAddLLMProvider}
-            onAddRAGService={handleAddRAGService}
-            onEditProvider={handleEditProvider}
-            onDeleteProvider={handleDeleteProvider}
+        {/* Phase 2.5: Two-column layout (Sidebar + Content) */}
+        <div className="flex-1 flex overflow-hidden">
+          {/* Navigation Sidebar */}
+          <NavigationSidebar
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            tabStates={tabStates}
           />
+          
+          {/* Content Area */}
+          <div className="flex-1 flex flex-col overflow-hidden bg-white">
+            {/* Active Section */}
+            <div className="flex-1 overflow-hidden">
+              {renderActiveSection()}
+            </div>
 
-          {/* Phase 2.7: Action Buttons */}
-          <div className="mt-8 bg-white rounded-lg shadow-md p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-700">Status:</span>
+            {/* Phase 2.7: Action Bar (bottom of content area) */}
+            <div className="border-t border-gray-200 bg-gray-50 px-6 py-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium text-gray-700">Status:</span>
                 {validationState === 'clean' && (
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                     ✓ Clean
@@ -436,9 +519,15 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
               </button>
             </div>
           </div>
+          </div>
         </div>
-        
-        {/* Decision 15: Separate wizards for LLM and RAG */}
+      </div>
+    );
+    
+    return (
+      <>
+        {mainContent}
+        {/* Wizards as overlays */}
         {showLLMWizard && (
           <LLMWizard
             onSave={handleWizardSave}
@@ -457,7 +546,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             initialData={wizardEditData}
           />
         )}
-      </div>
+      </>
     );
   }
 
