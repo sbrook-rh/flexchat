@@ -10,6 +10,13 @@ const path = require('path');
  * @throws {Error} If config is invalid or missing required sections
  */
 function loadConfig(configPath) {
+  // Zero-config mode: return empty config if no file specified
+  if (!configPath) {
+    console.log('⚠️  No configuration file found - starting in zero-config mode');
+    console.log('   Use the Configuration Builder UI at /config to set up providers\n');
+    return { llms: {}, rag_services: {}, responses: [] }; // Empty config
+  }
+  
   console.log(`📂 Loading configuration from: ${configPath}`);
   
   // Validate file exists
@@ -73,12 +80,21 @@ function getProcessedConfig(rawConfig) {
 function validateConfig(config) {
   const errors = [];
   
-  // Check required sections
-  if (!config.llms || typeof config.llms !== 'object' || Object.keys(config.llms).length === 0) {
+  // Zero-config mode: allow empty config
+  const hasLLMs = config.llms && typeof config.llms === 'object' && Object.keys(config.llms).length > 0;
+  const hasResponses = config.responses && Array.isArray(config.responses) && config.responses.length > 0;
+  
+  // If completely empty, assume zero-config mode (valid)
+  if (!hasLLMs && !hasResponses) {
+    return; // Valid zero-config
+  }
+  
+  // If partially configured, enforce normal validation rules
+  if (!hasLLMs) {
     errors.push('Config must define at least one LLM in "llms" section');
   }
   
-  if (!config.responses || !Array.isArray(config.responses) || config.responses.length === 0) {
+  if (!hasResponses) {
     errors.push('Config must define at least one response rule in "responses" array');
   }
   
@@ -141,13 +157,13 @@ function validateConfig(config) {
 function resolveConfigPath(providedPath) {
   let configPath;
   
+  function resolveFileName() {
+    return process.env.FLEX_CHAT_CONFIG_FILE || 'config.json';
+  }
+  
   if (providedPath) {
     // 1. CLI argument provided - can be file or directory
     let resolvedPath;
-    
-    function resolveFileName() {
-      return process.env.FLEX_CHAT_CONFIG_FILE || 'config.json';
-    }
     
     if (path.isAbsolute(providedPath)) {
       // Absolute path - use as-is
@@ -178,6 +194,12 @@ function resolveConfigPath(providedPath) {
     // 4. Default: config/config.json relative to project root (cwd)
     configPath = path.join(process.cwd(), 'config', 'config.json');
     console.log(`📝 Using default config: config/config.json`);
+  }
+  
+  // Zero-config mode: return null if file doesn't exist (instead of path that will fail)
+  if (!fs.existsSync(configPath)) {
+    console.log(`📝 Config file not found: ${configPath}`);
+    return null; // Signal zero-config mode
   }
   
   return configPath;

@@ -70,10 +70,20 @@ async function initialize() {
   // Load configuration (raw with placeholders)
   try {
     const configPath = resolveConfigPath(options.config);
-    config = loadConfig(configPath); // Raw config
-    console.log(`   ✅ Loaded ${Object.keys(config.llms || {}).length} LLM(s)`);
-    console.log(`   ✅ Loaded ${Object.keys(config.rag_services || {}).length} RAG service(s)`);
-    console.log(`   ✅ Loaded ${(config.responses || []).length} response rule(s)`);
+    config = loadConfig(configPath); // Raw config (may be empty for zero-config mode)
+    
+    const llmCount = Object.keys(config.llms || {}).length;
+    const ragCount = Object.keys(config.rag_services || {}).length;
+    const responseCount = (config.responses || []).length;
+    
+    if (llmCount === 0 && ragCount === 0 && responseCount === 0) {
+      console.log('   ⚠️  Zero-config mode: No providers or responses configured');
+      console.log('   ℹ️  Visit http://localhost:5005/config to set up the system\n');
+    } else {
+      console.log(`   ✅ Loaded ${llmCount} LLM(s)`);
+      console.log(`   ✅ Loaded ${ragCount} RAG service(s)`);
+      console.log(`   ✅ Loaded ${responseCount} response rule(s)`);
+    }
   } catch (error) {
     console.error(`\n❌ Configuration error: ${error.message}\n`);
     process.exit(1);
@@ -82,9 +92,12 @@ async function initialize() {
   // Get processed config for provider initialization
   const processedConfig = getProcessedConfig(config);
 
-  // Initialize AI providers
-  console.log('\n🤖 Initializing AI providers...');
-  for (const [name, llmConfig] of Object.entries(processedConfig.llms)) {
+  // Initialize AI providers (skip if zero-config mode)
+  if (Object.keys(processedConfig.llms || {}).length > 0) {
+    console.log('\n🤖 Initializing AI providers...');
+  }
+  
+  for (const [name, llmConfig] of Object.entries(processedConfig.llms || {})) {
     try {
       const providerType = llmConfig.provider;
       console.log(`   Initializing ${name} (${providerType})...`);
@@ -170,7 +183,7 @@ async function initialize() {
   app.use('/', createHealthRouter(config, aiProviders, ragProviders));
   app.use('/api', createCollectionsRouter(config, ragProviders, aiProviders, providerStatus));
   app.use('/api/connections', connectionsRouter);
-  app.use('/api/config', createConfigRouter());
+  app.use('/api/config', createConfigRouter(config)); // Pass raw config for /export
   app.use('/chat', createChatRouter(config, aiProviders, ragProviders));
 
   // Start server
