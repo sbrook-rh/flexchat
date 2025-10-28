@@ -743,6 +743,48 @@ app.post('/api/chat', (req, res) => {
 1. User types "OPENAI_API_KEY" in secret field
 2. User tabs to next field → auto-wraps to `${OPENAI_API_KEY}`
 3. Or user clicks green "✓ $OPENAI_API_KEY" button → fills `${OPENAI_API_KEY}`
+
+---
+
+### Decision 15: Separate LLM and RAG Workflows with Auto-Generated Response Handler
+
+**Decision:** Split "Add Provider" into separate "Add LLM Provider" and "Add RAG Service" actions, remove provider type selection step, and automatically create a default response handler when adding the first LLM.
+
+**Rationale:** 
+- Asking users to choose "LLM or RAG?" is confusing - they usually know which they want to add
+- Having separate buttons makes intent clearer and reduces wizard steps
+- Without a response handler, users can't Apply their config (validation fails)
+- Auto-creating a basic response handler on first LLM addition solves validation blocker
+- Users get a working chat immediately without needing Phase 4 (Response Handler Builder)
+
+**Implications:**
+- Split ProviderList into two sections: "LLM Providers" and "RAG Services"
+- Each section has its own "Add" button
+- ConnectionWizard accepts `initialType` prop to skip Step 1 (type selection)
+- Add Step 4 to LLM wizard: "Select Default Model" (from discovered models)
+- First LLM saves creates default response handler:
+  ```json
+  {
+    "llm": "provider_name",
+    "model": "selected_model",
+    "prompt": "You are a helpful AI assistant.\n\n{{rag_context}}\n\nUser: {{query}}\nAssistant:"
+  }
+  ```
+- Subsequent LLMs do not auto-create handlers (Phase 4 will allow manual management)
+
+**UX Flow:**
+1. User clicks "Add LLM Provider" (no type selection needed)
+2. Select Provider (Ollama, OpenAI, Gemini)
+3. Configure (API key, base URL)
+4. Test & Discover Models
+5. **NEW: Select Default Model** (from discovered models list)
+6. Name & Save → auto-creates response handler if first LLM
+
+**Benefits:**
+- Clearer UX (intent-driven buttons)
+- One fewer wizard step (no type selection)
+- Immediate working configuration (validation passes)
+- No validation blocker preventing Apply
 - Builder tracks `validationStatus: 'dirty' | 'valid' | 'invalid'`.
 - Buttons state derives from validation status.
 

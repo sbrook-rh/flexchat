@@ -85,17 +85,19 @@
 - [x] 2.2.6 Show connection status indicators
  - [x] 2.2.7 Enforce env-var-only for secret fields across UI (displays ${ENV_VAR} references)
 
-### 2.3 Connection Wizard
-- [x] 2.3.1 Create ConnectionWizard component
-- [x] 2.3.2 Step 1: Select provider type (LLM/RAG)
-- [x] 2.3.3 Step 2: Select provider (Ollama, OpenAI, Gemini, ChromaDB)
-- [x] 2.3.4 Step 3: Configure connection (URL, API key, etc.)
+### 2.3 Connection Wizard (Decision 15: Refactored to separate LLM/RAG wizards)
+- [x] 2.3.1 Create LLMWizard component (5 steps, with model selection)
+- [x] 2.3.2 Create RAGWizard component (4 steps, simpler)
+- [x] 2.3.3 LLM Step 1: Select provider (Ollama, OpenAI, Gemini)
+- [x] 2.3.4 LLM Step 2: Configure connection (URL, API key, etc.)
  - [x] 2.3.4.1 Secret fields only accept environment variable references
-- [x] 2.3.5 Step 4: Test connection
-- [x] 2.3.6 Step 5: Name and save
-- [x] 2.3.7 Add form validation (canProceed checks required fields)
-- [x] 2.3.8 Add back/next navigation
- - [ ] 2.3.9 Block navigation away while unapplied (builder mode guard) - Phase 2.7
+- [x] 2.3.5 LLM Step 3: Test connection & discover models
+- [x] 2.3.6 LLM Step 4: Select default model for chat
+- [x] 2.3.7 LLM Step 5: Name and save
+- [x] 2.3.8 RAG Step 1-4: Similar flow without model selection
+- [x] 2.3.9 Add form validation (canProceed checks required fields)
+- [x] 2.3.10 Add back/next navigation
+- [x] 2.3.11 Delete old ConnectionWizard component
 
 ### 2.4 Connection Testing UI (Integrated in Wizard Step 4)
 - [x] 2.4.1 Create ConnectionTest component (integrated in wizard)

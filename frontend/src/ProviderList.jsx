@@ -1,14 +1,15 @@
 import React from 'react';
 
 /**
- * ProviderList - Displays configured LLM and RAG providers
+ * ProviderList - Displays configured LLM and RAG providers in separate sections
  * Phase 2.2: Provider List UI
+ * Decision 15: Separate LLM and RAG workflows
  */
-function ProviderList({ workingConfig, onAddProvider, onEditProvider, onDeleteProvider }) {
+function ProviderList({ workingConfig, onAddLLMProvider, onAddRAGService, onEditProvider, onDeleteProvider }) {
   const llmProviders = Object.entries(workingConfig?.llms || {});
   const ragProviders = Object.entries(workingConfig?.rag_services || {});
   
-  const hasProviders = llmProviders.length > 0 || ragProviders.length > 0;
+  const hasAnyProviders = llmProviders.length > 0 || ragProviders.length > 0;
 
   // Task 2.2.6: Connection status indicators (placeholder - will use providerStatus from uiConfig in future)
   const getStatusBadge = (connected = null) => {
@@ -100,53 +101,61 @@ function ProviderList({ workingConfig, onAddProvider, onEditProvider, onDeletePr
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header with Add button */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-gray-900">Providers</h2>
-        {/* Task 2.2.4: Add Provider button */}
-        <button
-          onClick={onAddProvider}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Add Provider
-        </button>
-      </div>
-
-      {!hasProviders && (
-        /* Empty state */
+    <div className="space-y-8">
+      {/* Global Empty State - shown only when no providers at all */}
+      {!hasAnyProviders && (
         <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
           <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
           </svg>
           <h3 className="mt-2 text-sm font-medium text-gray-900">No providers configured</h3>
-          <p className="mt-1 text-sm text-gray-500">Get started by adding your first AI provider.</p>
-          <div className="mt-6">
+          <p className="mt-1 text-sm text-gray-500">Get started by adding an LLM provider for chat or a RAG service for knowledge retrieval.</p>
+          <div className="mt-6 flex justify-center gap-3">
             <button
-              onClick={onAddProvider}
+              onClick={onAddLLMProvider}
               className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              Add Your First Provider
+              Add LLM Provider
+            </button>
+            <button
+              onClick={onAddRAGService}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+              Add RAG Service
             </button>
           </div>
         </div>
       )}
 
-      {/* Task 2.2.2: Display configured LLM providers */}
-      {llmProviders.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+      {/* Decision 15: Separate sections for LLM and RAG with their own Add buttons */}
+      
+      {/* LLM Providers Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-sm font-bold mr-2">
               {llmProviders.length}
             </span>
             LLM Providers
           </h3>
+          <button
+            onClick={onAddLLMProvider}
+            className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add LLM Provider
+          </button>
+        </div>
+
+        {llmProviders.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {llmProviders.map(([name, config]) => (
               <ProviderCard
@@ -159,18 +168,35 @@ function ProviderList({ workingConfig, onAddProvider, onEditProvider, onDeletePr
               />
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-center py-8 text-gray-500 text-sm">
+            <p>No LLM providers configured.</p>
+            <p className="mt-1">Add an LLM provider to enable chat functionality.</p>
+          </div>
+        )}
+      </div>
 
-      {/* Task 2.2.3: Display configured RAG providers */}
-      {ragProviders.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+      {/* RAG Services Section */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
             <span className="flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 text-purple-600 text-sm font-bold mr-2">
               {ragProviders.length}
             </span>
             RAG Services
           </h3>
+          <button
+            onClick={onAddRAGService}
+            className="inline-flex items-center px-3 py-1.5 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+          >
+            <svg className="w-4 h-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add RAG Service
+          </button>
+        </div>
+
+        {ragProviders.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {ragProviders.map(([name, config]) => (
               <ProviderCard
@@ -183,8 +209,13 @@ function ProviderList({ workingConfig, onAddProvider, onEditProvider, onDeletePr
               />
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="text-center py-8 text-gray-500 text-sm">
+            <p>No RAG services configured.</p>
+            <p className="mt-1">Add a RAG service to enable knowledge retrieval.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ProviderList from './ProviderList';
-import ConnectionWizard from './ConnectionWizard';
+import LLMWizard from './LLMWizard';
+import RAGWizard from './RAGWizard';
 
 /**
  * Configuration Builder - Main component for UI-driven configuration
@@ -14,7 +15,8 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
   const [workingConfig, setWorkingConfig] = useState(null);
   const [appliedConfig, setAppliedConfig] = useState(null); // Track what's currently applied
   const [loading, setLoading] = useState(true);
-  const [showWizard, setShowWizard] = useState(false);
+  const [showLLMWizard, setShowLLMWizard] = useState(false);
+  const [showRAGWizard, setShowRAGWizard] = useState(false);
   const [wizardEditData, setWizardEditData] = useState(null);
   
   // Phase 2.7: Validation state tracking
@@ -62,20 +64,28 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     );
   }
 
-  // Handlers for provider management
-  const handleAddProvider = () => {
+  // Handlers for provider management (Decision 15: Separate LLM and RAG wizards)
+  const handleAddLLMProvider = () => {
     setWizardEditData(null);
-    setShowWizard(true);
+    setShowLLMWizard(true);
+  };
+
+  const handleAddRAGService = () => {
+    setWizardEditData(null);
+    setShowRAGWizard(true);
   };
 
   const handleEditProvider = (name, config, type) => {
     setWizardEditData({
       name,
       config,
-      type: type === 'LLM' ? 'llm' : 'rag',
       provider: config.provider
     });
-    setShowWizard(true);
+    if (type === 'LLM') {
+      setShowLLMWizard(true);
+    } else {
+      setShowRAGWizard(true);
+    }
   };
 
   const handleDeleteProvider = (name, type) => {
@@ -96,19 +106,35 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     if (providerData.type === 'llm') {
       if (!newConfig.llms) newConfig.llms = {};
       newConfig.llms[providerData.name] = providerData.config;
+      
+      // Decision 15: Auto-create default response handler for first LLM
+      const isFirstLLM = Object.keys(workingConfig.llms || {}).length === 0;
+      const hasNoResponses = !newConfig.responses || newConfig.responses.length === 0;
+      
+      if (isFirstLLM && hasNoResponses && providerData.selectedModel) {
+        if (!newConfig.responses) newConfig.responses = [];
+        newConfig.responses.push({
+          llm: providerData.name,
+          model: providerData.selectedModel,
+          prompt: "You are a helpful AI assistant.\n\n{{rag_context}}\n\nUser: {{query}}\nAssistant:"
+        });
+        console.log(`✓ Created default response handler using ${providerData.name}/${providerData.selectedModel}`);
+      }
     } else {
       if (!newConfig.rag_services) newConfig.rag_services = {};
       newConfig.rag_services[providerData.name] = providerData.config;
     }
     
     setWorkingConfig(newConfig);
-    setShowWizard(false);
+    setShowLLMWizard(false);
+    setShowRAGWizard(false);
     setWizardEditData(null);
     setValidationState('dirty'); // Mark as dirty
   };
   
   const handleWizardCancel = () => {
-    setShowWizard(false);
+    setShowLLMWizard(false);
+    setShowRAGWizard(false);
     setWizardEditData(null);
   };
   
@@ -269,10 +295,11 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             </div>
           )}
 
-          {/* Phase 2.2: Provider List Component */}
+          {/* Phase 2.2: Provider List Component (Decision 15: Separate LLM/RAG) */}
           <ProviderList
             workingConfig={workingConfig}
-            onAddProvider={handleAddProvider}
+            onAddLLMProvider={handleAddLLMProvider}
+            onAddRAGService={handleAddRAGService}
             onEditProvider={handleEditProvider}
             onDeleteProvider={handleDeleteProvider}
           />
@@ -385,9 +412,18 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
           </div>
         </div>
         
-        {/* Phase 2.3: Connection Wizard */}
-        {showWizard && (
-          <ConnectionWizard
+        {/* Decision 15: Separate wizards for LLM and RAG */}
+        {showLLMWizard && (
+          <LLMWizard
+            onSave={handleWizardSave}
+            onCancel={handleWizardCancel}
+            editMode={wizardEditData !== null}
+            initialData={wizardEditData}
+          />
+        )}
+        
+        {showRAGWizard && (
+          <RAGWizard
             onSave={handleWizardSave}
             onCancel={handleWizardCancel}
             editMode={wizardEditData !== null}

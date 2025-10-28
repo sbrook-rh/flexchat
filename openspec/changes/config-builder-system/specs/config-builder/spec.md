@@ -111,13 +111,32 @@ Note: The welcome screen is purely a nicer entry point for first-time users. The
 - **AND** when `!chatReady`, home page also shows a warning banner with a link to configure providers
 
 ### Requirement: Provider Configuration UI
-The system SHALL provide a complete UI for adding, editing, and removing AI and RAG providers.
+The system SHALL provide a complete UI for adding, editing, and removing AI and RAG providers with separate workflows for LLM and RAG providers.
 
-#### Scenario: Add New Provider
-- **WHEN** a user clicks "Add Provider" and completes the wizard
-- **THEN** the system adds the provider to the configuration
-- **AND** validates the configuration
-- **AND** optionally tests the connection
+#### Scenario: Sectioned Provider Lists
+- **WHEN** viewing the configuration builder
+- **THEN** the system displays separate sections for "LLM Providers" and "RAG Services"
+- **AND** each section has its own "Add" button ("Add LLM Provider", "Add RAG Service")
+- **AND** each section shows only relevant provider cards
+
+#### Scenario: Add New LLM Provider
+- **WHEN** a user clicks "Add LLM Provider"
+- **THEN** the system opens a wizard without provider type selection (LLM is implicit)
+- **AND** proceeds through: Select Provider → Configure → Test & Discover Models → Select Default Model → Name & Save
+- **AND** if this is the first LLM, creates a default response handler using the selected model
+
+#### Scenario: Add New RAG Service
+- **WHEN** a user clicks "Add RAG Service"
+- **THEN** the system opens a wizard without provider type selection (RAG is implicit)
+- **AND** proceeds through: Select Provider → Configure → Test → Name & Save
+
+#### Scenario: First LLM Creates Default Response Handler
+- **WHEN** a user adds their first LLM provider and selects a default model
+- **THEN** the system automatically creates a response handler with:
+  - LLM reference set to the new provider name
+  - Model set to the user's selected model
+  - A default prompt template suitable for general chat
+- **AND** subsequent LLM additions do not auto-create handlers
 
 #### Scenario: Edit Existing Provider
 - **WHEN** a user edits a provider's configuration
