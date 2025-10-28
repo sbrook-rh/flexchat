@@ -67,12 +67,35 @@ If no config path is specified, defaults to:
 ```
 (Relative to current working directory)
 
+### Path Resolution Details
+
+**Important:** The config path resolution logic prioritizes environment variables when resolving relative paths:
+
+1. **Relative paths with `FLEX_CHAT_CONFIG_DIR` set:**
+   - `--config my-config.json` resolves from `FLEX_CHAT_CONFIG_DIR`, **not** from current working directory
+   
+   Example:
+   ```bash
+   # If FLEX_CHAT_CONFIG_DIR=../../config (in .env)
+   node server.js --config my-config.json
+   # Resolves to: ../../config/my-config.json
+   ```
+
+2. **Absolute paths:**
+   - Always used as-is, ignoring `FLEX_CHAT_CONFIG_DIR`
+
+3. **Directory paths:**
+   - If the path points to a directory, looks for `config.json` (or `FLEX_CHAT_CONFIG_FILE`) inside
+
+**Implementation:** See `backend/chat/lib/config-loader.js:resolveConfigPath()`
+
 ### Best Practices
 
 - **Development**: Use default location (`./config/config.json`)
 - **Production**: Use environment variables
 - **Multiple configs**: Use CLI argument for testing different configurations
 - **Docker/Kubernetes**: Mount config as volume, set env var to path
+- **When using `.env`**: Set `FLEX_CHAT_CONFIG_DIR` to point to your config directory, then use relative filenames
 
 ---
 

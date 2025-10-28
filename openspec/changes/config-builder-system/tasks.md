@@ -45,10 +45,10 @@
 - [ ] 1.5.10 Write integration tests for all endpoints
 
 ### 1.8 Shared Connection Payload (DRY)
-- [ ] 1.8.1 Define shared `connection` payload shape `{ provider_id, type, fields }`
-- [ ] 1.8.2 Add server-side validator/normalizer for the payload
-- [ ] 1.8.3 Update `/api/connections/test` to use shared validator
-- [ ] 1.8.4 Update `/api/connections/providers/:id/models` to use shared validator
+- [x] 1.8.1 Define shared `connection` payload shape `{ provider_id, type, fields }`
+- [x] 1.8.2 Add server-side validator/normalizer for the payload
+- [x] 1.8.3 Update `/api/connections/test` to use shared validator
+- [x] 1.8.4 Update `/api/connections/providers/:id/models` to use shared validator
 - [ ] 1.8.5 Add unit tests for shared validator
 
 ### 1.6 Configuration Loader Updates
@@ -63,10 +63,10 @@
 
 ### 1.7 Documentation
 - [ ] 1.7.1 Document provider schema interface
-- [ ] 1.7.2 Document API endpoints
-- [ ] 1.7.3 Add examples for each endpoint
+- [x] 1.7.2 Document API endpoints (TESTING.md created)
+- [x] 1.7.3 Add examples for each endpoint (TESTING.md includes curl examples)
 - [ ] 1.7.4 Update ARCHITECTURE.md with new services
-- [ ] 1.7.5 Document raw vs processed config pattern
+- [x] 1.7.5 Document raw vs processed config pattern (added to design.md and CONFIGURATION.md)
 
 ## Phase 2: Provider Configuration UI
 
@@ -204,11 +204,11 @@
 ## Phase 5: Configuration Export/Import & Polish
 
 ### 5.1 Backend Config API Endpoints
-- [ ] 5.1.1 Create `backend/chat/routes/config.js` route module
+- [x] 5.1.1 Create `backend/chat/routes/config.js` route module
 - [ ] 5.1.2 Implement `POST /api/config/reload` endpoint (hot-reload config)
 - [ ] 5.1.3 Implement `GET /api/config/export` endpoint (export current config as JSON)
-- [ ] 5.1.4 Implement `POST /api/config/validate` endpoint (validate config)
-- [ ] 5.1.5 Register config routes in `server.js`
+- [x] 5.1.4 Implement `POST /api/config/validate` endpoint (validate config)
+- [x] 5.1.5 Register config routes in `server.js`
 - [ ] 5.1.6 Add authorization/security checks
 - [ ] 5.1.7 Write integration tests for config endpoints
 

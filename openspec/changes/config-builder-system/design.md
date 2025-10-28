@@ -729,6 +729,33 @@ app.post('/api/chat', (req, res) => {
 
 ---
 
+## Configuration Path Resolution
+
+The system uses a sophisticated config path resolution strategy (implemented in `backend/chat/lib/config-loader.js:resolveConfigPath()`):
+
+**Priority order:**
+1. CLI argument (`--config`)
+   - Absolute paths: used as-is
+   - **Relative paths: resolved from `FLEX_CHAT_CONFIG_DIR` if set, otherwise `process.cwd()`**
+   - If path is a directory, looks for `config.json` (or `FLEX_CHAT_CONFIG_FILE`) inside
+2. `FLEX_CHAT_CONFIG_FILE_PATH` env var (full file path)
+3. `FLEX_CHAT_CONFIG_DIR` env var (directory containing config.json)
+4. Default: `./config/config.json` from `process.cwd()`
+
+**Critical:** When `FLEX_CHAT_CONFIG_DIR` is set (e.g., in `backend/chat/.env`), relative config paths like `--config config-simon.json` are resolved from that directory, **not** from the server's working directory.
+
+Example:
+```bash
+# In backend/chat/.env:
+FLEX_CHAT_CONFIG_DIR=../../config
+
+# Then from backend/chat/:
+node server.js --config config-simon.json
+# Resolves to: ../../config/config-simon.json (relative to backend/chat/)
+```
+
+This allows the server to be run from any working directory while maintaining consistent config paths.
+
 ## Risks / Trade-offs
 
 ### Risk 1: Zero-config complexity
