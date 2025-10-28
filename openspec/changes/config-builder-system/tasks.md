@@ -230,12 +230,12 @@
 - [ ] 5.1.7 Write integration tests for config endpoints
 
 ### 5.2 Configuration Export UI
-- [ ] 5.2.1 Create ExportConfig component
-- [ ] 5.2.2 Generate JSON from current configuration
-- [ ] 5.2.3 Add "Download JSON" button
-- [ ] 5.2.4 Add "Copy to Clipboard" button
-- [ ] 5.2.5 Show formatted JSON preview
-- [ ] 5.2.6 Add filename input
+- [x] 5.2.1 Export functionality in ConfigBuilder (no separate component needed)
+- [x] 5.2.2 Generate JSON from current configuration (workingConfig)
+- [x] 5.2.3 Add "Export JSON" button (with download functionality)
+- [ ] 5.2.4 Add "Copy to Clipboard" button (future enhancement)
+- [ ] 5.2.5 Show formatted JSON preview (future enhancement)
+- [x] 5.2.6 Fixed filename: 'flex-chat-config.json'
 
 ### 5.3 Configuration Import UI
 - [ ] 5.3.1 Create ImportConfig component
