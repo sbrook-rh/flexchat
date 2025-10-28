@@ -8,6 +8,7 @@ const { createHealthRouter } = require('./routes/health');
 const { createCollectionsRouter } = require('./routes/collections');
 const { createChatRouter } = require('./routes/chat');
 const connectionsRouter = require('./routes/connections');
+const createConfigRouter = require('./routes/config');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '.env') });
@@ -169,6 +170,7 @@ async function initialize() {
   app.use('/', createHealthRouter(config, aiProviders, ragProviders));
   app.use('/api', createCollectionsRouter(config, ragProviders, aiProviders, providerStatus));
   app.use('/api/connections', connectionsRouter);
+  app.use('/api/config', createConfigRouter());
   app.use('/chat', createChatRouter(config, aiProviders, ragProviders));
 
   // Start server
