@@ -71,10 +71,10 @@
 ## Phase 2: Provider Configuration UI
 
 ### 2.1 Zero-Config Bootstrap
-- [ ] 2.1.1 Detect missing configuration on app start
-- [ ] 2.1.2 Show welcome screen with "Build Configuration" option
-- [ ] 2.1.3 Initialize empty configuration structure
-- [ ] 2.1.4 Suggest default providers (Ollama if local, OpenAI prompt)
+- [x] 2.1.1 Detect missing configuration on app start
+- [x] 2.1.2 Show welcome screen with "Build Configuration" option
+- [x] 2.1.3 Initialize empty configuration structure
+- [x] 2.1.4 Suggest default providers (Ollama if local, OpenAI prompt)
 
 ### 2.2 Provider List UI
 - [ ] 2.2.1 Create ProviderList component
@@ -205,8 +205,8 @@
 
 ### 5.1 Backend Config API Endpoints
 - [x] 5.1.1 Create `backend/chat/routes/config.js` route module
-- [ ] 5.1.2 Implement `POST /api/config/reload` endpoint (hot-reload config)
-- [ ] 5.1.3 Implement `GET /api/config/export` endpoint (export current config as JSON)
+- [ ] 5.1.2 Implement `POST /api/config/reload` endpoint (hot-reload config) - placeholder added
+- [x] 5.1.3 Implement `GET /api/config/export` endpoint (export current config as JSON)
 - [x] 5.1.4 Implement `POST /api/config/validate` endpoint (validate config)
 - [x] 5.1.5 Register config routes in `server.js`
 - [ ] 5.1.6 Add authorization/security checks
