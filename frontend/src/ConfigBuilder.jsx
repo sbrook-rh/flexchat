@@ -107,18 +107,28 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       if (!newConfig.llms) newConfig.llms = {};
       newConfig.llms[providerData.name] = providerData.config;
       
-      // Decision 15: Auto-create default response handler for first LLM
-      const isFirstLLM = Object.keys(workingConfig.llms || {}).length === 0;
+      // Decision 15: Auto-create default response handler if none exist
       const hasNoResponses = !newConfig.responses || newConfig.responses.length === 0;
       
-      if (isFirstLLM && hasNoResponses && providerData.selectedModel) {
+      console.log('🔍 Debug response handler creation:', {
+        hasNoResponses,
+        selectedModel: providerData.selectedModel,
+        willCreate: hasNoResponses && providerData.selectedModel
+      });
+      
+      if (hasNoResponses && providerData.selectedModel) {
         if (!newConfig.responses) newConfig.responses = [];
         newConfig.responses.push({
           llm: providerData.name,
           model: providerData.selectedModel,
-          prompt: "You are a helpful AI assistant.\n\n{{rag_context}}\n\nUser: {{query}}\nAssistant:"
+          prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
         });
         console.log(`✓ Created default response handler using ${providerData.name}/${providerData.selectedModel}`);
+        console.log('📝 New config responses:', newConfig.responses);
+      } else if (!hasNoResponses) {
+        console.log('ℹ️ Response handler already exists, skipping creation');
+      } else {
+        console.log('❌ No selectedModel provided, cannot create response handler');
       }
     } else {
       if (!newConfig.rag_services) newConfig.rag_services = {};

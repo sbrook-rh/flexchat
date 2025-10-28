@@ -767,9 +767,10 @@ app.post('/api/chat', (req, res) => {
   {
     "llm": "provider_name",
     "model": "selected_model",
-    "prompt": "You are a helpful AI assistant.\n\n{{rag_context}}\n\nUser: {{query}}\nAssistant:"
+    "prompt": "You are a helpful AI assistant."
   }
   ```
+  Note: The prompt is a system prompt only. User queries are appended by the provider's chat handler as message objects with `role: "user"`. Variables like `{{rag_context}}` are only added when RAG is configured (Phase 4).
 - Subsequent LLMs do not auto-create handlers (Phase 4 will allow manual management)
 
 **UX Flow:**
