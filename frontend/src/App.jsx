@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
 import Home from './Home';
 import Chat from './Chat';
 import Collections from './Collections';
+import ConfigBuilder from './ConfigBuilder';
 // Note: NavBar.jsx remains but is not used in new architecture
 
 function App() {
@@ -46,7 +47,11 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<Home />} />
+        {/* Configuration builder - always accessible */}
+        <Route path="/config" element={<ConfigBuilder uiConfig={uiConfig} reloadConfig={reloadConfig} />} />
+        
+        {/* Main routes - available always (they'll show "not ready" message if needed) */}
+        <Route path="/" element={<Home uiConfig={uiConfig} />} />
         <Route path="/chat" element={<Chat uiConfig={uiConfig} />} />
         <Route path="/collections" element={<Collections uiConfig={uiConfig} reloadConfig={reloadConfig} />} />
       </Routes>
