@@ -1,5 +1,60 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * GET /api/config/export
+ * Export the full raw configuration (with ${ENV_VAR} placeholders intact).
+ * Used by the configuration builder to load current config for editing.
+ * 
+ * Response: Full raw configuration object
+ */
+router.get('/export', (req, res) => {
+  try {
+    // Access raw config from the closure (passed during router creation)
+    const rawConfig = router.rawConfig || {};
+    
+    res.json(rawConfig);
+  } catch (error) {
+    console.error('Error exporting configuration:', error);
+    res.status(500).json({ error: 'Failed to export configuration', message: error.message });
+  }
+});
+
+/**
+ * POST /api/config/reload
+ * Apply new configuration at runtime (hot-reload).
+ * 
+ * Request body: Full configuration object (raw with ${ENV_VAR} placeholders)
+ * Response: { success: boolean, message: string }
+ */
+router.post('/reload', (req, res) => {
+  try {
+    const newConfig = req.body;
+    
+    if (!newConfig || typeof newConfig !== 'object') {
+      return res.status(400).json({
+        success: false,
+        message: 'Request body must be a configuration object'
+      });
+    }
+    
+    // TODO Phase 5.1.2: Implement actual hot-reload logic
+    // For now, just validate and return placeholder
+    res.status(501).json({
+      success: false,
+      message: 'Hot-reload not yet implemented (Phase 5.1.2)'
+    });
+  } catch (error) {
+    console.error('Error reloading configuration:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to reload configuration', 
+      error: error.message 
+    });
+  }
+});
 
 /**
  * POST /api/config/validate
@@ -78,6 +133,10 @@ router.post('/validate', (req, res) => {
   }
 });
 
-module.exports = (/* config, aiProviders, ragProviders */) => router;
+module.exports = (rawConfig = {}) => {
+  // Store rawConfig on router instance for /export endpoint
+  router.rawConfig = rawConfig;
+  return router;
+};
 
 
