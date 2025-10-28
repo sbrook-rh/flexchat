@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import ProviderList from './ProviderList';
 
 /**
  * Configuration Builder - Main component for UI-driven configuration
  * Phase 2.1: Zero-Config Bootstrap welcome screen
- * Phase 2.2+: Full provider configuration UI
+ * Phase 2.2: Provider List UI
+ * Phase 2.3+: Connection Wizard, Testing, etc.
  */
 function ConfigBuilder({ uiConfig, reloadConfig }) {
   const navigate = useNavigate();
   const [workingConfig, setWorkingConfig] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showWizard, setShowWizard] = useState(false);
   
   const hasConfig = uiConfig?.hasConfig;
 
@@ -41,24 +44,64 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     );
   }
 
-  // If config exists, show full builder UI (Phase 2.2+)
-  if (hasConfig) {
+  // Handlers for provider management
+  const handleAddProvider = () => {
+    setShowWizard(true);
+    console.log('Opening connection wizard... (Phase 2.3)');
+    // TODO Phase 2.3: Show ConnectionWizard component
+  };
+
+  const handleEditProvider = (name, config, type) => {
+    console.log(`Edit ${type} provider: ${name}`, config);
+    // TODO Phase 2.3: Open wizard in edit mode
+    alert(`Edit provider "${name}" - wizard coming in Phase 2.3`);
+  };
+
+  const handleDeleteProvider = (name, type) => {
+    console.log(`Delete ${type} provider: ${name}`);
+    const newConfig = { ...workingConfig };
+    if (type === 'LLM') {
+      delete newConfig.llms[name];
+    } else {
+      delete newConfig.rag_services[name];
+    }
+    setWorkingConfig(newConfig);
+    // TODO: Mark config as dirty, show unsaved changes indicator
+  };
+
+  // Phase 2.2: Show Provider List (works for both create and edit)
+  if (hasConfig || workingConfig) {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="flex items-center justify-between mb-6">
-            <h1 className="text-3xl font-bold text-gray-900">Configuration Builder</h1>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Configuration Builder</h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Manage your AI providers and system configuration
+              </p>
+            </div>
             <button
               onClick={() => navigate('/')}
-              className="text-gray-600 hover:text-gray-900"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
-              ← Back to Home
+              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Back to Home
             </button>
           </div>
-          <p className="text-gray-600 mb-4">Full builder UI coming in Phase 2.2+</p>
-          <pre className="bg-white p-4 rounded border text-xs overflow-auto">
-            {JSON.stringify(workingConfig, null, 2)}
-          </pre>
+
+          {/* Phase 2.2: Provider List Component */}
+          <ProviderList
+            workingConfig={workingConfig}
+            onAddProvider={handleAddProvider}
+            onEditProvider={handleEditProvider}
+            onDeleteProvider={handleDeleteProvider}
+          />
+
+          {/* TODO Phase 2.7: Unsaved changes banner and Apply/Export/Cancel buttons */}
         </div>
       </div>
     );
@@ -108,10 +151,11 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             {/* Primary Action: Build Configuration */}
             <button
               onClick={() => {
-                // Task 2.1.3: Initialize empty configuration structure
-                // For now, just navigate to builder (full implementation in Phase 2.2+)
-                console.log('Starting configuration wizard...');
-                // TODO Phase 2.2: Show provider list/wizard
+                // Initialize empty configuration and show provider list
+                if (!workingConfig) {
+                  setWorkingConfig({ llms: {}, rag_services: {}, responses: [] });
+                }
+                // The provider list will show automatically due to the condition above
               }}
               className="w-full flex items-center justify-center px-6 py-4 border border-transparent text-lg font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >

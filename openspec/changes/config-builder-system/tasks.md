@@ -77,13 +77,13 @@
 - [x] 2.1.4 Suggest default providers (Ollama if local, OpenAI prompt)
 
 ### 2.2 Provider List UI
-- [ ] 2.2.1 Create ProviderList component
-- [ ] 2.2.2 Display configured LLM providers
-- [ ] 2.2.3 Display configured RAG providers
-- [ ] 2.2.4 Add "Add Provider" button
-- [ ] 2.2.5 Add edit/delete actions per provider
-- [ ] 2.2.6 Show connection status indicators
- - [ ] 2.2.7 Enforce env-var-only for secret fields across UI
+- [x] 2.2.1 Create ProviderList component
+- [x] 2.2.2 Display configured LLM providers
+- [x] 2.2.3 Display configured RAG providers
+- [x] 2.2.4 Add "Add Provider" button
+- [x] 2.2.5 Add edit/delete actions per provider
+- [x] 2.2.6 Show connection status indicators
+ - [x] 2.2.7 Enforce env-var-only for secret fields across UI (displays ${ENV_VAR} references)
 
 ### 2.3 Connection Wizard
 - [ ] 2.3.1 Create ConnectionWizard component
