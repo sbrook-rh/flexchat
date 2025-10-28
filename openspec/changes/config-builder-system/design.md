@@ -1070,3 +1070,38 @@ useEffect(() => {
 
 **Rationale:** Current behavior works correctly, just not optimally. Backend caching (5min TTL) mitigates the issue. Frontend optimization is a nice-to-have improvement, not blocking Phase 2 completion.
 
+---
+
+### Decision 17: Store Default Model in LLM Configuration
+
+**Context:**  
+During the LLM wizard, users select a preferred model, but this selection was only used for the auto-generated response handler (first LLM only). The selected model information was discarded for subsequent providers.
+
+**Decision:**  
+Store the user's selected model as a `default_model` field in the LLM provider configuration:
+
+```json
+{
+  "llms": {
+    "ollama": {
+      "provider": "ollama",
+      "baseUrl": "http://localhost:11434",
+      "default_model": "qwen2.5:3b-instruct"
+    }
+  }
+}
+```
+
+**Rationale:**
+- Preserves user's model preference for future use
+- Useful for UI hints (e.g., "Recommended: qwen2.5:3b-instruct")
+- Could be used for auto-suggesting models in response handler forms
+- Makes configuration more complete and self-documenting
+- No breaking change - field is optional, ignored by current provider initialization
+- Low implementation cost (single line in `ConfigBuilder.jsx`)
+
+**Future Uses:**
+- Phase 3: Auto-populate model dropdown in response handler editor
+- Phase 3: Show "default" badge in model selection UIs
+- Phase 4: Support provider-level default for response handlers without explicit model
+

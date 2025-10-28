@@ -107,6 +107,11 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       if (!newConfig.llms) newConfig.llms = {};
       newConfig.llms[providerData.name] = providerData.config;
       
+      // Store the selected model as default_model for future reference
+      if (providerData.selectedModel) {
+        newConfig.llms[providerData.name].default_model = providerData.selectedModel;
+      }
+      
       // Decision 15: Auto-create default response handler if none exist
       const hasNoResponses = !newConfig.responses || newConfig.responses.length === 0;
       
