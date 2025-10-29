@@ -137,29 +137,65 @@
 - [x] 2.7.9 Implement "Apply" (POST /api/config/reload, refresh /api/ui-config, navigate to Home)
 - [x] 2.7.10 Add builder mode guard (confirms before navigating with unsaved changes)
 
-## Phase 3: Embedding & Intent Configuration UI
+## Phase 3a: Embeddings Configuration UI
 
-### 3.1 Embedding Configuration UI
-- [ ] 3.1.1 Create EmbeddingConfig component
-- [ ] 3.1.2 Select default embedding provider (from configured LLMs)
-- [ ] 3.1.3 Select default embedding model
-- [ ] 3.1.4 Add per-service embedding overrides
-- [ ] 3.1.5 Show which services use default vs custom embeddings
+### 3a.1 Embeddings Tab Implementation
+- [ ] 3a.1.1 Update EmbeddingsSection.jsx from placeholder to functional component
+- [ ] 3a.1.2 Display current embedding configuration summary
+- [ ] 3a.1.3 Show which RAG services are using embeddings
+- [ ] 3a.1.4 Add "Configure Embeddings" button
 
-### 3.2 Intent Detection Configuration UI
-- [ ] 3.2.1 Create IntentConfig component
-- [ ] 3.2.2 Select intent detection provider/model
-- [ ] 3.2.3 Create IntentPhraseEditor component
-- [ ] 3.2.4 Add/edit/delete intent definitions
-- [ ] 3.2.5 Show intent name and description fields
-- [ ] 3.2.6 Add intent reordering (if needed)
+### 3a.2 Default Embedding Configuration
+- [ ] 3a.2.1 Create EmbeddingConfig component
+- [ ] 3a.2.2 Provider selector (dropdown of LLMs with embedding capability)
+- [ ] 3a.2.3 Model selector (filtered to embedding models only)
+- [ ] 3a.2.4 Show provider capability badges (which providers support embeddings)
+- [ ] 3a.2.5 Save default embedding config to workingConfig.embeddings.default
 
-### 3.3 Intent Testing UI
-- [ ] 3.3.1 Create IntentTester component
-- [ ] 3.3.2 Input test query
-- [ ] 3.3.3 Show detected intent
-- [ ] 3.3.4 Display confidence/reasoning
-- [ ] 3.3.5 Add "Test All Intents" mode
+### 3a.3 Per-Service Embedding Overrides
+- [ ] 3a.3.1 Create ServiceEmbeddingOverride component
+- [ ] 3a.3.2 List all configured RAG services
+- [ ] 3a.3.3 Show which use default vs custom embeddings
+- [ ] 3a.3.4 Add "Override" button per service
+- [ ] 3a.3.5 Override editor (select different provider/model for specific service)
+- [ ] 3a.3.6 Save overrides to workingConfig.embeddings.overrides
+
+### 3a.4 Embedding Validation
+- [ ] 3a.4.1 Validate selected provider supports embeddings
+- [ ] 3a.4.2 Validate selected model is an embedding model
+- [ ] 3a.4.3 Show warning if RAG services configured but no embeddings
+- [ ] 3a.4.4 Update validation state in ConfigBuilder
+
+## Phase 3b: Intent Detection Configuration UI
+
+### 3b.1 Intent Tab Implementation
+- [ ] 3b.1.1 Update IntentSection.jsx from placeholder to functional component
+- [ ] 3b.1.2 Display current intent configuration summary
+- [ ] 3b.1.3 Show list of defined intents
+- [ ] 3b.1.4 Add "Configure Intent Detection" button
+
+### 3b.2 Intent Detection Provider Configuration
+- [ ] 3b.2.1 Create IntentProviderConfig component
+- [ ] 3b.2.2 Provider selector (dropdown of configured LLMs)
+- [ ] 3b.2.3 Model selector for intent detection
+- [ ] 3b.2.4 Save to workingConfig.intent.provider and .model
+
+### 3b.3 Intent Definition Editor
+- [ ] 3b.3.1 Create IntentEditor component
+- [ ] 3b.3.2 List existing intents with add/edit/delete actions
+- [ ] 3b.3.3 Create IntentForm component (name, description, example phrases)
+- [ ] 3b.3.4 Add intent phrase input (multiple phrases per intent)
+- [ ] 3b.3.5 Add drag-and-drop reordering for intent priority
+- [ ] 3b.3.6 Save to workingConfig.intent.definitions array
+
+### 3b.4 Intent Testing UI
+- [ ] 3b.4.1 Create IntentTester component
+- [ ] 3b.4.2 Add test query input field
+- [ ] 3b.4.3 Add "Test Intent" button
+- [ ] 3b.4.4 Call backend intent detection API (may need new endpoint)
+- [ ] 3b.4.5 Display detected intent with confidence score
+- [ ] 3b.4.6 Show reasoning/explanation for classification
+- [ ] 3b.4.7 Add "Test All Intents" mode (batch test with multiple queries)
 
 ## Phase 4: Response Handler Builder
 
@@ -211,78 +247,118 @@
 - [ ] 4.6.3 Add warnings for unreachable handlers
 - [ ] 4.6.4 Suggest reordering if issues detected
 
-## Phase 5: Configuration Export/Import & Polish
+## Phase 5: Reasoning Configuration & Polish
 
-### 5.1 Backend Config API Endpoints
-- [x] 5.1.1 Create `backend/chat/routes/config.js` route module
-- [x] 5.1.2 Implement `POST /api/config/reload` endpoint (hot-reload config)
-  - [x] 5.1.2.1 Refactor server.js to use getter functions for state
-  - [x] 5.1.2.2 Update all route factories to accept getters
-  - [x] 5.1.2.3 Implement reinitializeProviders() in server.js
-  - [x] 5.1.2.4 Connect POST /api/config/reload to reinitializeProviders
-- [x] 5.1.3 Implement `GET /api/config/export` endpoint (export current config as JSON)
-- [x] 5.1.4 Implement `POST /api/config/validate` endpoint (validate config)
- - [x] 5.1.4.1 Use proper validateConfig from config-loader
- - [x] 5.1.4.2 Enforce: LLM + response handler required (except zero-config)
- - [x] 5.1.4.3 Return errors for partial configs (LLM without responses, or vice versa)
-- [x] 5.1.5 Register config routes in `server.js`
-- [ ] 5.1.6 Add authorization/security checks
-- [ ] 5.1.7 Write integration tests for config endpoints
+### 5.1 Reasoning Tab Implementation
+- [ ] 5.1.1 Update ReasoningSection.jsx from placeholder to functional component
+- [ ] 5.1.2 Display current reasoning configuration summary
+- [ ] 5.1.3 Show which response handlers use reasoning
+- [ ] 5.1.4 Add "Configure Reasoning" button
 
-### 5.2 Configuration Export UI
-- [x] 5.2.1 Export functionality in ConfigBuilder (no separate component needed)
-- [x] 5.2.2 Generate JSON from current configuration (workingConfig)
-- [x] 5.2.3 Add "Export JSON" button (with download functionality)
-- [ ] 5.2.4 Add "Copy to Clipboard" button (future enhancement)
-- [ ] 5.2.5 Show formatted JSON preview (future enhancement)
-- [x] 5.2.6 Fixed filename: 'flex-chat-config.json'
+### 5.1a Reasoning Provider Configuration
+- [ ] 5.1a.1 Create ReasoningConfig component
+- [ ] 5.1a.2 Provider selector (dropdown of LLMs with reasoning capability)
+- [ ] 5.1a.3 Model selector (filtered to reasoning-capable models)
+- [ ] 5.1a.4 Reasoning parameters editor (thinking_budget, etc.)
+- [ ] 5.1a.5 Save to workingConfig.reasoning
+- [ ] 5.1a.6 Add reasoning model capability detection
 
-### 5.3 Configuration Import UI
-- [ ] 5.3.1 Create ImportConfig component
-- [ ] 5.3.2 Add file upload input
-- [ ] 5.3.3 Parse and validate uploaded JSON
-- [ ] 5.3.4 Show import preview/diff
-- [ ] 5.3.5 Add "Replace" vs "Merge" options
-- [ ] 5.3.6 Handle import errors gracefully
+### 5.2 Backend Config API Endpoints (Continued)
+- [x] 5.2.1 Create `backend/chat/routes/config.js` route module
+- [x] 5.2.2 Implement `POST /api/config/reload` endpoint (hot-reload config)
+  - [x] 5.2.2.1 Refactor server.js to use getter functions for state
+  - [x] 5.2.2.2 Update all route factories to accept getters
+  - [x] 5.2.2.3 Implement reinitializeProviders() in server.js
+  - [x] 5.2.2.4 Connect POST /api/config/reload to reinitializeProviders
+- [x] 5.2.3 Implement `GET /api/config/export` endpoint (export current config as JSON)
+- [x] 5.2.4 Implement `POST /api/config/validate` endpoint (validate config)
+ - [x] 5.2.4.1 Use proper validateConfig from config-loader
+ - [x] 5.2.4.2 Enforce: LLM + response handler required (except zero-config)
+ - [x] 5.2.4.3 Return errors for partial configs (LLM without responses, or vice versa)
+- [x] 5.2.5 Register config routes in `server.js`
+- [ ] 5.2.6 Add authorization/security checks
+- [ ] 5.2.7 Write integration tests for config endpoints
 
-### 5.4 Configuration Validation UI
-- [ ] 5.4.1 Create ConfigValidator component
-- [ ] 5.4.2 Run validation on current config
-- [ ] 5.4.3 Display validation errors/warnings
-- [ ] 5.4.4 Link to problematic sections
-- [ ] 5.4.5 Add "Fix" suggestions where possible
+### 5.3 Configuration Export UI (Polish)
+- [x] 5.3.1 Export functionality in ConfigBuilder (no separate component needed)
+- [x] 5.3.2 Generate JSON from current configuration (workingConfig)
+- [x] 5.3.3 Add "Export JSON" button (with download functionality)
+- [ ] 5.3.4 Add "Copy to Clipboard" button (future enhancement)
+- [ ] 5.3.5 Show formatted JSON preview (future enhancement)
+- [x] 5.3.6 Fixed filename: 'flex-chat-config.json'
+- [ ] 5.3.7 Add timestamp to exported filename (config-2025-10-29.json)
+- [ ] 5.3.8 Add metadata to exported JSON (export date, version)
 
-### 5.5 Live Configuration Updates
-- [x] 5.5.1 Add "Apply Changes" button in UI (calls `/api/config/reload`)
-- [x] 5.5.2 Show "Unsaved Changes" indicator (yellow banner)
-- [x] 5.5.3 Add confirmation before applying (Cancel button with confirm dialog)
-- [x] 5.5.4 Handle apply errors gracefully (error alerts)
-- [x] 5.5.5 Display success confirmation with reload status (auto-navigate to Home)
-- [x] 5.5.6 Add global route guard when `hasUnappliedChanges` (except Export/Cancel)
-- [x] 5.5.7 Add Validate button and gating logic (Apply/Export disabled until valid)
+### 5.4 Configuration Import UI (Polish)
+- [ ] 5.4.1 Create ImportConfig component
+- [ ] 5.4.2 Add file upload input
+- [ ] 5.4.3 Parse and validate uploaded JSON
+- [ ] 5.4.4 Show import preview/diff before loading
+- [ ] 5.4.5 Add "Replace" vs "Merge" options
+- [ ] 5.4.6 Handle import errors gracefully with actionable messages
+- [ ] 5.4.7 Add confirmation dialog before loading imported config
 
-### 5.6 Configuration Diff/Preview
-- [ ] 5.6.1 Create ConfigDiff component
-- [ ] 5.6.2 Show before/after comparison
-- [ ] 5.6.3 Highlight added/removed/modified sections
-- [ ] 5.6.4 Add "Revert" option
+### 5.5 Configuration Validation UI (Polish)
+- [ ] 5.5.1 Enhance validation error categorization
+- [ ] 5.5.2 Add "Fix" suggestions for common validation errors
+- [ ] 5.5.3 Add validation progress indicator
+- [ ] 5.5.4 Improve validation error messages with actionable guidance
+- [ ] 5.5.5 Add validation warnings (non-blocking issues)
+- [ ] 5.5.6 Link validation errors to problematic sections
 
-### 5.7 UX Polish
-- [ ] 5.7.1 Add loading states throughout
-- [ ] 5.7.2 Add success/error toasts
-- [ ] 5.7.3 Improve form validation messages
-- [ ] 5.7.4 Add keyboard shortcuts
-- [ ] 5.7.5 Improve mobile responsiveness
-- [ ] 5.7.6 Add help tooltips/documentation links
-- [ ] 5.7.7 Add onboarding tour (optional)
+### 5.6 Live Configuration Updates (Complete)
+- [x] 5.6.1 Add "Apply Changes" button in UI (calls `/api/config/reload`)
+- [x] 5.6.2 Show "Unsaved Changes" indicator (yellow banner)
+- [x] 5.6.3 Add confirmation before applying (Cancel button with confirm dialog)
+- [x] 5.6.4 Handle apply errors gracefully (error alerts)
+- [x] 5.6.5 Display success confirmation with reload status (auto-navigate to Home)
+- [x] 5.6.6 Add global route guard when `hasUnappliedChanges` (except Export/Cancel)
+- [x] 5.6.7 Add Validate button and gating logic (Apply/Export disabled until valid)
 
-### 5.8 Documentation
-- [ ] 5.8.1 Create `docs/CONFIGURATION_BUILDER.md`
-- [ ] 5.8.2 Update `docs/CONFIGURATION.md` with UI workflow
-- [ ] 5.8.3 Update `README.md` getting started guide
-- [ ] 5.8.4 Add screenshots/GIFs to documentation
-- [ ] 5.8.5 Update `CHANGELOG.md` with config-builder-system feature summary
-- [ ] 5.8.6 Create video walkthrough (optional)
+### 5.7 Configuration Diff/Preview
+- [ ] 5.7.1 Create ConfigDiff component
+- [ ] 5.7.2 Show side-by-side diff (appliedConfig vs workingConfig)
+- [ ] 5.7.3 Highlight added/removed/modified sections with color coding
+- [ ] 5.7.4 Add "Review Changes" modal before apply
+- [ ] 5.7.5 Show summary stats (X providers added, Y handlers modified, etc.)
+- [ ] 5.7.6 Add "Revert" option to discard specific changes
+
+### 5.8 Performance Optimizations
+- [ ] 5.8.1 Implement frontend static data caching (Decision 16 from design.md)
+- [ ] 5.8.2 Cache provider list at ConfigBuilder level
+- [ ] 5.8.3 Cache environment variables at ConfigBuilder level
+- [ ] 5.8.4 Pass cached data as props to wizards/sections
+- [ ] 5.8.5 Add cache invalidation on config reload
+- [ ] 5.8.6 Optimize re-renders with React.memo where appropriate
+- [ ] 5.8.7 Add debouncing to validation triggers
+
+### 5.9 Configuration History (Optional)
+- [ ] 5.9.1 Store config versions in localStorage
+- [ ] 5.9.2 Create ConfigHistory component
+- [ ] 5.9.3 Show list of past configurations with timestamps
+- [ ] 5.9.4 Add restore/revert functionality
+- [ ] 5.9.5 Add diff view between any two versions
+- [ ] 5.9.6 Add config snapshot naming/descriptions
+
+### 5.10 UX Polish
+- [ ] 5.10.1 Add loading states throughout (spinners, skeletons)
+- [ ] 5.10.2 Add success/error toasts for all actions
+- [ ] 5.10.3 Improve form validation messages with actionable guidance
+- [ ] 5.10.4 Add keyboard shortcuts (Ctrl+S to validate, etc.)
+- [ ] 5.10.5 Improve mobile responsiveness for all components
+- [ ] 5.10.6 Add help tooltips/documentation links throughout
+- [ ] 5.10.7 Add onboarding tour (optional)
+- [ ] 5.10.8 Polish animations and transitions
+- [ ] 5.10.9 Add accessibility improvements (ARIA labels, keyboard navigation)
+
+### 5.11 Documentation
+- [ ] 5.11.1 Create `docs/CONFIGURATION_BUILDER.md` (comprehensive guide)
+- [ ] 5.11.2 Update `docs/CONFIGURATION.md` with UI workflow
+- [ ] 5.11.3 Update `README.md` getting started guide
+- [ ] 5.11.4 Add screenshots/GIFs to documentation
+- [ ] 5.11.5 Update `CHANGELOG.md` with config-builder-system feature summary
+- [ ] 5.11.6 Document all configuration options and their UI locations
+- [ ] 5.11.7 Create video walkthrough (optional)
 
 ## Testing & Quality Assurance
 

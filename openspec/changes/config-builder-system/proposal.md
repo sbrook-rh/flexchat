@@ -104,25 +104,41 @@ This fundamentally shifts Flex Chat from a "config-file-first" to a "UI-first" s
 
 **Estimated Complexity**: Medium (2-3 weeks)
 
-### Phase 3: Embedding & Intent Configuration UI
-**Goal**: UI for configuring embeddings and intent detection
+### Phase 3a: Embeddings Configuration UI
+**Goal**: UI for configuring default embeddings and per-service overrides
 
 **Deliverables**:
-- Default embedding configuration UI
+- Embeddings tab implementation
+- Default embedding provider/model selection (from configured LLMs)
 - Per-service embedding overrides
-- Intent detection provider/model selection
-- Intent phrase editor (add/edit/remove intents)
-- Intent testing UI (test classification)
+- Visual indication of which services use default vs custom embeddings
+- Basic validation (ensure selected provider supports embeddings)
 
 **Depends On**: Phase 2 (needs providers configured first)
 
-**Estimated Complexity**: Small (1-2 weeks)
+**Estimated Complexity**: Small (1 week)
+
+### Phase 3b: Intent Detection Configuration UI
+**Goal**: UI for configuring intent detection and testing classifications
+
+**Deliverables**:
+- Intent tab implementation
+- Intent detection provider/model selection
+- Intent phrase editor (add/edit/remove/reorder intents)
+- Intent name and description fields
+- Intent testing UI (test query classification)
+- Confidence/reasoning display for test results
+
+**Depends On**: Phase 3a (logical progression, but technically independent)
+
+**Estimated Complexity**: Small-Medium (1-2 weeks)
 
 ### Phase 4: Response Handler Builder
 **Goal**: Visual builder for response handlers with matching rules
 
 **Deliverables**:
-- Response handler list/add/edit/remove/reorder UI
+- Handlers tab implementation
+- Response handler list/add/edit/remove/reorder UI (drag-and-drop)
 - Match criteria builder (visual rule editor)
   - Service/collection matching
   - Intent matching (with regex support)
@@ -132,26 +148,29 @@ This fundamentally shifts Flex Chat from a "config-file-first" to a "UI-first" s
 - LLM/model selection per handler
 - Handler testing UI (test match criteria)
 - Sequential ordering visualization (first-match wins)
+- Catch-all handler highlighting
 
-**Depends On**: Phase 3 (needs all configuration pieces available)
+**Depends On**: Phase 3b (needs intents and embeddings available for matching)
 
 **Estimated Complexity**: Large (3-4 weeks)
 
-### Phase 5: Configuration Export/Import & Polish
-**Goal**: Complete the zero-config-to-export workflow
+### Phase 5: Reasoning Configuration & Polish
+**Goal**: Complete all configuration sections and polish the entire builder
 
 **Deliverables**:
-- Configuration export to JSON
-- Configuration import from JSON
-- Configuration validation UI
+- Reasoning tab implementation (reasoning model configuration)
+- Configuration validation refinements
+- Configuration export/import polish
 - Configuration diff/preview
-- Live configuration updates (no restart required)
+- Live configuration updates refinement
 - Configuration history/versioning (optional)
-- Polish and UX improvements
+- Performance optimizations (frontend caching, etc.)
+- UX improvements and polish
+- Complete documentation
 
 **Depends On**: Phase 4 (needs complete builder)
 
-**Estimated Complexity**: Medium (2 weeks)
+**Estimated Complexity**: Medium (2-3 weeks)
 
 ## Success Criteria
 
