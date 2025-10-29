@@ -8,6 +8,7 @@ function Collections({ uiConfig, reloadConfig }) {
   const [collections, setCollections] = useState([]);
   const [wrappers, setWrappers] = useState([]);
   const [loading, setLoading] = useState(true);
+  // eslint-disable-next-line no-unused-vars
   const [error, setError] = useState(null);
   
   // New collection form
@@ -315,9 +316,9 @@ function Collections({ uiConfig, reloadConfig }) {
                   }
                 });
               }
-            } catch (jsonError) {
+            } catch (error) {
               // If JSON parsing fails, treat as plain text
-              console.warn(`Could not parse ${file.name} as JSON, treating as text`);
+              console.warn(`Could not parse ${file.name} as JSON, treating as text`, error);
               documents.push({
                 text: text,
                 metadata: {

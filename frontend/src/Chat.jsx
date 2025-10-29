@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -6,20 +6,28 @@ import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
 import './Chat.css';
 import LogoSection from './LogoSection';
+import SessionManagerProvider from './components/SessionManager';
+import useSessionManager from './components/useSessionManager';
+import ChatHistory from './components/ChatHistory';
 
 const chatApiUrl = '/chat/api';
 
-const Chat = ({ uiConfig }) => {
+const ChatView = ({ uiConfig }) => {
   const navigate = useNavigate();
-  const [messages, setMessages] = useState(JSON.parse(localStorage.getItem('chatMessages')) || [
-    { type: 'bot', text: "Hello! I'm your AI assistant. How can I help you today?" }
-  ]);
+  const {
+    activeSession,
+    activeSessionId,
+    activeMessages,
+    addMessage,
+    setActiveTopic,
+    archiveSession,
+    deleteSession
+  } = useSessionManager();
   const [input, setInput] = useState('');
   const [sendButtonText, setSendButtonText] = useState('Send');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [retryTracker, setRetryTracker] = useState(-1);
-  const [topic, setTopic] = useState(localStorage.getItem('chatTopic') || '');
 
   const [collections, setCollections] = useState([]);
   const [wrappers, setWrappers] = useState([]);
@@ -49,12 +57,9 @@ const Chat = ({ uiConfig }) => {
     }
   }, [retryTracker]);
 
-  // Persist topic to localStorage when it changes
-  useEffect(() => {
-    if (topic) {
-      localStorage.setItem('chatTopic', topic);
-    }
-  }, [topic]);
+  const topic = activeSession?.topic || '';
+
+  const previousMessages = useMemo(() => activeMessages.slice(-4), [activeMessages]);
 
   const toggleLeftSidebar = () => {
     const newState = !leftSidebarCollapsed;
@@ -100,12 +105,11 @@ const Chat = ({ uiConfig }) => {
     }
   }, [uiConfig]);
 
-  const handleSend = async (retryCount = 0, event) => {
+  const handleSend = async (retryCount = 0) => {
     if (!input.trim()) return;
     const inputText = input.trim();
-    const userMessage = { type: 'user', text: inputText, topic: topic };
-    const previousMessages = messages.slice(-4);
-    setMessages([...messages, userMessage]);
+    const userMessage = { type: 'user', text: inputText, topic };
+    addMessage(userMessage, activeSessionId);
     setInput('');
     setRetryTracker(retryCount);
 
@@ -130,26 +134,73 @@ const Chat = ({ uiConfig }) => {
         return;
       }
       if (data.response) {
-        setMessages(prev => {
-          const updated = [...prev, { 
-            type: 'bot', 
-            text: data.response, 
-            topic: data.topic,
-            service: data.service,
-            model: data.model
-          }];
-          localStorage.setItem('chatMessages', JSON.stringify(updated.slice(-50)));
-          setRetryTracker(-1);
-          return updated;
-        });
+        addMessage({
+          type: 'bot',
+          text: data.response,
+          topic: data.topic,
+          service: data.service,
+          model: data.model
+        }, activeSessionId);
+        setRetryTracker(-1);
       }
-      if (data.topic) setTopic(data.topic);
+      if (data.topic) setActiveTopic(data.topic);
     } catch (err) {
       console.error('Error sending message:', err);
       setErrorMessage('Network error. Please try again.');
       setRetryTracker(-1);
     }
   };
+
+  const handleArchiveCurrent = () => {
+    if (!activeSessionId) return;
+    const confirmed = window.confirm('Archive this conversation? You can restore it from chat history.');
+    if (!confirmed) return;
+    archiveSession(activeSessionId, true);
+  };
+
+  const handleDeleteCurrent = () => {
+    if (!activeSessionId || !activeSession) return;
+    const confirmed = window.confirm(`Delete conversation "${activeSession.title || 'Untitled conversation'}"? This cannot be undone.`);
+    if (!confirmed) return;
+    deleteSession(activeSessionId);
+  };
+
+  const handleExportSession = (session) => {
+    if (!session) return;
+    const payload = {
+      exportVersion: '1.0',
+      exportedAt: new Date().toISOString(),
+      session
+    };
+    const rawSlug = (session.topic || session.title || 'conversation')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const topicSlug = rawSlug || 'conversation';
+    const filename = `flex-chat-session-${topicSlug}.json`;
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportSessions = async () => {
+    window.alert('Import functionality coming soon.');
+  };
+
+  if (!activeSession) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50 text-gray-500">
+        Initializing chat history...
+      </div>
+    );
+  }
 
   return (
     <div
@@ -315,8 +366,8 @@ const Chat = ({ uiConfig }) => {
       <main className="flex flex-col bg-white h-full overflow-y-auto">
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-40">
           <div className="max-w-6xl mx-auto px-4">
-            {messages.map((message, index) => (
-              <div key={index} className={`message-container ${message.type}`}>
+            {activeMessages.map((message, index) => (
+              <div key={`${message.timestamp || index}-${index}`} className={`message-container ${message.type}`}>
                 <div className={`${message.type}-message`}>
                   {message.type === 'bot' ? (
                     <>
@@ -359,8 +410,7 @@ const Chat = ({ uiConfig }) => {
           {rightSidebarCollapsed ? '←' : '→'}
         </button>
         <div className={rightSidebarCollapsed ? 'hidden' : 'px-4 pb-4 pt-14 h-full overflow-y-auto'}>
-          <h2 className="text-lg font-semibold text-gray-800 mb-2">Chat History</h2>
-          <p className="text-sm text-gray-400 italic">Coming soon...</p>
+          <ChatHistory onExportSession={handleExportSession} onImportSessions={handleImportSessions} />
         </div>
       </aside>
 
@@ -369,19 +419,16 @@ const Chat = ({ uiConfig }) => {
         <div className="max-w-6xl mx-auto p-4">
           <div className="flex items-center gap-3 mb-2">
             <button
-              onClick={() => {
-                if (messages.length > 0 && window.confirm('Clear chat history?')) {
-                  setMessages([]);
-                  setInput('');
-                  setErrorMessage('');
-                  setTopic('');
-                  localStorage.removeItem('chatTopic');
-                  localStorage.removeItem('chatMessages');
-                }
-              }}
+              onClick={handleArchiveCurrent}
               className="text-sm text-gray-600 hover:text-gray-800 underline"
             >
-              Clear Chat
+              Archive Session
+            </button>
+            <button
+              onClick={handleDeleteCurrent}
+              className="text-sm text-red-500 hover:text-red-600 underline"
+            >
+              Delete Session
             </button>
             {topic && (
               <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -400,7 +447,7 @@ const Chat = ({ uiConfig }) => {
               onKeyPress={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
-                  handleSend(0, e);
+                  handleSend(0);
                 }
               }}
               placeholder="Type your message... (Shift+Enter for new line)"
@@ -411,7 +458,7 @@ const Chat = ({ uiConfig }) => {
             />
             <button
               className={`bg-blue-500 hover:bg-blue-600 text-white font-semibold px-6 py-3 rounded-lg transition-colors ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
-              onClick={(e) => handleSend(0, e)}
+              onClick={() => handleSend(0)}
               disabled={isLoading}
             >
               {sendButtonText}
@@ -422,5 +469,11 @@ const Chat = ({ uiConfig }) => {
     </div>
   );
 };
+
+const Chat = ({ uiConfig }) => (
+  <SessionManagerProvider>
+    <ChatView uiConfig={uiConfig} />
+  </SessionManagerProvider>
+);
 
 export default Chat;
