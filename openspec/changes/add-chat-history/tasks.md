@@ -35,11 +35,11 @@
 - [x] 4.1 Implement session export to JSON (download file with session data)
 - [x] 4.2 Format exported filename: `flex-chat-session-{topic}-{date}.json`
 - [x] 4.3 Include metadata in export: version, export date, session data
-- [ ] 4.4 Implement "Export All Sessions" (zip file with all sessions)
-- [ ] 4.5 Implement session import (file upload, validate JSON structure)
-- [ ] 4.6 Add import validation (check schema, sanitize data)
-- [ ] 4.7 Add import conflict resolution (prompt if session ID exists)
-- [ ] 4.8 Add UI for export/import (buttons in settings or session menu)
+- [ ] 4.4 Implement "Export All Sessions" (zip file with all sessions) *(optional)*
+- [x] 4.5 Implement session import (file upload, validate JSON structure)
+- [x] 4.6 Add import validation (check schema, sanitize data)
+- [x] 4.7 Add import conflict resolution (prompt if session ID exists)
+- [x] 4.8 Add UI for export/import (buttons in settings or session menu)
 
 ### 5. Chat Component Integration
 - [x] 5.1 Modify `frontend/src/Chat.jsx` to use session management

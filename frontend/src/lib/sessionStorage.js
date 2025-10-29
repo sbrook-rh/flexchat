@@ -40,6 +40,13 @@ const generateSessionId = () => {
 
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
+const coerceIsoString = (value, fallback = nowIso()) => {
+  if (typeof value !== 'string') return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return date.toISOString();
+};
+
 const createEmptySession = ({
   title = DEFAULT_SESSION_TITLE,
   topic = '',
@@ -353,6 +360,85 @@ const getApproximateStorageUsage = () => {
   };
 };
 
+const sanitizeMessage = (message = {}, defaultTopic = '') => {
+  const type = message.type === 'user' ? 'user' : 'bot';
+  const text = typeof message.text === 'string' ? message.text : JSON.stringify(message.text ?? '');
+  const topic = typeof message.topic === 'string' ? message.topic : defaultTopic || null;
+  const service = typeof message.service === 'string' ? message.service : null;
+  const model = typeof message.model === 'string' ? message.model : null;
+  const timestamp = coerceIsoString(message.timestamp, nowIso());
+
+  return {
+    type,
+    text,
+    topic,
+    service,
+    model,
+    timestamp
+  };
+};
+
+const prepareImportedSession = (rawSession = {}) => {
+  if (typeof rawSession !== 'object' || rawSession === null) {
+    throw new Error('Imported session must be an object');
+  }
+
+  const prepared = {
+    id: typeof rawSession.id === 'string' && rawSession.id.trim() ? rawSession.id.trim() : generateSessionId(),
+    title: typeof rawSession.title === 'string' && rawSession.title.trim() ? rawSession.title.trim() : DEFAULT_SESSION_TITLE,
+    topic: typeof rawSession.topic === 'string' ? rawSession.topic : '',
+    createdAt: coerceIsoString(rawSession.createdAt, nowIso()),
+    updatedAt: coerceIsoString(rawSession.updatedAt, nowIso()),
+    archived: Boolean(rawSession.archived),
+    messages: Array.isArray(rawSession.messages)
+      ? rawSession.messages.map((msg) => sanitizeMessage(msg, rawSession.topic)).slice(-MESSAGE_RETENTION_LIMIT)
+      : [],
+    metadata: typeof rawSession.metadata === 'object' && rawSession.metadata !== null
+      ? { ...rawSession.metadata }
+      : {}
+  };
+
+  return updateSessionMetadata(prepared);
+};
+
+const importSessionIntoSnapshot = (snapshot, rawSession, { replaceExisting = false } = {}) => {
+  let prepared = prepareImportedSession(rawSession);
+  let sessions = snapshot.sessions.slice();
+  const existing = sessions.find((session) => session.id === prepared.id);
+  let conflictResolved = false;
+  let replaced = false;
+
+  if (existing) {
+    if (replaceExisting) {
+      sessions = sessions.map((session) => (session.id === prepared.id ? prepared : session));
+      replaced = true;
+    } else {
+      prepared = {
+        ...prepared,
+        id: generateSessionId(),
+        createdAt: coerceIsoString(prepared.createdAt, nowIso()),
+        updatedAt: nowIso()
+      };
+      sessions.push(prepared);
+      conflictResolved = true;
+    }
+  } else {
+    sessions.push(prepared);
+  }
+
+  const nextSnapshot = ensureActiveSession({
+    ...snapshot,
+    sessions
+  });
+
+  return {
+    snapshot: nextSnapshot,
+    session: prepared,
+    conflictResolved,
+    replaced
+  };
+};
+
 export {
   STORAGE_KEY,
   STORAGE_VERSION,
@@ -373,5 +459,7 @@ export {
   appendMessageToSession,
   updateSessionMetadata,
   getApproximateStorageUsage,
-  isQuotaExceededError
+  isQuotaExceededError,
+  prepareImportedSession,
+  importSessionIntoSnapshot
 };

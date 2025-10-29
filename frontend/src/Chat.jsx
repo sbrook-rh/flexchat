@@ -21,7 +21,8 @@ const ChatView = ({ uiConfig }) => {
     addMessage,
     setActiveTopic,
     archiveSession,
-    deleteSession
+    deleteSession,
+    importSession
   } = useSessionManager();
   const [input, setInput] = useState('');
   const [sendButtonText, setSendButtonText] = useState('Send');
@@ -190,8 +191,49 @@ const ChatView = ({ uiConfig }) => {
     URL.revokeObjectURL(url);
   };
 
-  const handleImportSessions = async () => {
-    window.alert('Import functionality coming soon.');
+  const extractSessionPayload = (data) => {
+    if (!data || typeof data !== 'object') {
+      throw new Error('Imported file must contain a JSON object');
+    }
+
+    if (data.session && typeof data.session === 'object') {
+      return data.session;
+    }
+
+    if (Array.isArray(data.sessions) && data.sessions.length > 0) {
+      return data.sessions[0];
+    }
+
+    if (data.id && Array.isArray(data.messages)) {
+      return data;
+    }
+
+    throw new Error('Unsupported session file format');
+  };
+
+  const handleImportSessions = async (files) => {
+    const fileList = Array.isArray(files) ? files : files ? [files] : [];
+    if (fileList.length === 0) return;
+
+    const successes = [];
+    for (const file of fileList) {
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const sessionPayload = extractSessionPayload(parsed);
+        const result = importSession(sessionPayload);
+        const title = result.session?.title || 'Conversation';
+        successes.push(`${title}${result.conflictResolved ? ' (duplicate ID resolved)' : ''}`);
+      } catch (error) {
+        console.error('Failed to import session from file', file?.name, error);
+        window.alert(`Failed to import "${file?.name || 'session'}": ${error.message}`);
+      }
+    }
+
+    if (successes.length > 0) {
+      const summary = successes.map((title) => `• ${title}`).join('\n');
+      window.alert(`Imported ${successes.length} session${successes.length === 1 ? '' : 's'}:\n${summary}`);
+    }
   };
 
   if (!activeSession) {

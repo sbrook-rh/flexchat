@@ -14,7 +14,8 @@ import {
   addMessageToSnapshot,
   createEmptySession,
   getApproximateStorageUsage,
-  STORAGE_WARNING_THRESHOLD
+  STORAGE_WARNING_THRESHOLD,
+  importSessionIntoSnapshot
 } from '../lib/sessionStorage';
 import SessionManagerContext from './sessionManagerContext';
 
@@ -110,6 +111,22 @@ const SessionManagerProvider = ({ children }) => {
     return result;
   }, [applyAndPersist]);
 
+  const importSession = useCallback((rawSession, options = {}) => {
+    let importResult = null;
+    const { snapshot: next } = applyAndPersist((state) => {
+      importResult = importSessionIntoSnapshot(state, rawSession, options);
+      return ensureActiveSession(setActiveSession(importResult.snapshot, importResult.session.id));
+    });
+
+    const imported = next.sessions.find((session) => session.id === importResult.session.id) || importResult.session;
+
+    return {
+      session: imported,
+      conflictResolved: importResult.conflictResolved,
+      replaced: importResult.replaced
+    };
+  }, [applyAndPersist]);
+
   const setActiveTopic = useCallback((topic) => {
     applyAndPersist((state) => {
       if (!state.activeSessionId) return state;
@@ -143,9 +160,10 @@ const SessionManagerProvider = ({ children }) => {
       updateTopic,
       addMessage,
       setActiveTopic,
+      importSession,
       refresh: hydrateSnapshot
     };
-  }, [snapshot, storageUsage, createSession, switchSession, archiveSession, deleteSession, rename, updateTopic, addMessage, setActiveTopic, hydrateSnapshot]);
+  }, [snapshot, storageUsage, createSession, switchSession, archiveSession, deleteSession, rename, updateTopic, addMessage, setActiveTopic, importSession, hydrateSnapshot]);
 
   return (
     <SessionManagerContext.Provider value={value}>

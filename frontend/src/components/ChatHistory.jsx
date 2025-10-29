@@ -92,12 +92,12 @@ const ChatHistory = ({ onExportSession, onImportSessions }) => {
 
   const handleImport = async (event) => {
     if (!onImportSessions) return;
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    if (files.length === 0) return;
 
     setIsImporting(true);
     try {
-      await onImportSessions(file);
+      await onImportSessions(files);
     } finally {
       setIsImporting(false);
       // reset input so same file can be selected again later
@@ -222,6 +222,7 @@ const ChatHistory = ({ onExportSession, onImportSessions }) => {
             type="file"
             accept="application/json"
             className="hidden"
+            multiple
             disabled={isImporting}
             onChange={handleImport}
           />
