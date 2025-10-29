@@ -52,10 +52,10 @@ This document tracks **immediate priorities and next features**. For detailed im
 ## 📋 Planning
 
 ### Provider Work
-- [ ] **Add Gemini Provider** (add-gemini-provider)
-  - [ ] Implement GeminiProvider class
-  - [ ] Add to provider registry
-  - [ ] Test with real API
+- [x] **Add Gemini Provider** (add-gemini-provider)
+  - [x] Implement GeminiProvider class
+  - [x] Add to provider registry
+  - [x] Test with real API
   - [ ] Validate response quality
 
 ### Testing & Validation
@@ -69,11 +69,11 @@ This document tracks **immediate priorities and next features**. For detailed im
   - [ ] Large document uploads
   - [ ] Query performance with large collections
 
-- [ ] **Configuration Viewer & Management UI** (config-viewer)
-  - [ ] Display current config in UI
-  - [ ] Test connections
-  - [ ] Future: Live editing
-  - [ ] **Dependency**: Connection Management Infrastructure (connection-management)
+- [x] **Configuration Viewer & Management UI** (config-viewer)
+  - [x] Display current config in UI
+  - [x] Test connections
+  - [x] Future: Live editing
+  - [x] **Dependency**: Connection Management Infrastructure (connection-management)
 
 - [ ] **Streaming Responses** (streaming-responses)
   - [ ] Server-Sent Events for real-time responses
@@ -98,9 +98,9 @@ This document tracks **immediate priorities and next features**. For detailed im
 
 ## 🚀 In Progress
 
-- [ ] **Configuration Builder System** (config-builder-system)
-  - [ ] Phase 2: Provider Configuration UI (Provider List, Wizard, Model Discovery, Env Var UI)
-  - [ ] Phase 1 follow-ups: request validation, error middleware, endpoint integration tests, shared connection payload validator
+- [x] **Configuration Builder System** (config-builder-system)
+  - [x] Phase 2: Provider Configuration UI (Provider List, Wizard, Model Discovery, Env Var UI)
+  - [x] Phase 1 follow-ups: request validation, error middleware, endpoint integration tests, shared connection payload validator
 
 
 ---
