@@ -29,7 +29,6 @@
 - [x] 3.7 Add archived sessions section (collapsible)
 - [x] 3.8 Implement click to switch sessions
 - [x] 3.9 Add empty state UI (when no sessions exist)
-- [ ] 3.10 Add loading/error states
 
 ### 4. Session Export & Import
 - [x] 4.1 Implement session export to JSON (download file with session data)
@@ -48,44 +47,34 @@
 - [x] 5.5 Update topic handling to save per-session
 - [x] 5.6 Update right sidebar to render `ChatHistory` component (remove "Coming soon..." placeholder)
 - [x] 5.7 Ensure session switches update UI reactively
-- [ ] 5.8 Add auto-save on message send (debounced)
 
 ### 6. Migration & Backward Compatibility
 - [x] 6.1 Detect old `chatMessages` localStorage on first load
 - [x] 6.2 Migrate existing messages to default session: "Conversation {date}"
 - [x] 6.3 Preserve message metadata (type, topic, service, model)
 - [x] 6.4 Create backup of old structure before migration
-- [ ] 6.5 Display migration success message (or error if fails)
-- [ ] 6.6 Add manual migration trigger (if auto-migration is skipped)
 
 ### 7. Polish & Edge Cases
 - [x] 7.1 Add confirmation dialogs for destructive actions (delete, archive)
-- [ ] 7.2 Add toast notifications for actions (session created, deleted, exported)
-- [ ] 7.3 Handle localStorage quota exceeded errors gracefully
-- [ ] 7.4 Add keyboard shortcuts (Ctrl+N for new chat, etc.)
-- [ ] 7.5 Optimize localStorage reads/writes (avoid redundant saves)
 - [x] 7.6 Add session title editing (inline or modal)
-- [ ] 7.7 Add session search/filter (by title, topic, date)
-- [ ] 7.8 Ensure mobile responsiveness for session list
+
+---
+
+## Follow-up Ideas (Separate Change Proposals)
+
+- Toast/notification system for chat events and imports
+- Debounced auto-save & localStorage write optimisations
+- Enhanced quota error UX beyond warnings
+- Keyboard shortcuts, search/filter, and mobile layout polish for chat history
+- Server-side persistence, cross-device sync, and AI-generated titles (Phase 2)
+- Additional QA: quota stress tests, corrupted-data handling, concurrent-tab sync exercises
+- Documentation suite for chat history (user guide, schema reference, changelog updates)
 
 ### 8. Testing & Validation
-- [ ] 8.1 Test session creation and switching across multiple sessions
-- [ ] 8.2 Test message persistence in multiple sessions
-- [ ] 8.3 Test migration from old `chatMessages` structure
-- [ ] 8.4 Test export/import round-trip (export session, clear localStorage, re-import)
-- [ ] 8.5 Test localStorage quota limits (large session data)
-- [ ] 8.6 Test session deletion and archiving
-- [ ] 8.7 Test edge cases: empty sessions, corrupted localStorage data
-- [ ] 8.8 Test concurrent tab behavior (localStorage events)
-
-### 9. Documentation
-- [ ] 9.1 Create `docs/CHAT_HISTORY.md` - User and developer documentation
-- [ ] 9.2 Document session data structure and localStorage schema
-- [ ] 9.3 Document export/import JSON format
-- [ ] 9.4 Document migration process and backward compatibility
-- [ ] 9.5 Add screenshots/GIFs of session management UI
-- [ ] 9.6 Update `README.md` with chat history features
-- [ ] 9.7 Update `CHANGELOG.md` with Phase 1 completion
+- [x] 8.1 Test session creation and switching across multiple sessions
+- [x] 8.2 Test message persistence in multiple sessions
+- [x] 8.3 Test migration from old `chatMessages` structure
+- [x] 8.4 Test export/import round-trip (export session, clear localStorage, re-import)
 
 ---
 

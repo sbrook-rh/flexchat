@@ -53,13 +53,9 @@ The system SHALL automatically migrate existing single-session chat history to t
 - **WHEN** migration runs
 - **THEN** it creates a backup (`chatMessages_backup`), converts the old structure to a default session, sets `version: "2.0"`, and deletes the old key
 
-#### Scenario: Migration Success Notification
-- **WHEN** migration completes successfully
-- **THEN** the system displays a success message: "Your chat history has been upgraded! You can now manage multiple conversations."
-
 #### Scenario: Migration Failure Recovery
 - **WHEN** migration fails
-- **THEN** the system preserves the `chatMessages_backup`, logs the error, and provides a manual "Restore Backup" option
+- **THEN** the system preserves the `chatMessages_backup`, logs the error, and leaves the backup available for manual recovery
 
 ### Requirement: Session Export and Import
 The system SHALL allow users to export sessions as JSON files and import previously exported sessions.
@@ -67,10 +63,6 @@ The system SHALL allow users to export sessions as JSON files and import previou
 #### Scenario: Export Single Session
 - **WHEN** a user exports a session
 - **THEN** the system generates a JSON file with structure `{ exportVersion, exportedAt, session: {...} }` and triggers a download with filename `flex-chat-session-{topic}-{date}.json`
-
-#### Scenario: Export All Sessions
-- **WHEN** a user exports all sessions
-- **THEN** the system creates a ZIP file containing individual session JSON files plus a manifest and triggers a download
 
 #### Scenario: Import Session
 - **WHEN** a user uploads a session JSON file
@@ -114,10 +106,6 @@ The system SHALL monitor localStorage usage and warn users when approaching capa
 - **WHEN** localStorage usage exceeds 80% of estimated capacity
 - **THEN** the system displays a warning: "Chat history is nearly full. Consider exporting and archiving old sessions."
 
-#### Scenario: Storage Quota Exceeded
-- **WHEN** a localStorage write fails due to quota exceeded error
-- **THEN** the system catches the error, displays an error message, and prompts the user to export and delete old sessions
-
 ### Requirement: Session Interaction Optimization
 The system SHALL optimize session loading and saving to minimize localStorage read/write operations.
 
@@ -125,16 +113,12 @@ The system SHALL optimize session loading and saving to minimize localStorage re
 - **WHEN** a session is switched
 - **THEN** the system loads only that session's messages (not all sessions) to minimize memory usage
 
-#### Scenario: Debounced Auto-Save
-- **WHEN** messages are added to a session
-- **THEN** the system debounces localStorage writes (e.g., 500ms delay) to avoid excessive I/O on rapid message sequences
-
 #### Scenario: Concurrent Tab Synchronization
 - **WHEN** localStorage is modified by another tab
 - **THEN** the current tab listens for `storage` events and reloads sessions to stay synchronized
 
 ### Requirement: Server-Side Session Management (Phase 2)
-The system SHALL provide backend API endpoints for creating, retrieving, updating, and deleting chat sessions with server-side persistence.
+The system SHALL provide backend API endpoints for creating, retrieving, updating, and deleting chat sessions with server-side persistence. *(Deferred to a future change proposal.)*
 
 #### Scenario: Create Session via API
 - **WHEN** a POST request is made to `/api/sessions` with `{ title, topic }`
