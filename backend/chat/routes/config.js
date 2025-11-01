@@ -174,6 +174,34 @@ router.post('/validate', (req, res) => {
           });
         }
 
+        // Check embedding.llm reference
+        if (config.embedding?.llm) {
+          const referencedLLM = config.embedding.llm;
+          if (!availableLLMs.includes(referencedLLM)) {
+            errors.push(`embedding.llm references non-existent LLM provider '${referencedLLM}'`);
+          }
+        }
+
+        // Check per-service embedding.llm references
+        if (config.rag_services) {
+          Object.entries(config.rag_services).forEach(([serviceName, service]) => {
+            if (service.embedding?.llm && !availableLLMs.includes(service.embedding.llm)) {
+              errors.push(`rag_services.${serviceName}.embedding.llm references non-existent LLM provider '${service.embedding.llm}'`);
+            }
+          });
+        }
+
+        // Warning: RAG services without embeddings
+        if (config.rag_services && Object.keys(config.rag_services).length > 0) {
+          const hasGlobalEmbedding = config.embedding && config.embedding.llm && config.embedding.model;
+          const servicesWithoutEmbedding = Object.entries(config.rag_services).filter(
+            ([name, service]) => !service.embedding && !hasGlobalEmbedding
+          );
+          if (servicesWithoutEmbedding.length > 0) {
+            warnings.push(`RAG services configured without embeddings: ${servicesWithoutEmbedding.map(([name]) => name).join(', ')}. Configure a global embedding or per-service embeddings for RAG to function properly.`);
+          }
+        }
+
       } catch (e) {
         // If deep validation fails, report as a top-level error
         errors.push(`Validation engine error: ${e.message}`);

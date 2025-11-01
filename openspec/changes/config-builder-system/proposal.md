@@ -17,14 +17,26 @@ This fundamentally shifts Flex Chat from a "config-file-first" to a "UI-first" s
 
 ### New Capabilities
 - **Configuration Builder UI** - Complete UI for authoring all aspects of configuration
-  - Provider management (LLMs and RAG services)
-  - Embedding configuration
-  - Intent detection configuration
-  - Response handler builder with visual matching rules
+  - **LLM Provider Management** - Separate workflow for adding/configuring LLM providers with model discovery and selection
+  - **RAG Service Management** - Dedicated workflow for RAG providers with collection discovery
+  - **Topic Detection Configuration** - Dedicated UI for configuring conversation topic detection with chat-only model filtering
+  - **Embeddings Configuration** - Global and per-service embedding model configuration with validation
+  - Intent detection configuration (pending)
+  - Response handler builder with visual matching rules (pending)
 - **Connection Management Infrastructure** - Backend foundation for provider discovery, connection testing, and environment variable management
+  - Type-specific API endpoints for LLM and RAG operations
+  - Connection testing with real-time feedback
+  - Model discovery and collection listing
+  - Referential integrity validation
 - **Zero-Config Bootstrap** - Application starts with sensible defaults when no config exists
+  - Auto-creates topic and intent configurations on first LLM
+  - Auto-creates default response handler on first LLM
 - **Live Configuration** - Changes can be made and tested without restarting the server
+  - Hot-reload capability with validation gating
+  - Chat UI guards prevent access without working configuration
+  - Auto-create new chat session when providers change
 - **Configuration Export/Import** - Save and load complete configurations as JSON files
+- **Enhanced Chat UX** - Auto-updating chat titles, empty session cleanup, topic-based organization
 
 ### Modified Capabilities
 - **config-loader** - Extended to support runtime configuration updates and zero-config mode
@@ -71,52 +83,64 @@ This fundamentally shifts Flex Chat from a "config-file-first" to a "UI-first" s
 
 ## Phases
 
-### Phase 1: Connection Management Infrastructure (Foundation)
+### Phase 1: Connection Management Infrastructure (Foundation) ✅ COMPLETE
 **Goal**: Backend foundation for provider discovery, connection testing, environment management
 
 **Deliverables**:
-- Provider `getConnectionSchema()` interface
-- Backend API endpoints: `/api/connections/*`
-  - `GET /api/connections/providers` - List all providers
-  - `GET /api/connections/providers/:id/schema` - Get provider schema
-  - `POST /api/connections/test` - Test a connection
-  - `GET /api/connections/env-vars` - List available env vars (filtered)
-- Connection testing service
-- Environment variable management (secure filtering)
-- Provider discovery and registration
+- ✅ Provider `getConnectionSchema()` interface
+- ✅ Backend API endpoints: `/api/connections/*`
+  - ✅ `GET /api/connections/providers` - List all providers
+  - ✅ `GET /api/connections/providers/:id/schema` - Get provider schema
+  - ✅ `POST /api/connections/test` - Test a connection (split into LLM/RAG endpoints in Phase 3c)
+  - ✅ `GET /api/connections/env-vars` - List available env vars (filtered)
+- ✅ Connection testing service (ConnectionTester)
+- ✅ Environment variable management (secure filtering, EnvVarManager)
+- ✅ Provider discovery and registration (ProviderDiscovery service)
+- ✅ Config loader updates (raw vs processed config, runtime reload)
+- ✅ UI-config endpoint extensions (hasWorkingProviders, hasResponseHandlers, chatReady)
 
 **Enables**: Phases 2-4
 
 **Estimated Complexity**: Medium (2-3 weeks)
 
-### Phase 2: Provider Configuration UI
+**Status**: Complete - Foundation established and tested
+
+### Phase 2: Provider Configuration UI ✅ COMPLETE
 **Goal**: UI for adding and configuring LLM and RAG providers
 
 **Deliverables**:
-- Provider list/add/edit/remove UI
-- Connection wizard (step-by-step provider setup)
-- Connection testing UI with real-time feedback
-- Model discovery and selection
-- Environment variable configuration
-- Zero-config bootstrap (default provider suggestions)
+- ✅ Provider list/add/edit/remove UI (separate LLM and RAG sections)
+- ✅ Connection wizard (step-by-step provider setup) - separate LLMWizard and RAGWizard
+- ✅ Connection testing UI with real-time feedback
+- ✅ Model discovery and selection (LLM providers only)
+- ✅ RAG collection discovery (display available collections after successful connection test)
+- ✅ Environment variable configuration (secure, env-var-only for secrets)
+- ✅ Zero-config bootstrap (default provider suggestions)
+- ✅ Auto-create response handler when first LLM is added
+- ✅ Auto-create topic and intent configurations when first LLM is added
 
 **Depends On**: Phase 1
 
 **Estimated Complexity**: Medium (2-3 weeks)
 
-### Phase 3a: Embeddings Configuration UI
+**Status**: Complete - All features implemented and tested
+
+### Phase 3a: Embeddings Configuration UI ✅ COMPLETE
 **Goal**: UI for configuring default embeddings and per-service overrides
 
 **Deliverables**:
-- Embeddings tab implementation
-- Default embedding provider/model selection (from configured LLMs)
-- Per-service embedding overrides
-- Visual indication of which services use default vs custom embeddings
-- Basic validation (ensure selected provider supports embeddings)
+- ✅ Embeddings tab implementation (functional EmbeddingsSection component)
+- ✅ Default embedding provider/model selection (from configured LLMs, filtered to embedding models)
+- ✅ Per-service embedding overrides (with visual badges showing default vs custom)
+- ✅ Visual indication of which services use default vs custom embeddings
+- ✅ Validation (referential integrity checks, warning for RAG services without embeddings)
+- ✅ Model caching integration (reuses ConfigBuilder's modelsCache)
 
 **Depends On**: Phase 2 (needs providers configured first)
 
 **Estimated Complexity**: Small (1 week)
+
+**Status**: Complete - All embedding configuration features implemented
 
 ### Phase 3b: Intent Detection Configuration UI
 **Goal**: UI for configuring intent detection and testing classifications
@@ -128,10 +152,31 @@ This fundamentally shifts Flex Chat from a "config-file-first" to a "UI-first" s
 - Intent name and description fields
 - Intent testing UI (test query classification)
 - Confidence/reasoning display for test results
+- ✅ **Topic Detection Configuration** (separate tab with provider/model selector, chat-only model filtering, auto-correction)
 
 **Depends On**: Phase 3a (logical progression, but technically independent)
 
 **Estimated Complexity**: Small-Medium (1-2 weeks)
+
+### Phase 3c: Backend & UX Enhancements ✅ COMPLETE
+**Goal**: Refactor provider management, add validation, and improve chat UX
+
+**Deliverables**:
+- ✅ **Provider Abstraction Refactor** - Split LLM/RAG components and handlers into type-specific implementations
+- ✅ **Dedicated API Endpoints** - Separate endpoints for LLM and RAG operations (`/api/connections/llm/*`, `/api/connections/rag/*`)
+- ✅ **Referential Integrity Validation** - Validate topic/intent/response references to LLM providers in config validation
+- ✅ **RAG Collection Discovery** - Display available collections after successful connection test
+- ✅ **Chat UI Guards** - Prevent access to chat without working configuration (hasWorkingProviders, hasResponseHandlers)
+- ✅ **Auto-Update Chat Titles** - Automatically update session titles from detected topic (for new chats < 5 messages)
+- ✅ **New Chat on Config Change** - Create fresh chat session when LLM/RAG providers are added/removed/renamed
+- ✅ **Backend Topic Detection Updates** - Implement 3-tier fallback for topic detection LLM (topic → intent → first response handler)
+- ✅ **Model Caching** - Lift models cache to ConfigBuilder level to eliminate duplicate API calls
+
+**Depends On**: Phase 2, Phase 3b.5 (Topic Detection)
+
+**Estimated Complexity**: Medium (2 weeks)
+
+**Status**: Complete - All features implemented, tested, and documented
 
 ### Phase 4: Response Handler Builder
 **Goal**: Visual builder for response handlers with matching rules

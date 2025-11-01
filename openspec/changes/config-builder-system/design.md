@@ -1105,3 +1105,191 @@ Store the user's selected model as a `default_model` field in the LLM provider c
 - Phase 3: Show "default" badge in model selection UIs
 - Phase 4: Support provider-level default for response handlers without explicit model
 
+---
+
+### Decision 18: Provider Abstraction - Split LLM and RAG Management
+
+**Context:**  
+The original `ProviderList.jsx` component handled both LLM and RAG providers using type-conditional logic (`provider.type === 'llm'`). This created confusion and made the code harder to reason about. Backend endpoints also used a generic `/api/connections/test` with type discrimination.
+
+**Decision:**  
+Complete separation of LLM and RAG provider management:
+
+**Frontend:**
+- Split `ProviderList.jsx` → `LLMProviderList.jsx` + `RAGProviderList.jsx`
+- Split ConfigBuilder handlers:
+  - `handleEditProvider` → `handleEditLLMProvider` + `handleEditRAGService`
+  - `handleDeleteProvider` → `handleDeleteLLMProvider` + `handleDeleteRAGService`
+  - `handleWizardSave` → `handleLLMSave` + `handleRAGSave`
+- Update sections to use type-specific components
+
+**Backend:**
+- Split endpoints:
+  - `POST /api/connections/test` → `POST /api/connections/llm/test` + `POST /api/connections/rag/test`
+  - `POST /api/connections/providers/:id/models` → `POST /api/connections/llm/providers/:id/models`
+- Update `normalizeConnectionPayload` to accept `implicitType` parameter
+- Keep shared utilities (env var processing, validation) DRY
+
+**Benefits:**
+- ✅ Eliminates type-conditional logic
+- ✅ Clearer component responsibilities
+- ✅ Better type safety and error messages
+- ✅ Easier to add type-specific features
+- ✅ Fixed delete provider bug (immutability issue)
+
+**Trade-offs:**
+- ❌ More files/functions (but each is simpler)
+- ❌ Shared utilities still needed for common tasks
+
+**Implemented:** Phase 3c.1
+
+---
+
+### Decision 19: Topic Detection as Separate Navigation Tab
+
+**Context:**  
+Initial plan (task 3b.5) suggested adding Topic Detection as a subsection within the Intent tab. However, topic and intent serve different purposes in the chat flow, and topic detection is used independently of intent configuration.
+
+**Decision:**  
+Implement Topic Detection as a separate top-level navigation tab with:
+- Dedicated icon (🎯) - moved from Intent
+- Intent icon changed to 🧐
+- Provider and model selector
+- Chat-only model filtering (excludes reasoning/audio/video/embedding)
+- Static hint for model recommendations
+- Auto-correction if configured provider is deleted
+- Warning banner for invalid provider references
+
+**Rationale:**
+- Topic detection runs for every chat message (Phase 1 of 6)
+- Intent detection is optional and runs separately (Phase 3 of 6)
+- Users may want topic detection without intent detection
+- Separate tab provides better visual hierarchy
+- Follows pattern of separate tabs for each major configuration area
+
+**Implemented:** Phase 3b.5
+
+---
+
+### Decision 20: Model Caching at ConfigBuilder Level
+
+**Context:**  
+The Topic Detection UI and LLM Wizard both fetch models from the same providers. Initially, each component managed its own models state, causing duplicate API calls when switching between sections or opening/closing wizards.
+
+**Decision:**  
+Lift models cache to `ConfigBuilder.jsx` and pass it down as props:
+
+```javascript
+const [modelsCache, setModelsCache] = useState({});
+// Shape: { [providerId]: { models: [...], loading: bool, error: string } }
+
+<TopicSection
+  modelsCache={modelsCache}
+  setModelsCache={setModelsCache}
+  ...
+/>
+```
+
+**Benefits:**
+- ✅ Eliminates duplicate API calls
+- ✅ Persists models across tab switches
+- ✅ Faster UI (no loading spinner after first fetch)
+- ✅ Single source of truth for model data
+
+**Future Enhancement:**
+- Could extend to LLMWizard to share cache globally
+- Could add TTL or invalidation on provider config changes
+
+**Implemented:** Phase 3b.5.6
+
+---
+
+### Decision 21: Referential Integrity Validation
+
+**Context:**  
+Configuration can reference LLM providers in multiple places (`topic.provider.llm`, `intent.provider.llm`, `responses[].llm`). If a user deletes a provider, these references become invalid ("dangling references"), but validation didn't catch this.
+
+**Decision:**  
+Add explicit referential integrity checks to `POST /api/config/validate`:
+
+1. Check `config.topic?.provider?.llm` exists in `config.llms`
+2. Check `config.intent?.provider?.llm` exists in `config.llms`
+3. Check each `config.responses[].llm` exists in `config.llms`
+4. Return clear error messages: `"Topic detection references non-existent LLM provider: openai"`
+
+**UI Behavior:**
+- Display validation errors in ConfigBuilder
+- Disable Apply/Export until errors resolved
+- Show warning banner in TopicSection if auto-corrected
+
+**Rationale:**
+- Prevents runtime errors from invalid config
+- Catches issues before user applies configuration
+- Clear error messages guide user to fix
+
+**Implemented:** Phase 3c.2
+
+---
+
+### Decision 22: Auto-Create New Chat on Provider Changes
+
+**Context:**  
+After applying a configuration that adds/removes/renames LLM or RAG providers, users return to chat and see their previous session - which may have been created with a different configuration. This is confusing and may lead to errors if the old session references deleted providers.
+
+**Decision:**  
+Automatically create a new, empty chat session when provider changes are applied:
+
+**Flow:**
+1. `ConfigBuilder.handleApply()` detects provider changes using `hasProviderChanges(oldConfig, newConfig)`
+2. Sets `sessionStorage.setItem('createNewChat', 'true')` if changes detected
+3. `Chat.jsx` checks flag on mount:
+   - Creates new session
+   - Switches to new session
+   - Removes flag
+4. `ChatHistory.jsx` cleans up empty sessions when switching away
+
+**Benefits:**
+- ✅ Clean slate for new configuration
+- ✅ Avoids confusion from old session context
+- ✅ Prevents errors from referencing deleted providers
+- ✅ User can still access old sessions from history
+
+**Trade-offs:**
+- ❌ User's active session is replaced (but kept in history)
+- ✅ Mitigated: Only happens on *provider* changes, not other config edits
+
+**Implemented:** Phase 3c.6
+
+---
+
+### Decision 23: Auto-Update Chat Titles from Topic
+
+**Context:**  
+New chats start with title "New Chat" and never update unless manually edited. However, the system detects conversation topics, which provide better context than a generic title.
+
+**Decision:**  
+Automatically update chat title from detected topic for new conversations:
+
+**Rules:**
+1. Add `titleManuallyEdited: false` flag to sessions
+2. Set flag to `true` when user manually renames
+3. Auto-update `session.title = topic` if:
+   - `!session.titleManuallyEdited`
+   - `session.metadata.messageCount < 5` (configurable threshold)
+   - `topic` is not empty
+4. Respect manual edits (never overwrite if flag is true)
+
+**Benefits:**
+- ✅ Better UX - meaningful titles without manual work
+- ✅ Respects user intent if they rename
+- ✅ Only affects new conversations (< 5 messages)
+- ✅ Helps users identify chats in history
+
+**Trade-offs:**
+- ❌ Threshold (5 messages) is somewhat arbitrary
+- ✅ Can be adjusted easily if needed
+
+**Implemented:** Phase 3c.5
+
+---
+

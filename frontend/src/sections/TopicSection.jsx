@@ -6,7 +6,7 @@ import ConfigSection from '../ConfigSection';
  * Phase 3b.5: Topic Detection Configuration
  * Decision 16: Models cache lifted to ConfigBuilder for persistence across navigation
  */
-function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) {
+function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fetchModelsForProvider }) {
   const [availableModels, setAvailableModels] = useState([]);
   const [loadingModels, setLoadingModels] = useState(false);
 
@@ -46,45 +46,27 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) 
   useEffect(() => {
     if (!validProvider) return;
 
-    // Check cache first
-    if (modelsCache[validProvider]) {
-      setAvailableModels(modelsCache[validProvider]);
+    // Check if models are already cached
+    const cache = modelsCache[validProvider];
+    if (cache?.models?.length > 0) {
+      // Filter to only chat-capable models
+      const filteredModels = filterTopicDetectionModels(cache.models);
+      setAvailableModels(filteredModels);
+      setLoadingModels(false);
       return;
     }
 
-    const loadModels = async () => {
+    // Update loading state based on cache
+    if (cache?.loading) {
       setLoadingModels(true);
-      try {
-        const providerConfig = workingConfig.llms[validProvider];
-        const response = await fetch(`/api/connections/llm/providers/${providerConfig.provider}/models`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provider: providerConfig.provider,
-            config: providerConfig
-          })
-        });
+      return;
+    }
 
-        const result = await response.json();
-        if (result.models) {
-          // Filter to only chat-capable models
-          const filteredModels = filterTopicDetectionModels(result.models);
-          
-          // Cache the filtered results
-          setModelsCache(prev => ({ ...prev, [validProvider]: filteredModels }));
-          setAvailableModels(filteredModels);
-        }
-      } catch (error) {
-        console.error('Failed to load models:', error);
-        setAvailableModels([]);
-      } finally {
-        setLoadingModels(false);
-      }
-    };
-
-    loadModels();
+    // Fetch models using centralized function
+    fetchModelsForProvider(validProvider);
+    
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [validProvider]); // Only re-run when provider changes, not when cache updates
+  }, [validProvider, modelsCache]); // Re-run when provider or cache changes
 
   const handleProviderChange = (e) => {
     const newProvider = e.target.value;

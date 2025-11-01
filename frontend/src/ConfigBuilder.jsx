@@ -37,7 +37,59 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
   const [activeTab, setActiveTab] = useState('llm-providers');
   
   // Model cache - persists across section navigation (Decision 16)
-  const [modelsCache, setModelsCache] = useState({}); // { providerName: filteredModels[] }
+  // Structure: { [providerId]: { loading: boolean, models: array, error: string|null } }
+  const [modelsCache, setModelsCache] = useState({});
+  
+  // Centralized model fetching function
+  const fetchModelsForProvider = async (providerId) => {
+    // Check if already cached or loading
+    if (modelsCache[providerId]?.models?.length > 0 || modelsCache[providerId]?.loading) {
+      return; // Already have models or currently fetching
+    }
+    
+    // Mark as loading
+    setModelsCache(prev => ({
+      ...prev,
+      [providerId]: { loading: true, models: [], error: null }
+    }));
+    
+    try {
+      const providerConfig = workingConfig.llms[providerId];
+      const response = await fetch(`/api/connections/llm/providers/${providerId}/models`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: providerId,
+          config: providerConfig
+        })
+      });
+      
+      const result = await response.json();
+      
+      // API returns { provider, count, models } without a success field
+      if (result.models && Array.isArray(result.models)) {
+        setModelsCache(prev => ({
+          ...prev,
+          [providerId]: { loading: false, models: result.models, error: null }
+        }));
+      } else if (result.error) {
+        setModelsCache(prev => ({
+          ...prev,
+          [providerId]: { loading: false, models: [], error: result.error }
+        }));
+      } else {
+        setModelsCache(prev => ({
+          ...prev,
+          [providerId]: { loading: false, models: [], error: 'Unexpected response format' }
+        }));
+      }
+    } catch (error) {
+      setModelsCache(prev => ({
+        ...prev,
+        [providerId]: { loading: false, models: [], error: error.message }
+      }));
+    }
+  };
   
   const hasConfig = uiConfig?.hasConfig;
   
@@ -369,6 +421,12 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     setValidationState('dirty');
   };
 
+  // Handler for embeddings configuration updates
+  const handleEmbeddingsUpdate = (updatedConfig) => {
+    setWorkingConfig(updatedConfig);
+    setValidationState('dirty');
+  };
+
   // Phase 2.5: Render section for active tab
   const renderActiveSection = () => {
     switch (activeTab) {
@@ -391,7 +449,15 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
           />
         );
       case 'embeddings':
-        return <EmbeddingsSection />;
+        return (
+          <EmbeddingsSection
+            workingConfig={workingConfig}
+            onUpdate={handleEmbeddingsUpdate}
+            modelsCache={modelsCache}
+            setModelsCache={setModelsCache}
+            fetchModelsForProvider={fetchModelsForProvider}
+          />
+        );
       case 'topic':
         return (
           <TopicSection 
@@ -399,6 +465,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             onUpdate={handleTopicUpdate}
             modelsCache={modelsCache}
             setModelsCache={setModelsCache}
+            fetchModelsForProvider={fetchModelsForProvider}
           />
         );
       case 'intent':

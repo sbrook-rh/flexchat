@@ -106,6 +106,7 @@
 - [x] 2.4.4 Show success/failure results (green/red panels)
 - [x] 2.4.5 Display error messages with suggestions
 - [x] 2.4.6 Add retry logic (Try Again button on failure)
+- [x] 2.4.7 Display discovered RAG collections after successful test (added in Phase 3c.3)
 
 ### 2.5 Model Discovery UI (Integrated in Wizard Step 4)
 - [x] 2.5.1 Create ModelSelector component (integrated in wizard)
@@ -137,34 +138,34 @@
 - [x] 2.7.9 Implement "Apply" (POST /api/config/reload, refresh /api/ui-config, navigate to Home)
 - [x] 2.7.10 Add builder mode guard (confirms before navigating with unsaved changes)
 
-## Phase 3a: Embeddings Configuration UI
+## Phase 3a: Embeddings Configuration UI ✅ COMPLETE
 
 ### 3a.1 Embeddings Tab Implementation
-- [ ] 3a.1.1 Update EmbeddingsSection.jsx from placeholder to functional component
-- [ ] 3a.1.2 Display current embedding configuration summary
-- [ ] 3a.1.3 Show which RAG services are using embeddings
-- [ ] 3a.1.4 Add "Configure Embeddings" button
+- [x] 3a.1.1 Update EmbeddingsSection.jsx from placeholder to functional component
+- [x] 3a.1.2 Display current embedding configuration summary
+- [x] 3a.1.3 Show which RAG services are using embeddings (with default/custom badges)
+- [x] 3a.1.4 Add "Configure Embeddings" button
 
 ### 3a.2 Default Embedding Configuration
-- [ ] 3a.2.1 Create EmbeddingConfig component
-- [ ] 3a.2.2 Provider selector (dropdown of LLMs with embedding capability)
-- [ ] 3a.2.3 Model selector (filtered to embedding models only)
-- [ ] 3a.2.4 Show provider capability badges (which providers support embeddings)
-- [ ] 3a.2.5 Save default embedding config to workingConfig.embeddings.default
+- [x] 3a.2.1 Create GlobalEmbeddingConfig component (integrated in EmbeddingsSection)
+- [x] 3a.2.2 Provider selector (dropdown of LLMs with embedding capability)
+- [x] 3a.2.3 Model selector (filtered to embedding models only)
+- [x] 3a.2.4 Show provider capability badges (embedding-only models are filtered in)
+- [x] 3a.2.5 Save default embedding config to workingConfig.embedding (global, not .default)
 
 ### 3a.3 Per-Service Embedding Overrides
-- [ ] 3a.3.1 Create ServiceEmbeddingOverride component
-- [ ] 3a.3.2 List all configured RAG services
-- [ ] 3a.3.3 Show which use default vs custom embeddings
-- [ ] 3a.3.4 Add "Override" button per service
-- [ ] 3a.3.5 Override editor (select different provider/model for specific service)
-- [ ] 3a.3.6 Save overrides to workingConfig.embeddings.overrides
+- [x] 3a.3.1 Create ServiceEmbeddingRow component (integrated in EmbeddingsSection)
+- [x] 3a.3.2 List all configured RAG services
+- [x] 3a.3.3 Show which use default vs custom embeddings (with visual badges)
+- [x] 3a.3.4 Add "Add Override" / "Edit Override" button per service
+- [x] 3a.3.5 Override editor (select different provider/model for specific service)
+- [x] 3a.3.6 Save overrides to workingConfig.rag_services[name].embedding
 
 ### 3a.4 Embedding Validation
-- [ ] 3a.4.1 Validate selected provider supports embeddings
-- [ ] 3a.4.2 Validate selected model is an embedding model
-- [ ] 3a.4.3 Show warning if RAG services configured but no embeddings
-- [ ] 3a.4.4 Update validation state in ConfigBuilder
+- [x] 3a.4.1 Validate selected provider exists (referential integrity in backend)
+- [x] 3a.4.2 Filter to embedding models only (frontend filtering by model type)
+- [x] 3a.4.3 Show warning if RAG services configured but no embeddings (backend validation endpoint)
+- [x] 3a.4.4 Update validation state in ConfigBuilder (handleEmbeddingsUpdate sets dirty state)
 
 ## Phase 3b: Intent Detection Configuration UI
 
@@ -197,12 +198,66 @@
 - [ ] 3b.4.6 Show reasoning/explanation for classification
 - [ ] 3b.4.7 Add "Test All Intents" mode (batch test with multiple queries)
 
-### 3b.5 Topic Detection Configuration (Optional)
-- [ ] 3b.5.1 Add "Topic Detection" subsection to Intent tab
-- [ ] 3b.5.2 Show current topic provider (with fallback chain visualization)
-- [ ] 3b.5.3 Add "Configure Separate Topic Provider" toggle/button
-- [ ] 3b.5.4 Provider/model selector (if user wants different from intent)
-- [ ] 3b.5.5 Save to workingConfig.topic.provider
+### 3b.5 Topic Detection Configuration
+- [x] 3b.5.1 Add separate "Topic Detection" navigation tab (changed from subsection to separate tab)
+- [x] 3b.5.2 Show current topic provider with auto-correction if provider deleted
+- [x] 3b.5.3 Warning banner if configured provider no longer exists
+- [x] 3b.5.4 Provider/model selector with chat-only model filtering (excludes reasoning/audio/video/embedding)
+- [x] 3b.5.5 Save to workingConfig.topic.provider
+- [x] 3b.5.6 Model caching at ConfigBuilder level (prevents duplicate API calls)
+- [x] 3b.5.7 Auto-create topic.provider when first LLM is added
+- [x] 3b.5.8 Static hint for recommended model characteristics
+
+## Phase 3c: Backend & UX Enhancements
+
+### 3c.1 Provider Abstraction Refactor
+- [x] 3c.1.1 Split ProviderList into LLMProviderList and RAGProviderList components
+- [x] 3c.1.2 Split ConfigBuilder handlers into type-specific functions (handleEditLLMProvider, handleDeleteRAGService, etc.)
+- [x] 3c.1.3 Update LLMProvidersSection to use LLMProviderList with type-specific handlers
+- [x] 3c.1.4 Update RAGServicesSection to use RAGProviderList with type-specific handlers
+- [x] 3c.1.5 Create dedicated backend endpoints: POST /api/connections/llm/test
+- [x] 3c.1.6 Create dedicated backend endpoints: POST /api/connections/llm/providers/:id/models
+- [x] 3c.1.7 Create dedicated backend endpoints: POST /api/connections/rag/test
+- [x] 3c.1.8 Update normalizeConnectionPayload to handle dedicated endpoint formats with implicitType
+- [x] 3c.1.9 Delete old ProviderList and ProvidersSection components
+
+### 3c.2 Referential Integrity Validation
+- [x] 3c.2.1 Add validation check for config.topic.provider.llm references in POST /api/config/validate
+- [x] 3c.2.2 Add validation check for config.intent.provider.llm references
+- [x] 3c.2.3 Add validation check for config.responses[].llm references
+- [x] 3c.2.4 Return clear error messages for invalid references
+
+### 3c.3 RAG Collection Discovery
+- [x] 3c.3.1 Modify ConnectionTester to call both healthCheck() and listCollections() for RAG providers
+- [x] 3c.3.2 Return collections array with count and metadata in test results
+- [x] 3c.3.3 Display collections in RAGWizard after successful connection test
+- [x] 3c.3.4 Show collection names, document counts, and descriptions
+
+### 3c.4 Chat UI Guards
+- [x] 3c.4.1 Add page-level guard in Chat.jsx to check hasWorkingProviders
+- [x] 3c.4.2 Add page-level guard to check hasResponseHandlers
+- [x] 3c.4.3 Display informative message when guards fail
+- [x] 3c.4.4 Add "Go to Configuration" button to guide users
+
+### 3c.5 Auto-Update Chat Titles
+- [x] 3c.5.1 Add titleManuallyEdited flag to session storage
+- [x] 3c.5.2 Set flag when user manually renames a session
+- [x] 3c.5.3 Auto-update session.title from topic if not manually edited
+- [x] 3c.5.4 Only auto-update for new conversations (messageCount < 5)
+- [x] 3c.5.5 Respect manual edits over auto-updates
+
+### 3c.6 New Chat on Config Change
+- [x] 3c.6.1 Add hasProviderChanges helper to detect LLM/RAG provider changes
+- [x] 3c.6.2 Set createNewChat flag in sessionStorage when providers change during Apply
+- [x] 3c.6.3 Check flag in Chat.jsx on mount and create new session if set
+- [x] 3c.6.4 Add cleanupEmptySession utility to delete sessions with no messages
+- [x] 3c.6.5 Call cleanupEmptySession when switching sessions in ChatHistory
+
+### 3c.7 Backend Topic Detection Updates
+- [x] 3c.7.1 Change identifyTopic function signature to use generic llmConfig instead of intentConfig
+- [x] 3c.7.2 Implement resolveTopicLLMConfig with 3-tier fallback (topic → intent → first response handler)
+- [x] 3c.7.3 Update chat.js to call identifyTopic with resolved llmConfig
+- [x] 3c.7.4 Add formal topic section to config-schema.json
 
 ## Phase 4: Response Handler Builder
 

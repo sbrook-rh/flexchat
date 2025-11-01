@@ -1,40 +1,214 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import ConfigSection from '../ConfigSection';
 
 /**
- * EmbeddingsSection - Placeholder for Phase 3 embeddings configuration
+ * EmbeddingsSection - Configure embedding models for RAG services
+ * 
+ * Supports:
+ * - Global default embedding configuration
+ * - Per-service embedding overrides
+ * - Filtering to embedding-capable models only
  */
-function EmbeddingsSection() {
+function EmbeddingsSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fetchModelsForProvider }) {
+  const [editingService, setEditingService] = useState(null); // null or service name
+  
+  // Get LLM providers
+  const llmProviders = Object.keys(workingConfig?.llms || {});
+  
+  // Get RAG services
+  const ragServices = Object.entries(workingConfig?.rag_services || {});
+  
+  // Current global embedding config
+  const globalEmbedding = workingConfig?.embedding || null;
+  
+  // Check if we have any LLM providers
+  if (llmProviders.length === 0) {
+    return (
+      <ConfigSection
+        title="Embeddings"
+        description="Configure embedding models for your RAG services."
+      >
+        <div className="max-w-2xl">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <div className="flex items-start gap-4">
+              <div className="text-4xl">⚠️</div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-yellow-900 mb-2">
+                  No LLM Providers Configured
+                </h3>
+                <p className="text-sm text-yellow-800">
+                  You need to add at least one LLM provider before configuring embeddings.
+                  Go to the LLM Providers section to add a provider.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ConfigSection>
+    );
+  }
+  
+  // Note: fetchModelsForProvider is now passed as a prop from ConfigBuilder (centralized)
+  
+  // Filter models to only show embedding-capable ones
+  const filterEmbeddingModels = (models) => {
+    if (!Array.isArray(models)) return [];
+    return models.filter(model => 
+      model.type === 'embedding' || 
+      (model.capabilities && model.capabilities.includes('embedding'))
+    );
+  };
+  
+  // Get embedding models for a provider
+  const getEmbeddingModels = (providerId) => {
+    const cache = modelsCache[providerId];
+    if (!cache) return [];
+    return filterEmbeddingModels(cache.models || []);
+  };
+  
+  // Update global embedding config
+  const updateGlobalEmbedding = (llm, model) => {
+    const newConfig = {
+      ...workingConfig,
+      embedding: { llm, model }
+    };
+    onUpdate(newConfig);
+  };
+  
+  // Remove global embedding config
+  const removeGlobalEmbedding = () => {
+    const newConfig = { ...workingConfig };
+    delete newConfig.embedding;
+    onUpdate(newConfig);
+  };
+  
+  // Update per-service embedding override
+  const updateServiceEmbedding = (serviceName, llm, model) => {
+    const newConfig = {
+      ...workingConfig,
+      rag_services: {
+        ...workingConfig.rag_services,
+        [serviceName]: {
+          ...workingConfig.rag_services[serviceName],
+          embedding: { llm, model }
+        }
+      }
+    };
+    onUpdate(newConfig);
+    setEditingService(null);
+  };
+  
+  // Remove per-service embedding override
+  const removeServiceEmbedding = (serviceName) => {
+    const newConfig = {
+      ...workingConfig,
+      rag_services: {
+        ...workingConfig.rag_services
+      }
+    };
+    delete newConfig.rag_services[serviceName].embedding;
+    onUpdate(newConfig);
+    setEditingService(null);
+  };
+  
+  // Load models for current global provider on mount
+  useEffect(() => {
+    if (globalEmbedding?.llm) {
+      fetchModelsForProvider(globalEmbedding.llm);
+    }
+  }, []);
+  
   return (
     <ConfigSection
       title="Embeddings"
       description="Configure embedding models for your RAG services."
     >
-      <div className="max-w-2xl">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <div className="flex items-start gap-4">
-            <div className="text-4xl">📦</div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-blue-900 mb-2">
-                Coming in Phase 3
-              </h3>
-              <p className="text-sm text-blue-800 mb-4">
-                The Embeddings configuration UI is planned for Phase 3 of the Config Builder system.
-                This section will allow you to:
+      <div className="max-w-4xl space-y-6">
+        {/* Default Embedding Configuration */}
+        <div className="bg-white border border-gray-200 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Default Embedding Model</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                This model will be used by all RAG services unless overridden.
               </p>
-              <ul className="text-sm text-blue-800 space-y-2 list-disc list-inside">
-                <li>Configure embedding models for vector search</li>
-                <li>Select embedding providers (OpenAI, Cohere, local models)</li>
-                <li>Set embedding dimensions and parameters</li>
-                <li>Test embedding generation</li>
-                <li>Manage embedding caching strategies</li>
-              </ul>
-              <div className="mt-4 pt-4 border-t border-blue-200">
-                <p className="text-xs text-blue-700">
-                  <strong>Current Status:</strong> RAG services use default embedding configurations.
-                  Advanced embedding control will be available in the next phase.
-                </p>
-              </div>
+            </div>
+          </div>
+          
+          {globalEmbedding ? (
+            <GlobalEmbeddingConfig
+              globalEmbedding={globalEmbedding}
+              llmProviders={llmProviders}
+              workingConfig={workingConfig}
+              modelsCache={modelsCache}
+              getEmbeddingModels={getEmbeddingModels}
+              fetchModelsForProvider={fetchModelsForProvider}
+              updateGlobalEmbedding={updateGlobalEmbedding}
+              removeGlobalEmbedding={removeGlobalEmbedding}
+            />
+          ) : (
+            <div className="text-center py-8">
+              <div className="text-6xl mb-4">📦</div>
+              <p className="text-gray-600 mb-4">No default embedding model configured</p>
+              <button
+                onClick={() => {
+                  // Initialize with first provider
+                  const firstProvider = llmProviders[0];
+                  fetchModelsForProvider(firstProvider);
+                  updateGlobalEmbedding(firstProvider, '');
+                }}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700"
+              >
+                Configure Default Embedding
+              </button>
+            </div>
+          )}
+        </div>
+        
+        {/* RAG Services - Per-Service Overrides */}
+        {ragServices.length > 0 && (
+          <div className="bg-white border border-gray-200 rounded-lg p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">RAG Service Embeddings</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Override the default embedding model for specific RAG services.
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              {ragServices.map(([serviceName, serviceConfig]) => (
+                <ServiceEmbeddingRow
+                  key={serviceName}
+                  serviceName={serviceName}
+                  serviceConfig={serviceConfig}
+                  globalEmbedding={globalEmbedding}
+                  isEditing={editingService === serviceName}
+                  onEdit={() => setEditingService(serviceName)}
+                  onCancel={() => setEditingService(null)}
+                  llmProviders={llmProviders}
+                  workingConfig={workingConfig}
+                  modelsCache={modelsCache}
+                  getEmbeddingModels={getEmbeddingModels}
+                  fetchModelsForProvider={fetchModelsForProvider}
+                  updateServiceEmbedding={updateServiceEmbedding}
+                  removeServiceEmbedding={removeServiceEmbedding}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Info Box */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl">💡</div>
+            <div className="flex-1 text-sm text-blue-800">
+              <p className="font-semibold mb-1">About Embeddings</p>
+              <p>
+                Embedding models convert text into numerical vectors for semantic search.
+                Different models produce different embedding dimensions and quality.
+                Make sure your RAG services were created with the same embedding model you configure here.
+              </p>
             </div>
           </div>
         </div>
@@ -43,5 +217,272 @@ function EmbeddingsSection() {
   );
 }
 
-export default EmbeddingsSection;
+/**
+ * GlobalEmbeddingConfig - Component for editing global embedding configuration
+ */
+function GlobalEmbeddingConfig({
+  globalEmbedding,
+  llmProviders,
+  workingConfig,
+  modelsCache,
+  getEmbeddingModels,
+  fetchModelsForProvider,
+  updateGlobalEmbedding,
+  removeGlobalEmbedding
+}) {
+  const [localProvider, setLocalProvider] = useState(globalEmbedding.llm);
+  const [localModel, setLocalModel] = useState(globalEmbedding.model);
+  
+  const currentModels = getEmbeddingModels(localProvider);
+  const isLoading = modelsCache[localProvider]?.loading;
+  
+  const handleProviderChange = (newProvider) => {
+    setLocalProvider(newProvider);
+    setLocalModel('');
+    fetchModelsForProvider(newProvider);
+  };
+  
+  const handleModelChange = (newModel) => {
+    setLocalModel(newModel);
+    updateGlobalEmbedding(localProvider, newModel);
+  };
+  
+  const handleProviderBlur = () => {
+    if (localProvider !== globalEmbedding.llm) {
+      updateGlobalEmbedding(localProvider, localModel);
+    }
+  };
+  
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        {/* Provider Selector */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Provider
+          </label>
+          {llmProviders.length === 1 ? (
+            <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
+              {localProvider}
+            </div>
+          ) : (
+            <select
+              value={localProvider}
+              onChange={(e) => handleProviderChange(e.target.value)}
+              onBlur={handleProviderBlur}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              {llmProviders.map(provider => (
+                <option key={provider} value={provider}>{provider}</option>
+              ))}
+            </select>
+          )}
+        </div>
+        
+        {/* Model Selector */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Model
+          </label>
+          {isLoading ? (
+            <div className="px-3 py-2 border border-gray-300 rounded-lg text-gray-500 flex items-center gap-2">
+              <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+              Loading models...
+            </div>
+          ) : currentModels.length === 0 ? (
+            <div className="px-3 py-2 border border-gray-300 rounded-lg text-gray-500">
+              No embedding models available
+            </div>
+          ) : (
+            <select
+              value={localModel}
+              onChange={(e) => handleModelChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Select a model...</option>
+              {currentModels.map(model => (
+                <option key={model.id} value={model.id}>
+                  {model.name || model.id}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+      </div>
+      
+      {/* Remove Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={removeGlobalEmbedding}
+          className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 border border-red-300 rounded-lg hover:bg-red-100"
+        >
+          Remove Default Embedding
+        </button>
+      </div>
+    </div>
+  );
+}
 
+/**
+ * ServiceEmbeddingRow - Component for displaying/editing per-service embedding configuration
+ */
+function ServiceEmbeddingRow({
+  serviceName,
+  serviceConfig,
+  globalEmbedding,
+  isEditing,
+  onEdit,
+  onCancel,
+  llmProviders,
+  workingConfig,
+  modelsCache,
+  getEmbeddingModels,
+  fetchModelsForProvider,
+  updateServiceEmbedding,
+  removeServiceEmbedding
+}) {
+  const hasOverride = !!serviceConfig.embedding;
+  const effectiveEmbedding = serviceConfig.embedding || globalEmbedding;
+  
+  const [localProvider, setLocalProvider] = useState(effectiveEmbedding?.llm || llmProviders[0]);
+  const [localModel, setLocalModel] = useState(effectiveEmbedding?.model || '');
+  
+  // Fetch models when editing starts
+  useEffect(() => {
+    if (isEditing && localProvider) {
+      fetchModelsForProvider(localProvider);
+    }
+  }, [isEditing, localProvider]);
+  
+  const currentModels = getEmbeddingModels(localProvider);
+  const isLoading = modelsCache[localProvider]?.loading;
+  
+  const handleProviderChange = (newProvider) => {
+    setLocalProvider(newProvider);
+    setLocalModel('');
+    fetchModelsForProvider(newProvider);
+  };
+  
+  const handleSave = () => {
+    if (localProvider && localModel) {
+      updateServiceEmbedding(serviceName, localProvider, localModel);
+    }
+  };
+  
+  if (isEditing) {
+    return (
+      <div className="border border-blue-300 rounded-lg p-4 bg-blue-50">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <h4 className="font-medium text-gray-900">{serviceName}</h4>
+            <p className="text-sm text-gray-600">Configure custom embedding model</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          {/* Provider Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Provider
+            </label>
+            <select
+              value={localProvider}
+              onChange={(e) => handleProviderChange(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            >
+              {llmProviders.map(provider => (
+                <option key={provider} value={provider}>{provider}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* Model Selector */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Model
+            </label>
+            {isLoading ? (
+              <div className="px-3 py-2 border border-gray-300 rounded-lg text-gray-500 flex items-center gap-2">
+                <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
+                Loading...
+              </div>
+            ) : (
+              <select
+                value={localModel}
+                onChange={(e) => setLocalModel(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Select a model...</option>
+                {currentModels.map(model => (
+                  <option key={model.id} value={model.id}>
+                    {model.name || model.id}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+        
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          {hasOverride && (
+            <button
+              onClick={() => removeServiceEmbedding(serviceName)}
+              className="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 border border-red-300 rounded-lg hover:bg-red-100"
+            >
+              Remove Override
+            </button>
+          )}
+          <button
+            onClick={handleSave}
+            disabled={!localProvider || !localModel}
+            className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Save Override
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <h4 className="font-medium text-gray-900">{serviceName}</h4>
+            {hasOverride ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                Custom
+              </span>
+            ) : (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                Default
+              </span>
+            )}
+          </div>
+          {effectiveEmbedding ? (
+            <p className="text-sm text-gray-600">
+              {effectiveEmbedding.llm} / {effectiveEmbedding.model}
+            </p>
+          ) : (
+            <p className="text-sm text-yellow-600">⚠️ No embedding configured</p>
+          )}
+        </div>
+        <button
+          onClick={onEdit}
+          className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          {hasOverride ? 'Edit Override' : 'Add Override'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default EmbeddingsSection;
