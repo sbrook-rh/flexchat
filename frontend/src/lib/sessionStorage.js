@@ -459,6 +459,24 @@ const importSessionIntoSnapshot = (snapshot, rawSession, { replaceExisting = fal
   };
 };
 
+/**
+ * Cleanup empty session (delete if it has no messages)
+ * @param {string} sessionId - Session ID to check and cleanup
+ * @returns {boolean} - True if session was deleted, false otherwise
+ */
+const cleanupEmptySession = (sessionId) => {
+  const snapshot = ensureSnapshot();
+  const session = snapshot.sessions.find((s) => s.id === sessionId);
+  
+  if (session && session.messages.length === 0) {
+    const updated = deleteSessionById(snapshot, sessionId);
+    persistSnapshot(updated);
+    return true;
+  }
+  
+  return false;
+};
+
 export {
   STORAGE_KEY,
   STORAGE_VERSION,
@@ -481,5 +499,6 @@ export {
   getApproximateStorageUsage,
   isQuotaExceededError,
   prepareImportedSession,
-  importSessionIntoSnapshot
+  importSessionIntoSnapshot,
+  cleanupEmptySession
 };

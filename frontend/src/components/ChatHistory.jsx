@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import useSessionManager from './useSessionManager';
+import { cleanupEmptySession } from '../lib/sessionStorage';
 
 const formatRelativeTime = (isoString) => {
   if (!isoString) return 'Unknown';
@@ -59,10 +60,18 @@ const ChatHistory = ({ onExportSession, onImportSessions }) => {
     };
   }, [sessions]);
 
+  const handleSwitchSession = (targetSessionId) => {
+    // Cleanup current session if it's empty before switching
+    if (activeSessionId && activeSessionId !== targetSessionId) {
+      cleanupEmptySession(activeSessionId);
+    }
+    switchSession(targetSessionId);
+  };
+
   const handleCreateSession = () => {
     const newSession = createSession();
     if (newSession) {
-      switchSession(newSession.id);
+      handleSwitchSession(newSession.id);
     }
   };
 
@@ -114,7 +123,7 @@ const ChatHistory = ({ onExportSession, onImportSessions }) => {
         className={`group relative cursor-pointer rounded-lg border px-3 py-2 transition-colors ${
           isActive ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-white hover:border-gray-300'
         }`}
-        onClick={() => switchSession(session.id)}
+        onClick={() => handleSwitchSession(session.id)}
       >
         <div className="pr-10">
           <div className="text-sm font-semibold text-gray-800 truncate" title={session.title}>

@@ -238,6 +238,20 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     }
   };
   
+  // Helper to detect if LLM or RAG provider configuration changed
+  const hasProviderChanges = (oldConfig, newConfig) => {
+    const oldLLMs = Object.keys(oldConfig?.llms || {}).sort();
+    const newLLMs = Object.keys(newConfig?.llms || {}).sort();
+    
+    const oldRAG = Object.keys(oldConfig?.rag_services || {}).sort();
+    const newRAG = Object.keys(newConfig?.rag_services || {}).sort();
+    
+    return (
+      JSON.stringify(oldLLMs) !== JSON.stringify(newLLMs) ||
+      JSON.stringify(oldRAG) !== JSON.stringify(newRAG)
+    );
+  };
+
   // Phase 2.7: Apply configuration (hot-reload)
   const handleApply = async () => {
     if (validationState !== 'valid') {
@@ -257,9 +271,17 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       const result = await response.json();
       
       if (result.success) {
+        // Check if providers changed (LLM or RAG)
+        const providersChanged = hasProviderChanges(appliedConfig, workingConfig);
+        
         // Update applied config snapshot
         setAppliedConfig(JSON.parse(JSON.stringify(workingConfig)));
         setValidationState('clean');
+        
+        // Set flag to create new chat if providers changed
+        if (providersChanged) {
+          sessionStorage.setItem('createNewChat', 'true');
+        }
         
         // Refresh UI config and navigate to Home
         await reloadConfig();

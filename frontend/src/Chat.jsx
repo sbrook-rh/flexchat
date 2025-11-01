@@ -9,6 +9,7 @@ import LogoSection from './LogoSection';
 import SessionManagerProvider from './components/SessionManager';
 import useSessionManager from './components/useSessionManager';
 import ChatHistory from './components/ChatHistory';
+import { cleanupEmptySession } from './lib/sessionStorage';
 
 const chatApiUrl = '/chat/api';
 
@@ -60,13 +61,28 @@ const ChatView = ({ uiConfig }) => {
     setActiveTopic,
     archiveSession,
     deleteSession,
-    importSession
+    importSession,
+    createSession,
+    switchSession
   } = useSessionManager();
   const [input, setInput] = useState('');
   const [sendButtonText, setSendButtonText] = useState('Send');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [retryTracker, setRetryTracker] = useState(-1);
+
+  // Check if we should create a new chat after config apply
+  useEffect(() => {
+    const shouldCreateNew = sessionStorage.getItem('createNewChat') === 'true';
+    
+    if (shouldCreateNew) {
+      sessionStorage.removeItem('createNewChat');
+      const newSession = createSession();
+      if (newSession) {
+        switchSession(newSession.id);
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [collections, setCollections] = useState([]);
   const [wrappers, setWrappers] = useState([]);
