@@ -14,6 +14,44 @@ const chatApiUrl = '/chat/api';
 
 const ChatView = ({ uiConfig }) => {
   const navigate = useNavigate();
+  
+  // Guard: Check if chat is ready (has working LLM + response handlers)
+  if (!uiConfig?.hasWorkingProviders) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-4">🤖</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">No LLM Providers Configured</h2>
+          <p className="text-gray-600 mb-6">Add and test an LLM provider to start chatting</p>
+          <button
+            onClick={() => navigate('/config')}
+            className="inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+          >
+            Configure Providers →
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!uiConfig?.hasResponseHandlers) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center max-w-md">
+          <div className="text-6xl mb-4">⚙️</div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">No Response Handlers Configured</h2>
+          <p className="text-gray-600 mb-6">Response handlers are automatically created when you add your first LLM provider</p>
+          <button
+            onClick={() => navigate('/config')}
+            className="inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+          >
+            Go to Configuration →
+          </button>
+        </div>
+      </div>
+    );
+  }
+  
   const {
     activeSession,
     activeSessionId,
