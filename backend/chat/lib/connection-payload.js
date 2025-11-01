@@ -6,6 +6,8 @@ const { getProcessedConfig } = require('./config-loader');
  *
  * New shared format:
  *   { connection: { provider_id, type: 'llm'|'rag', fields: { ... } } }
+ * Dedicated endpoint format (type implicit from URL):
+ *   { provider, config } - type inferred from calling endpoint
  * Legacy (models):
  *   { config: { ... } } with req.params.id as provider_id, type defaults to 'llm'
  * Legacy (test):
@@ -13,7 +15,7 @@ const { getProcessedConfig } = require('./config-loader');
  *
  * Returns: { type, provider, processedConfig }
  */
-function normalizeConnectionPayload(req) {
+function normalizeConnectionPayload(req, implicitType = null) {
   // New shared format first
   if (req.body && req.body.connection) {
     const { provider_id, type, fields } = req.body.connection || {};
@@ -24,10 +26,17 @@ function normalizeConnectionPayload(req) {
     return { type, provider: provider_id, processedConfig };
   }
 
+  // Dedicated endpoint format: { provider, config } with implicit type
+  if (implicitType && req.body && req.body.provider && req.body.config) {
+    const { provider, config } = req.body;
+    const processedConfig = processFields(config);
+    return { type: implicitType, provider, processedConfig };
+  }
+
   // Legacy models endpoint: /providers/:id/models { config }
   if (req.params && req.params.id && req.body && req.body.config) {
     const provider = req.params.id;
-    const type = (req.query && req.query.type) || 'llm';
+    const type = implicitType || (req.query && req.query.type) || 'llm';
     const processedConfig = processFields(req.body.config);
     return { type, provider, processedConfig };
   }

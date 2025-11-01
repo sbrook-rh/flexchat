@@ -99,11 +99,10 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
     setTestMessage('');
     
     try {
-      const response = await fetch('/api/connections/test', {
+      const response = await fetch('/api/connections/llm/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'llm',
           provider: selectedProvider,
           config: config
         })
@@ -131,15 +130,12 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
     setModelsLoading(true);
     
     try {
-      const response = await fetch(`/api/connections/providers/${selectedProvider}/models`, {
+      const response = await fetch(`/api/connections/llm/providers/${selectedProvider}/models`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          connection: {
-            provider_id: selectedProvider,
-            type: 'llm',
-            fields: config
-          }
+          provider: selectedProvider,
+          config: config
         })
       });
       

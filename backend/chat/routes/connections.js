@@ -155,6 +155,113 @@ router.post('/test', async (req, res) => {
 });
 
 /**
+ * POST /api/connections/llm/test
+ * Test an LLM provider connection (dedicated endpoint, no type switching)
+ * 
+ * Request body:
+ * {
+ *   "provider": "openai" | "ollama" | etc.,
+ *   "config": { ... provider configuration ... }
+ * }
+ */
+router.post('/llm/test', async (req, res) => {
+  try {
+    const { provider, processedConfig } = normalizeConnectionPayload(req, 'llm');
+
+    // Test the LLM connection
+    const result = await ConnectionTester.testConnection('llm', provider, processedConfig);
+
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('Error testing LLM connection:', error);
+    res.status(500).json({
+      error: 'LLM connection test failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/connections/llm/providers/:id/models
+ * Discover available models from an LLM provider (dedicated endpoint)
+ * 
+ * Request body:
+ * {
+ *   "config": { ... provider configuration with ${ENV_VAR} placeholders ... }
+ * }
+ */
+router.post('/llm/providers/:id/models', async (req, res) => {
+  try {
+    const { provider: id, processedConfig } = normalizeConnectionPayload(req, 'llm');
+
+    // Dynamically load the LLM provider class
+    const ProviderClass = loadProviderClass('llm', id);
+    
+    // Create temporary instance (not added to global aiProviders)
+    const tempProvider = new ProviderClass(processedConfig);
+    
+    // Discover models
+    const models = await tempProvider.listModels();
+    
+    // Return sanitized model list
+    res.json({
+      provider: id,
+      count: models.length,
+      models: models.map(m => ({
+        id: m.id,
+        name: m.name || m.id,
+        type: m.type,
+        capabilities: m.capabilities || [],
+        maxTokens: m.maxTokens,
+        description: m.description
+      }))
+    });
+  } catch (error) {
+    console.error(`Error discovering models for LLM provider ${req.params.id}:`, error);
+    res.status(400).json({
+      error: 'LLM model discovery failed',
+      message: error.message,
+      provider: req.params.id
+    });
+  }
+});
+
+/**
+ * POST /api/connections/rag/test
+ * Test a RAG service connection (dedicated endpoint, no type switching)
+ * 
+ * Request body:
+ * {
+ *   "provider": "chromadb-wrapper" | etc.,
+ *   "config": { ... provider configuration ... }
+ * }
+ */
+router.post('/rag/test', async (req, res) => {
+  try {
+    const { provider, processedConfig } = normalizeConnectionPayload(req, 'rag');
+
+    // Test the RAG connection
+    const result = await ConnectionTester.testConnection('rag', provider, processedConfig);
+
+    if (result.success) {
+      res.json(result);
+    } else {
+      res.status(400).json(result);
+    }
+  } catch (error) {
+    console.error('Error testing RAG connection:', error);
+    res.status(500).json({
+      error: 'RAG connection test failed',
+      message: error.message
+    });
+  }
+});
+
+/**
  * GET /api/connections/env-vars
  * List available environment variables (filtered and masked)
  */

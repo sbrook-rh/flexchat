@@ -90,11 +90,10 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
     setDiscoveredCollections([]); // Clear previous results
     
     try {
-      const response = await fetch('/api/connections/test', {
+      const response = await fetch('/api/connections/rag/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          type: 'rag',
           provider: selectedProvider,
           config: config
         })

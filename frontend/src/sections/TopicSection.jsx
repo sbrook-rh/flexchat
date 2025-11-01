@@ -51,11 +51,10 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) 
       setLoadingModels(true);
       try {
         const providerConfig = workingConfig.llms[currentProvider];
-        const response = await fetch(`/api/connections/providers/${providerConfig.provider}/models`, {
+        const response = await fetch(`/api/connections/llm/providers/${providerConfig.provider}/models`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: 'llm',
             provider: providerConfig.provider,
             config: providerConfig
           })

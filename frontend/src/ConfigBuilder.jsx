@@ -89,107 +89,114 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     setShowRAGWizard(true);
   };
 
-  const handleEditProvider = (name, config, type) => {
+  const handleEditLLMProvider = (name, config) => {
     setWizardEditData({
       name,
       config,
       provider: config.provider
     });
-    if (type === 'LLM') {
-      setShowLLMWizard(true);
-    } else {
-      setShowRAGWizard(true);
-    }
+    setShowLLMWizard(true);
   };
 
-  const handleDeleteProvider = (name, type) => {
+  const handleEditRAGService = (name, config) => {
+    setWizardEditData({
+      name,
+      config,
+      provider: config.provider
+    });
+    setShowRAGWizard(true);
+  };
+
+  const handleDeleteLLMProvider = (name) => {
     const newConfig = { ...workingConfig };
-    if (type === 'LLM') {
-      // Deep copy llms object to ensure React detects change
-      const { [name]: removed, ...remainingLLMs } = newConfig.llms;
-      newConfig.llms = remainingLLMs;
-    } else {
-      // Deep copy rag_services object to ensure React detects change
-      const { [name]: removed, ...remainingRAG } = newConfig.rag_services;
-      newConfig.rag_services = remainingRAG;
-    }
+    // Deep copy llms object to ensure React detects change
+    const { [name]: removed, ...remainingLLMs } = newConfig.llms;
+    newConfig.llms = remainingLLMs;
+    setWorkingConfig(newConfig);
+    setValidationState('dirty'); // Mark as dirty
+  };
+
+  const handleDeleteRAGService = (name) => {
+    const newConfig = { ...workingConfig };
+    // Deep copy rag_services object to ensure React detects change
+    const { [name]: removed, ...remainingRAG } = newConfig.rag_services;
+    newConfig.rag_services = remainingRAG;
     setWorkingConfig(newConfig);
     setValidationState('dirty'); // Mark as dirty
   };
   
-  const handleWizardSave = (providerData) => {
+  const handleLLMSave = (providerData) => {
     const newConfig = { ...workingConfig };
     
-    // Add or update provider
-    if (providerData.type === 'llm') {
-      if (!newConfig.llms) newConfig.llms = {};
-      newConfig.llms[providerData.name] = providerData.config;
+    // Add or update LLM provider
+    if (!newConfig.llms) newConfig.llms = {};
+    newConfig.llms[providerData.name] = providerData.config;
+    
+    // Store the selected model as default_model for future reference
+    if (providerData.selectedModel) {
+      newConfig.llms[providerData.name].default_model = providerData.selectedModel;
+    }
+    
+    // Decision 15: Auto-create default response handler if none exist
+    const hasNoResponses = !newConfig.responses || newConfig.responses.length === 0;
+    
+    if (hasNoResponses && providerData.selectedModel) {
+      // First LLM: Create topic provider config and default response handler
       
-      // Store the selected model as default_model for future reference
-      if (providerData.selectedModel) {
-        newConfig.llms[providerData.name].default_model = providerData.selectedModel;
-      }
+      // Auto-create topic provider config
+      newConfig.topic = {
+        provider: {
+          llm: providerData.name,
+          model: providerData.selectedModel
+        }
+      };
       
-      // Decision 15: Auto-create default response handler if none exist
-      const hasNoResponses = !newConfig.responses || newConfig.responses.length === 0;
-      
-      // console.log('🔍 Debug response handler creation:', {
-      //   hasNoResponses,
-      //   selectedModel: providerData.selectedModel,
-      //   replaceDefaultHandler: providerData.replaceDefaultHandler,
-      //   willCreate: hasNoResponses && providerData.selectedModel,
-      //   willReplace: !hasNoResponses && providerData.replaceDefaultHandler
-      // });
-      
-      if (hasNoResponses && providerData.selectedModel) {
-        // First LLM: Create topic provider config and default response handler
-        
-        // Auto-create topic provider config
-        newConfig.topic = {
-          provider: {
-            llm: providerData.name,
-            model: providerData.selectedModel
-          }
-        };
-        
-        // Auto-create intent provider config
-        newConfig.intent = {
-          provider: {
-            llm: providerData.name,
-            model: providerData.selectedModel
-          }
-        };
+      // Auto-create intent provider config
+      newConfig.intent = {
+        provider: {
+          llm: providerData.name,
+          model: providerData.selectedModel
+        }
+      };
 
-        // Auto-create default response handler
-        if (!newConfig.responses) newConfig.responses = [];
-        newConfig.responses.push({
-          llm: providerData.name,
-          model: providerData.selectedModel,
-          prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
-        });
-        
-        console.log(`✓ Created topic config and default response handler using ${providerData.name}/${providerData.selectedModel}`);
-        console.log('📝 New config:', { topic: newConfig.topic, responses: newConfig.responses });
-      } else if (!hasNoResponses && providerData.replaceDefaultHandler && providerData.selectedModel) {
-        // Second+ LLM: Replace default response handler if user opted in
-        newConfig.responses[0] = {
-          llm: providerData.name,
-          model: providerData.selectedModel,
-          prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
-        };
-        console.log(`✓ Replaced default response handler with ${providerData.name}/${providerData.selectedModel}`);
-      } else if (!hasNoResponses) {
-        console.log('ℹ️ Response handler already exists, user chose not to replace');
-      } else {
-        console.log('❌ No selectedModel provided, cannot create response handler');
-      }
+      // Auto-create default response handler
+      if (!newConfig.responses) newConfig.responses = [];
+      newConfig.responses.push({
+        llm: providerData.name,
+        model: providerData.selectedModel,
+        prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
+      });
+      
+      console.log(`✓ Created topic config and default response handler using ${providerData.name}/${providerData.selectedModel}`);
+      console.log('📝 New config:', { topic: newConfig.topic, responses: newConfig.responses });
+    } else if (!hasNoResponses && providerData.replaceDefaultHandler && providerData.selectedModel) {
+      // Second+ LLM: Replace default response handler if user opted in
+      newConfig.responses[0] = {
+        llm: providerData.name,
+        model: providerData.selectedModel,
+        prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
+      };
+      console.log(`✓ Replaced default response handler with ${providerData.name}/${providerData.selectedModel}`);
+    } else if (!hasNoResponses) {
+      console.log('ℹ️ Response handler already exists, user chose not to replace');
     } else {
-      if (!newConfig.rag_services) newConfig.rag_services = {};
-      newConfig.rag_services[providerData.name] = providerData.config;
+      console.log('❌ No selectedModel provided, cannot create response handler');
     }
     
     setWorkingConfig(newConfig);
     setShowLLMWizard(false);
+    setWizardEditData(null);
+    setValidationState('dirty'); // Mark as dirty
+  };
+
+  const handleRAGSave = (providerData) => {
+    const newConfig = { ...workingConfig };
+    
+    // Add or update RAG service
+    if (!newConfig.rag_services) newConfig.rag_services = {};
+    newConfig.rag_services[providerData.name] = providerData.config;
+    
+    setWorkingConfig(newConfig);
     setShowRAGWizard(false);
     setWizardEditData(null);
     setValidationState('dirty'); // Mark as dirty
@@ -342,21 +349,25 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
 
   // Phase 2.5: Render section for active tab
   const renderActiveSection = () => {
-    const sectionProps = {
-      workingConfig,
-      appliedConfig,
-      onSave: handleWizardSave,
-      onDelete: handleDeleteProvider,
-      onAddLLMProvider: handleAddLLMProvider,
-      onAddRAGService: handleAddRAGService,
-      onEditProvider: handleEditProvider
-    };
-    
     switch (activeTab) {
       case 'llm-providers':
-        return <LLMProvidersSection {...sectionProps} />;
+        return (
+          <LLMProvidersSection
+            workingConfig={workingConfig}
+            onAddLLMProvider={handleAddLLMProvider}
+            onEditLLMProvider={handleEditLLMProvider}
+            onDeleteLLMProvider={handleDeleteLLMProvider}
+          />
+        );
       case 'rag-services':
-        return <RAGServicesSection {...sectionProps} />;
+        return (
+          <RAGServicesSection
+            workingConfig={workingConfig}
+            onAddRAGService={handleAddRAGService}
+            onEditRAGService={handleEditRAGService}
+            onDeleteRAGService={handleDeleteRAGService}
+          />
+        );
       case 'embeddings':
         return <EmbeddingsSection />;
       case 'topic':
@@ -576,7 +587,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
         {/* Wizards as overlays */}
         {showLLMWizard && (
           <LLMWizard
-            onSave={handleWizardSave}
+            onSave={handleLLMSave}
             onCancel={handleWizardCancel}
             editMode={wizardEditData !== null}
             initialData={wizardEditData}
@@ -586,7 +597,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
         
         {showRAGWizard && (
           <RAGWizard
-            onSave={handleWizardSave}
+            onSave={handleRAGSave}
             onCancel={handleWizardCancel}
             editMode={wizardEditData !== null}
             initialData={wizardEditData}
