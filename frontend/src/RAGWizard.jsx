@@ -14,6 +14,7 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
   // Connection testing state
   const [testStatus, setTestStatus] = useState(null); // null, 'testing', 'success', 'error'
   const [testMessage, setTestMessage] = useState('');
+  const [discoveredCollections, setDiscoveredCollections] = useState([]);
   
   // Available providers and env vars
   const [availableProviders, setAvailableProviders] = useState([]);
@@ -86,6 +87,7 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
   const handleTestConnection = async () => {
     setTestStatus('testing');
     setTestMessage('');
+    setDiscoveredCollections([]); // Clear previous results
     
     try {
       const response = await fetch('/api/connections/test', {
@@ -99,10 +101,17 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
       });
       
       const result = await response.json();
-      
+      // console.log('result', JSON.stringify(result, null, 2));
       if (result.success) {
         setTestStatus('success');
         setTestMessage(result.message || 'Connection successful!');
+        
+        // Store discovered collections if available (at top level of result)
+        if (result.collections && result.collections.length > 0) {
+          setDiscoveredCollections(result.collections);
+        }
+        
+        console.log('✓ Connection test successful:', result);
       } else {
         setTestStatus('error');
         setTestMessage(result.message || 'Connection failed');
@@ -271,6 +280,33 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
               {testStatus === 'success' && (
                 <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-sm text-green-800">✓ {testMessage}</p>
+                </div>
+              )}
+              
+              {/* Collection list (if discovered) */}
+              {testStatus === 'success' && discoveredCollections.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">
+                    Available Collections ({discoveredCollections.length})
+                  </h4>
+                  <div className="border rounded-lg max-h-48 overflow-y-auto">
+                    {discoveredCollections.map((collection, idx) => (
+                      <div 
+                        key={idx}
+                        className="p-3 border-b last:border-b-0 hover:bg-gray-50"
+                      >
+                        <div className="font-medium text-gray-900">{collection.name}</div>
+                        <div className="text-sm text-gray-500 mt-1">
+                          {collection.count !== undefined && (
+                            <span className="mr-3">📄 {collection.count} documents</span>
+                          )}
+                          {collection.metadata?.description && (
+                            <span className="text-gray-600">{collection.metadata.description}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               

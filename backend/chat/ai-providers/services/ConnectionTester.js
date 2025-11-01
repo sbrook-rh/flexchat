@@ -113,21 +113,34 @@ class ConnectionTester {
     // Test with timeout
     const result = await this.withTimeout(
       async () => {
+        let healthResult = null;
+        let collections = null;
+        
         // Try to perform a health check
         if (typeof provider.healthCheck === 'function') {
-          const healthResult = await provider.healthCheck();
+          healthResult = await provider.healthCheck();
           if (healthResult.status !== 'healthy') {
             throw new Error(healthResult.error || 'Health check failed');
           }
-          return { method: 'healthCheck', details: healthResult };
         }
 
-        // Fallback: Try to list collections (if applicable)
+        // Also try to list collections (for UI display)
         if (typeof provider.listCollections === 'function') {
-          const collections = await provider.listCollections();
+          try {
+            collections = await provider.listCollections();
+          } catch (err) {
+            console.warn('Failed to list collections:', err.message);
+            // Don't fail the test if collection listing fails
+          }
+        }
+
+        // Build result with both health check and collections
+        if (healthResult || collections) {
           return {
-            method: 'listCollections',
-            collectionCount: collections.length
+            method: healthResult ? 'healthCheck' : 'listCollections',
+            details: healthResult || {},
+            collectionCount: collections?.length,
+            collections: collections
           };
         }
 
