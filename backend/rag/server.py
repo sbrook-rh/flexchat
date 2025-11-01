@@ -369,7 +369,6 @@ def add_documents(collection_name: str, request: AddDocumentsRequest):
             
             # Prepare metadata
             doc_metadata = doc.get('metadata', {})
-            doc_metadata['text'] = text  # Store text in metadata too
             metadatas.append(doc_metadata)
             
             # Use provided ID or generate one
