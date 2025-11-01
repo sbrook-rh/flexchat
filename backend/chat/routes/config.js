@@ -116,6 +116,9 @@ router.post('/validate', (req, res) => {
         const { registry: aiRegistry } = require('../ai-providers/providers');
         const { registry: ragRegistry } = require('../retrieval-providers/providers');
 
+        // Get list of available LLM provider names for referential integrity checks
+        const availableLLMs = Object.keys(processed.llms || {});
+
         // Validate LLM providers
         for (const [name, llmConfig] of Object.entries(processed.llms || {})) {
           const type = llmConfig.provider;
@@ -143,6 +146,34 @@ router.post('/validate', (req, res) => {
             errors.push(`RAG '${name}': ${e.message}`);
           }
         }
+
+        // Referential integrity checks: verify LLM references exist
+        
+        // Check topic.provider.llm reference
+        if (config.topic?.provider?.llm) {
+          const referencedLLM = config.topic.provider.llm;
+          if (!availableLLMs.includes(referencedLLM)) {
+            errors.push(`topic.provider.llm references non-existent LLM provider '${referencedLLM}'`);
+          }
+        }
+
+        // Check intent.provider.llm reference
+        if (config.intent?.provider?.llm) {
+          const referencedLLM = config.intent.provider.llm;
+          if (!availableLLMs.includes(referencedLLM)) {
+            errors.push(`intent.provider.llm references non-existent LLM provider '${referencedLLM}'`);
+          }
+        }
+
+        // Check responses[].llm references
+        if (Array.isArray(config.responses)) {
+          config.responses.forEach((response, index) => {
+            if (response.llm && !availableLLMs.includes(response.llm)) {
+              errors.push(`responses[${index}].llm references non-existent LLM provider '${response.llm}'`);
+            }
+          });
+        }
+
       } catch (e) {
         // If deep validation fails, report as a top-level error
         errors.push(`Validation engine error: ${e.message}`);

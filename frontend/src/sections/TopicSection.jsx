@@ -14,6 +14,11 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) 
   const currentProvider = workingConfig?.topic?.provider?.llm || '';
   const currentModel = workingConfig?.topic?.provider?.model || '';
 
+  // Auto-correct invalid provider selection
+  const validProvider = llmProviders.includes(currentProvider) 
+    ? currentProvider 
+    : (llmProviders.length > 0 ? llmProviders[0] : '');
+
   // Filter models suitable for topic detection (chat models only, exclude reasoning/embedding/audio/etc)
   const filterTopicDetectionModels = (models) => {
     return models.filter(model => {
@@ -39,18 +44,18 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) 
 
   // Load models when provider changes
   useEffect(() => {
-    if (!currentProvider) return;
+    if (!validProvider) return;
 
     // Check cache first
-    if (modelsCache[currentProvider]) {
-      setAvailableModels(modelsCache[currentProvider]);
+    if (modelsCache[validProvider]) {
+      setAvailableModels(modelsCache[validProvider]);
       return;
     }
 
     const loadModels = async () => {
       setLoadingModels(true);
       try {
-        const providerConfig = workingConfig.llms[currentProvider];
+        const providerConfig = workingConfig.llms[validProvider];
         const response = await fetch(`/api/connections/llm/providers/${providerConfig.provider}/models`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -66,7 +71,7 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) 
           const filteredModels = filterTopicDetectionModels(result.models);
           
           // Cache the filtered results
-          setModelsCache(prev => ({ ...prev, [currentProvider]: filteredModels }));
+          setModelsCache(prev => ({ ...prev, [validProvider]: filteredModels }));
           setAvailableModels(filteredModels);
         }
       } catch (error) {
@@ -79,7 +84,7 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) 
 
     loadModels();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentProvider]); // Only re-run when provider changes, not when cache updates
+  }, [validProvider]); // Only re-run when provider changes, not when cache updates
 
   const handleProviderChange = (e) => {
     const newProvider = e.target.value;
@@ -110,7 +115,7 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) 
       topic: {
         ...workingConfig.topic,
         provider: {
-          llm: currentProvider,
+          llm: validProvider,
           model: newModel
         }
       }
@@ -167,11 +172,11 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) 
           </label>
           {llmProviders.length === 1 ? (
             <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-700">
-              {currentProvider}
+              {validProvider}
             </div>
           ) : (
             <select
-              value={currentProvider}
+              value={validProvider}
               onChange={handleProviderChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
@@ -183,6 +188,20 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) 
             </select>
           )}
         </div>
+        
+        {/* Warning if provider was auto-corrected */}
+        {currentProvider && !llmProviders.includes(currentProvider) && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+            <div className="flex gap-2 text-sm text-yellow-800">
+              <span>⚠️</span>
+              <span>
+                Provider '<strong>{currentProvider}</strong>' no longer exists. 
+                Auto-switched to '<strong>{validProvider}</strong>'. 
+                Click Validate & Apply to save this change.
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Model Selection */}
         <div>
@@ -227,9 +246,9 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache }) 
         </div>
 
         {/* Current Configuration */}
-        {currentProvider && currentModel && (
+        {validProvider && currentModel && (
           <div className="text-sm text-gray-600">
-            Current: <span className="font-medium">{currentProvider}</span> / <span className="font-medium">{currentModel}</span>
+            Current: <span className="font-medium">{validProvider}</span> / <span className="font-medium">{currentModel}</span>
           </div>
         )}
       </div>
