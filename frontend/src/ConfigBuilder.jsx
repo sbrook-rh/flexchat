@@ -4,6 +4,7 @@ import NavigationSidebar from './NavigationSidebar';
 import LLMProvidersSection from './sections/LLMProvidersSection';
 import RAGServicesSection from './sections/RAGServicesSection';
 import EmbeddingsSection from './sections/EmbeddingsSection';
+import TopicSection from './sections/TopicSection';
 import IntentSection from './sections/IntentSection';
 import HandlersSection from './sections/HandlersSection';
 import ReasoningSection from './sections/ReasoningSection';
@@ -34,6 +35,9 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
   
   // Phase 2.5: Tab navigation state
   const [activeTab, setActiveTab] = useState('llm-providers');
+  
+  // Model cache - persists across section navigation (Decision 16)
+  const [modelsCache, setModelsCache] = useState({}); // { providerName: filteredModels[] }
   
   const hasConfig = uiConfig?.hasConfig;
   
@@ -101,9 +105,13 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
   const handleDeleteProvider = (name, type) => {
     const newConfig = { ...workingConfig };
     if (type === 'LLM') {
-      delete newConfig.llms[name];
+      // Deep copy llms object to ensure React detects change
+      const { [name]: removed, ...remainingLLMs } = newConfig.llms;
+      newConfig.llms = remainingLLMs;
     } else {
-      delete newConfig.rag_services[name];
+      // Deep copy rag_services object to ensure React detects change
+      const { [name]: removed, ...remainingRAG } = newConfig.rag_services;
+      newConfig.rag_services = remainingRAG;
     }
     setWorkingConfig(newConfig);
     setValidationState('dirty'); // Mark as dirty
@@ -265,6 +273,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     if (!workingConfig) {
       return {
         embeddings: { enabled: false },
+        topic: { enabled: false },
         intent: { enabled: false },
         reasoning: { enabled: false },
         badges: { providers: 0, handlers: 0 }
@@ -278,6 +287,9 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     return {
       embeddings: { 
         enabled: ragCount > 0 
+      },
+      topic: { 
+        enabled: llmCount > 0 
       },
       intent: { 
         enabled: llmCount > 0 
@@ -322,6 +334,12 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     navigate('/');
   };
 
+  // Handler for topic detection configuration updates
+  const handleTopicUpdate = (updatedConfig) => {
+    setWorkingConfig(updatedConfig);
+    setValidationState('dirty');
+  };
+
   // Phase 2.5: Render section for active tab
   const renderActiveSection = () => {
     const sectionProps = {
@@ -341,6 +359,15 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
         return <RAGServicesSection {...sectionProps} />;
       case 'embeddings':
         return <EmbeddingsSection />;
+      case 'topic':
+        return (
+          <TopicSection 
+            workingConfig={workingConfig} 
+            onUpdate={handleTopicUpdate}
+            modelsCache={modelsCache}
+            setModelsCache={setModelsCache}
+          />
+        );
       case 'intent':
         return <IntentSection />;
       case 'handlers':

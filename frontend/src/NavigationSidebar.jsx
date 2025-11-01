@@ -42,13 +42,22 @@ function NavigationSidebar({ activeTab, onTabChange, tabStates }) {
       description: 'Vector embeddings'
     },
     {
+      id: 'topic',
+      label: 'Topic Detection',
+      icon: '🎯',
+      enabled: tabStates.topic.enabled,
+      tooltip: tabStates.topic.enabled ? null : 'Configure at least one LLM Provider first',
+      badge: null,
+      description: 'Conversation topics'
+    },
+    {
       id: 'intent',
       label: 'Intent',
-      icon: '🎯',
+      icon: '🧐',
       enabled: tabStates.intent.enabled,
       tooltip: tabStates.intent.enabled ? null : 'Configure at least one LLM Provider first',
       badge: null, // Phase 3
-      description: 'Intent detection'
+      description: 'Intent classification'
     },
     {
       id: 'handlers',
