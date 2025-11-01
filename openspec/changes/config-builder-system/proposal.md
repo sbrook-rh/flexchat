@@ -69,9 +69,9 @@ This fundamentally shifts Flex Chat from a "config-file-first" to a "UI-first" s
   - Modified: Config loader for runtime updates
   - Modified: Provider base classes for schema interface
 - **Documentation**:
-  - New: `docs/CONFIGURATION_BUILDER.md`
-  - Modified: `docs/CONFIGURATION.md` - Add UI workflow section
-  - Modified: `README.md` - Update getting started guide
+  - New: `docs/CONFIGURATION_BUILDER.md` - Complete guide to using the Configuration Builder UI
+  - Modified: `docs/CONFIGURATION.md` - Add UI workflow section (if needed)
+  - Modified: `README.md` - Update getting started guide (if needed)
 
 ### Breaking Changes
 **NONE** - All changes are additive. Existing JSON-based configuration workflows continue to work unchanged.

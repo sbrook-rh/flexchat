@@ -657,9 +657,10 @@ app.post('/api/chat', (req, res) => {
 - UI APIs always return/accept raw config (placeholders visible)
 - Export always returns raw config (security)
 
-**Security Pattern from CONNECTION_BUILDER.md:**
+**Security Pattern:**
 - UI never accepts actual API keys (only env var names)
-- Dropdown shows only `FLEX_CHAT_*` prefixed vars (by name, never value)
+- Dropdown shows available env vars (by name, never value)
+- Auto-wraps user input with `${}` syntax
 - Pattern-based filtering per provider (e.g., `FLEX_CHAT_OPENAI_*`)
 - Form validation rejects strings that look like actual secrets
 - Reserved `FLEX_CHAT_CONFIG*` vars excluded from suggestions
