@@ -59,6 +59,7 @@ const createEmptySession = ({
   createdAt,
   updatedAt: createdAt,
   archived: false,
+  titleManuallyEdited: false,  // Track if user manually renamed this session
   messages: [],
   metadata: {
     messageCount: 0,
@@ -302,20 +303,39 @@ const renameSession = (snapshot, sessionId, title) => ({
     return {
       ...session,
       title,
+      titleManuallyEdited: true,  // Mark as manually edited to prevent auto-updates
       updatedAt: nowIso()
     };
   })
 });
 
+const AUTO_TITLE_MESSAGE_THRESHOLD = 5;  // Auto-update title for first N messages
+
 const updateSessionTopic = (snapshot, sessionId, topic) => ({
   ...snapshot,
   sessions: snapshot.sessions.map((session) => {
     if (session.id !== sessionId) return session;
-    return {
+    
+    const updated = {
       ...session,
       topic,
       updatedAt: nowIso()
     };
+    
+    // Auto-update title from topic if:
+    // 1. User hasn't manually edited the title
+    // 2. Message count is below threshold (conversation still starting)
+    // 3. New topic is not empty
+    const shouldAutoUpdateTitle = 
+      !session.titleManuallyEdited &&
+      (session.metadata?.messageCount || 0) < AUTO_TITLE_MESSAGE_THRESHOLD &&
+      topic && topic.trim();
+    
+    if (shouldAutoUpdateTitle) {
+      updated.title = topic;
+    }
+    
+    return updated;
   })
 });
 
