@@ -125,13 +125,13 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       // Decision 15: Auto-create default response handler if none exist
       const hasNoResponses = !newConfig.responses || newConfig.responses.length === 0;
       
-      console.log('🔍 Debug response handler creation:', {
-        hasNoResponses,
-        selectedModel: providerData.selectedModel,
-        replaceDefaultHandler: providerData.replaceDefaultHandler,
-        willCreate: hasNoResponses && providerData.selectedModel,
-        willReplace: !hasNoResponses && providerData.replaceDefaultHandler
-      });
+      // console.log('🔍 Debug response handler creation:', {
+      //   hasNoResponses,
+      //   selectedModel: providerData.selectedModel,
+      //   replaceDefaultHandler: providerData.replaceDefaultHandler,
+      //   willCreate: hasNoResponses && providerData.selectedModel,
+      //   willReplace: !hasNoResponses && providerData.replaceDefaultHandler
+      // });
       
       if (hasNoResponses && providerData.selectedModel) {
         // First LLM: Create topic provider config and default response handler
@@ -144,6 +144,14 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
           }
         };
         
+        // Auto-create intent provider config
+        newConfig.intent = {
+          provider: {
+            llm: providerData.name,
+            model: providerData.selectedModel
+          }
+        };
+
         // Auto-create default response handler
         if (!newConfig.responses) newConfig.responses = [];
         newConfig.responses.push({
