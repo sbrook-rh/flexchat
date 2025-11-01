@@ -20,6 +20,14 @@ async function detectIntent(topic, rag, intentConfig, aiProviders) {
     return `${rag.data.service}/${rag.data.collection}`;
   }
 
+  const providerName = intentConfig?.provider?.llm;
+  const modelName = intentConfig?.provider?.model;
+  const provider = aiProviders[providerName];
+  if (!provider) {
+    console.warn(`⚠️ No AI provider found (${providerName}) Intent not detected`);
+    return undefined;
+  }
+
   const categories = [];
 
   if (intentConfig && intentConfig.detection) {
@@ -49,13 +57,6 @@ async function detectIntent(topic, rag, intentConfig, aiProviders) {
   }
 
   if (!intentConfig || !intentConfig.provider || !intentConfig.provider.llm || !intentConfig.provider.model) {
-    return undefined;
-  }
-
-  const providerName = intentConfig.provider.llm;
-  const modelName = intentConfig.provider.model;
-  const provider = aiProviders[providerName];
-  if (!provider) {
     return undefined;
   }
 
