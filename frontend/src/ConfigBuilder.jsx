@@ -134,15 +134,26 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       });
       
       if (hasNoResponses && providerData.selectedModel) {
-        // First LLM: Create default response handler
+        // First LLM: Create topic provider config and default response handler
+        
+        // Auto-create topic provider config
+        newConfig.topic = {
+          provider: {
+            llm: providerData.name,
+            model: providerData.selectedModel
+          }
+        };
+        
+        // Auto-create default response handler
         if (!newConfig.responses) newConfig.responses = [];
         newConfig.responses.push({
           llm: providerData.name,
           model: providerData.selectedModel,
           prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
         });
-        console.log(`✓ Created default response handler using ${providerData.name}/${providerData.selectedModel}`);
-        console.log('📝 New config responses:', newConfig.responses);
+        
+        console.log(`✓ Created topic config and default response handler using ${providerData.name}/${providerData.selectedModel}`);
+        console.log('📝 New config:', { topic: newConfig.topic, responses: newConfig.responses });
       } else if (!hasNoResponses && providerData.replaceDefaultHandler && providerData.selectedModel) {
         // Second+ LLM: Replace default response handler if user opted in
         newConfig.responses[0] = {

@@ -10,16 +10,16 @@
  * @param {string} userMessage - The latest user message.
  * @param {Array<Object>} previousMessages - Full ordered conversation history [{ type: 'user' | 'bot', text: string }]
  * @param {string} currentTopic - Previously detected topic summary.
- * @param {Object} intentConfig - Intent detection configuration (provider + model).
+ * @param {Object} llmConfig - LLM configuration object with { llm, model } properties.
  * @param {Object} aiProviders - Map of AI provider instances.
  * @returns {Promise<string>} Updated topic summary.
  */
-async function identifyTopic(userMessage, previousMessages, currentTopic, intentConfig, aiProviders) {
+async function identifyTopic(userMessage, previousMessages, currentTopic, llmConfig, aiProviders) {
   console.log(`\n🔎 Topic Detection: Identifying conversation topic...`);
 
   // ---- Sanity checks -------------------------------------------------------
-  const providerName = intentConfig?.provider?.llm;
-  const modelName = intentConfig?.provider?.model;
+  const providerName = llmConfig?.llm;
+  const modelName = llmConfig?.model;
   const provider = aiProviders?.[providerName];
 
   if (!provider) {

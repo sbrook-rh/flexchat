@@ -8,6 +8,30 @@ const { findResponseHandler } = require('../lib/response-matcher');
 const { generateResponse } = require('../lib/response-generator');
 
 /**
+ * Resolve LLM configuration for topic detection with cascading fallback
+ * @param {Object} config - Full configuration object
+ * @returns {Object|null} Object with { llm, model } or null if no config found
+ */
+function resolveTopicLLMConfig(config) {
+  // Priority 1: Explicit topic configuration
+  if (config.topic?.provider?.llm && config.topic?.provider?.model) {
+    return { llm: config.topic.provider.llm, model: config.topic.provider.model };
+  }
+  
+  // Priority 2: Intent detection configuration
+  if (config.intent?.provider?.llm && config.intent?.provider?.model) {
+    return { llm: config.intent.provider.llm, model: config.intent.provider.model };
+  }
+  
+  // Priority 3: First response handler's model (always exists in config builder)
+  if (config.responses?.[0]?.llm && config.responses?.[0]?.model) {
+    return { llm: config.responses[0].llm, model: config.responses[0].model };
+  }
+  
+  return null; // No valid config found
+}
+
+/**
  * Create chat router with dependency injection
  * @param {Function} getConfig - Getter for current config (always up-to-date)
  * @param {Function} getProviders - Getter for current providers (always up-to-date)
@@ -43,7 +67,8 @@ function createChatRouter(getConfig, getProviders) {
       // console.log(`   previous Messages: ${JSON.stringify(previousMessages)}`);
 
       // Phase 1: Topic detection
-      const topic = await identifyTopic(userMessage, previousMessages, currentTopic, config.intent, aiProviders);
+      const topicLLMConfig = resolveTopicLLMConfig(config);
+      const topic = await identifyTopic(userMessage, previousMessages, currentTopic, topicLLMConfig, aiProviders);
       // const { topic, status } = await identifyTopic(...); // future enhancement
       // if (status === 'new_topic') clearRagCache();
 

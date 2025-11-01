@@ -197,6 +197,13 @@
 - [ ] 3b.4.6 Show reasoning/explanation for classification
 - [ ] 3b.4.7 Add "Test All Intents" mode (batch test with multiple queries)
 
+### 3b.5 Topic Detection Configuration (Optional)
+- [ ] 3b.5.1 Add "Topic Detection" subsection to Intent tab
+- [ ] 3b.5.2 Show current topic provider (with fallback chain visualization)
+- [ ] 3b.5.3 Add "Configure Separate Topic Provider" toggle/button
+- [ ] 3b.5.4 Provider/model selector (if user wants different from intent)
+- [ ] 3b.5.5 Save to workingConfig.topic.provider
+
 ## Phase 4: Response Handler Builder
 
 ### 4.1 Response Handler List UI

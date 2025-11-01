@@ -4,6 +4,27 @@
   "description": "Schema for configuring chat strategies, providers, and knowledge bases",
   "type": "object",
   "properties": {
+    "topic": {
+      "type": "object",
+      "description": "Topic detection configuration (optional, falls back to intent or first response handler)",
+      "properties": {
+        "provider": {
+          "type": "object",
+          "properties": {
+            "llm": {
+              "type": "string",
+              "description": "LLM provider name to use for topic detection"
+            },
+            "model": {
+              "type": "string",
+              "description": "Model name to use for topic detection"
+            }
+          },
+          "required": ["llm", "model"]
+        }
+      },
+      "required": ["provider"]
+    },
     "detection_provider": {
       "type": "object",
       "description": "Provider configuration for intent detection (required unless only one strategy with type 'default')",
