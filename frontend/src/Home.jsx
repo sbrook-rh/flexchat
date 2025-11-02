@@ -74,21 +74,33 @@ const Home = ({ uiConfig }) => {
             </div>
           </div>
           
-          {chatReady ? (
-            <Link
-              to="/chat"
-              className="inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-lg transition-colors"
-            >
-              Start Chatting →
-            </Link>
-          ) : (
-            <Link
-              to="/config"
-              className="inline-block bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 px-8 rounded-lg text-lg transition-colors"
-            >
-              Configure System →
-            </Link>
-          )}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            {chatReady ? (
+              <Link
+                to="/chat"
+                className="inline-block bg-blue-500 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-lg text-lg transition-colors"
+              >
+                Start Chatting →
+              </Link>
+            ) : (
+              <Link
+                to="/config"
+                className="inline-block bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-4 px-8 rounded-lg text-lg transition-colors"
+              >
+                Configure System →
+              </Link>
+            )}
+            
+            {/* Collections button - show if RAG services exist */}
+            {uiConfig?.wrappers?.length > 0 && (
+              <Link
+                to="/collections"
+                className="inline-block bg-green-500 hover:bg-green-600 text-white font-bold py-4 px-8 rounded-lg text-lg transition-colors"
+              >
+                📚 Manage Collections
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </div>
