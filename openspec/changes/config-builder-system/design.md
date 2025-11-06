@@ -1127,7 +1127,7 @@ Complete separation of LLM and RAG provider management:
 **Backend:**
 - Split endpoints:
   - `POST /api/connections/test` → `POST /api/connections/llm/test` + `POST /api/connections/rag/test`
-  - `POST /api/connections/providers/:id/models` → `POST /api/connections/llm/providers/:id/models`
+  - `POST /api/connections/providers/:id/models` → `POST /api/connections/llm/discovery/models`
 - Update `normalizeConnectionPayload` to accept `implicitType` parameter
 - Keep shared utilities (env var processing, validation) DRY
 

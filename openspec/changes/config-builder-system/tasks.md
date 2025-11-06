@@ -216,7 +216,7 @@
 - [x] 3c.1.3 Update LLMProvidersSection to use LLMProviderList with type-specific handlers
 - [x] 3c.1.4 Update RAGServicesSection to use RAGProviderList with type-specific handlers
 - [x] 3c.1.5 Create dedicated backend endpoints: POST /api/connections/llm/test
-- [x] 3c.1.6 Create dedicated backend endpoints: POST /api/connections/llm/providers/:id/models
+- [x] 3c.1.6 Create dedicated backend endpoints: POST /api/connections/llm/discovery/models
 - [x] 3c.1.7 Create dedicated backend endpoints: POST /api/connections/rag/test
 - [x] 3c.1.8 Update normalizeConnectionPayload to handle dedicated endpoint formats with implicitType
 - [x] 3c.1.9 Delete old ProviderList and ProvidersSection components

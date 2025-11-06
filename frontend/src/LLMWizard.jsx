@@ -130,7 +130,7 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
     setModelsLoading(true);
     
     try {
-      const response = await fetch(`/api/connections/llm/providers/${selectedProvider}/models`, {
+      const response = await fetch(`/api/connections/llm/discovery/models`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

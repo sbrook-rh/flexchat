@@ -186,20 +186,21 @@ router.post('/llm/test', async (req, res) => {
 });
 
 /**
- * POST /api/connections/llm/providers/:id/models
- * Discover available models from an LLM provider (dedicated endpoint)
+ * POST /api/connections/llm/discovery/models
+ * Discover available models from an LLM provider configuration
  * 
  * Request body:
  * {
+ *   "provider": "openai" | "ollama" | "gemini",
  *   "config": { ... provider configuration with ${ENV_VAR} placeholders ... }
  * }
  */
-router.post('/llm/providers/:id/models', async (req, res) => {
+router.post('/llm/discovery/models', async (req, res) => {
   try {
-    const { provider: id, processedConfig } = normalizeConnectionPayload(req, 'llm');
+    const { provider, processedConfig } = normalizeConnectionPayload(req, 'llm');
 
     // Dynamically load the LLM provider class
-    const ProviderClass = loadProviderClass('llm', id);
+    const ProviderClass = loadProviderClass('llm', provider);
     
     // Create temporary instance (not added to global aiProviders)
     const tempProvider = new ProviderClass(processedConfig);
@@ -209,7 +210,7 @@ router.post('/llm/providers/:id/models', async (req, res) => {
     
     // Return sanitized model list
     res.json({
-      provider: id,
+      provider,
       count: models.length,
       models: models.map(m => ({
         id: m.id,
@@ -221,11 +222,11 @@ router.post('/llm/providers/:id/models', async (req, res) => {
       }))
     });
   } catch (error) {
-    console.error(`Error discovering models for LLM provider ${req.params.id}:`, error);
+    console.error(`Error discovering models for LLM provider:`, error);
     res.status(400).json({
       error: 'LLM model discovery failed',
       message: error.message,
-      provider: req.params.id
+      provider: req.body?.provider || 'unknown'
     });
   }
 });

@@ -327,7 +327,7 @@ The Configuration Builder uses the following APIs:
 
 #### LLM Provider Management
 - `POST /api/connections/llm/test` - Test LLM connection
-- `POST /api/connections/llm/providers/:id/models` - Discover models
+- `POST /api/connections/llm/discovery/models` - Discover models from provider configuration
 
 #### RAG Service Management
 - `POST /api/connections/rag/test` - Test RAG connection (includes collections)

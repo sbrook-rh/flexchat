@@ -55,11 +55,11 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     
     try {
       const providerConfig = workingConfig.llms[providerId];
-      const response = await fetch(`/api/connections/llm/providers/${providerId}/models`, {
+      const response = await fetch(`/api/connections/llm/discovery/models`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          provider: providerId,
+          provider: providerConfig.provider,
           config: providerConfig
         })
       });
