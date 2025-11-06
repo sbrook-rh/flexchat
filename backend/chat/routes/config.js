@@ -191,16 +191,8 @@ router.post('/validate', (req, res) => {
           });
         }
 
-        // Warning: RAG services without embeddings
-        if (config.rag_services && Object.keys(config.rag_services).length > 0) {
-          const hasGlobalEmbedding = config.embedding && config.embedding.llm && config.embedding.model;
-          const servicesWithoutEmbedding = Object.entries(config.rag_services).filter(
-            ([name, service]) => !service.embedding && !hasGlobalEmbedding
-          );
-          if (servicesWithoutEmbedding.length > 0) {
-            warnings.push(`RAG services configured without embeddings: ${servicesWithoutEmbedding.map(([name]) => name).join(', ')}. Configure a global embedding or per-service embeddings for RAG to function properly.`);
-          }
-        }
+        // Embedding configuration is optional and used as a UI default preset.
+        // No warning if global/per-service embeddings are not configured.
 
       } catch (e) {
         // If deep validation fails, report as a top-level error

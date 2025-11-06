@@ -6,17 +6,11 @@ import ConfigSection from '../ConfigSection';
  * 
  * Supports:
  * - Global default embedding configuration
- * - Per-service embedding overrides
  * - Filtering to embedding-capable models only
  */
 function EmbeddingsSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fetchModelsForProvider }) {
-  const [editingService, setEditingService] = useState(null); // null or service name
-  
   // Get LLM providers
   const llmProviders = Object.keys(workingConfig?.llms || {});
-  
-  // Get RAG services
-  const ragServices = Object.entries(workingConfig?.rag_services || {});
   
   // Current global embedding config
   const globalEmbedding = workingConfig?.embedding || null;
@@ -81,35 +75,7 @@ function EmbeddingsSection({ workingConfig, onUpdate, modelsCache, setModelsCach
     delete newConfig.embedding;
     onUpdate(newConfig);
   };
-  
-  // Update per-service embedding override
-  const updateServiceEmbedding = (serviceName, llm, model) => {
-    const newConfig = {
-      ...workingConfig,
-      rag_services: {
-        ...workingConfig.rag_services,
-        [serviceName]: {
-          ...workingConfig.rag_services[serviceName],
-          embedding: { llm, model }
-        }
-      }
-    };
-    onUpdate(newConfig);
-    setEditingService(null);
-  };
-  
-  // Remove per-service embedding override
-  const removeServiceEmbedding = (serviceName) => {
-    const newConfig = {
-      ...workingConfig,
-      rag_services: {
-        ...workingConfig.rag_services
-      }
-    };
-    delete newConfig.rag_services[serviceName].embedding;
-    onUpdate(newConfig);
-    setEditingService(null);
-  };
+ 
   
   // Load models for current global provider on mount
   useEffect(() => {
@@ -165,38 +131,7 @@ function EmbeddingsSection({ workingConfig, onUpdate, modelsCache, setModelsCach
           )}
         </div>
         
-        {/* RAG Services - Per-Service Overrides */}
-        {ragServices.length > 0 && (
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">RAG Service Embeddings</h3>
-              <p className="text-sm text-gray-600 mt-1">
-                Override the default embedding model for specific RAG services.
-              </p>
-            </div>
-            
-            <div className="space-y-3">
-              {ragServices.map(([serviceName, serviceConfig]) => (
-                <ServiceEmbeddingRow
-                  key={serviceName}
-                  serviceName={serviceName}
-                  serviceConfig={serviceConfig}
-                  globalEmbedding={globalEmbedding}
-                  isEditing={editingService === serviceName}
-                  onEdit={() => setEditingService(serviceName)}
-                  onCancel={() => setEditingService(null)}
-                  llmProviders={llmProviders}
-                  workingConfig={workingConfig}
-                  modelsCache={modelsCache}
-                  getEmbeddingModels={getEmbeddingModels}
-                  fetchModelsForProvider={fetchModelsForProvider}
-                  updateServiceEmbedding={updateServiceEmbedding}
-                  removeServiceEmbedding={removeServiceEmbedding}
-                />
-              ))}
-            </div>
-          </div>
-        )}
+        {/* RAG service-specific overrides removed */}
         
         {/* Info Box */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -323,166 +258,5 @@ function GlobalEmbeddingConfig({
   );
 }
 
-/**
- * ServiceEmbeddingRow - Component for displaying/editing per-service embedding configuration
- */
-function ServiceEmbeddingRow({
-  serviceName,
-  serviceConfig,
-  globalEmbedding,
-  isEditing,
-  onEdit,
-  onCancel,
-  llmProviders,
-  workingConfig,
-  modelsCache,
-  getEmbeddingModels,
-  fetchModelsForProvider,
-  updateServiceEmbedding,
-  removeServiceEmbedding
-}) {
-  const hasOverride = !!serviceConfig.embedding;
-  const effectiveEmbedding = serviceConfig.embedding || globalEmbedding;
-  
-  const [localProvider, setLocalProvider] = useState(effectiveEmbedding?.llm || llmProviders[0]);
-  const [localModel, setLocalModel] = useState(effectiveEmbedding?.model || '');
-  
-  // Fetch models when editing starts
-  useEffect(() => {
-    if (isEditing && localProvider) {
-      fetchModelsForProvider(localProvider);
-    }
-  }, [isEditing, localProvider]);
-  
-  const currentModels = getEmbeddingModels(localProvider);
-  const isLoading = modelsCache[localProvider]?.loading;
-  
-  const handleProviderChange = (newProvider) => {
-    setLocalProvider(newProvider);
-    setLocalModel('');
-    fetchModelsForProvider(newProvider);
-  };
-  
-  const handleSave = () => {
-    if (localProvider && localModel) {
-      updateServiceEmbedding(serviceName, localProvider, localModel);
-    }
-  };
-  
-  if (isEditing) {
-    return (
-      <div className="border border-blue-300 rounded-lg p-4 bg-blue-50">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <h4 className="font-medium text-gray-900">{serviceName}</h4>
-            <p className="text-sm text-gray-600">Configure custom embedding model</p>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-3 mb-3">
-          {/* Provider Selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Provider
-            </label>
-            <select
-              value={localProvider}
-              onChange={(e) => handleProviderChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              {llmProviders.map(provider => (
-                <option key={provider} value={provider}>{provider}</option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Model Selector */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Model
-            </label>
-            {isLoading ? (
-              <div className="px-3 py-2 border border-gray-300 rounded-lg text-gray-500 flex items-center gap-2">
-                <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full"></div>
-                Loading...
-              </div>
-            ) : (
-              <select
-                value={localModel}
-                onChange={(e) => setLocalModel(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">Select a model...</option>
-                {currentModels.map(model => (
-                  <option key={model.id} value={model.id}>
-                    {model.name || model.id}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
-        
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-          >
-            Cancel
-          </button>
-          {hasOverride && (
-            <button
-              onClick={() => removeServiceEmbedding(serviceName)}
-              className="px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 border border-red-300 rounded-lg hover:bg-red-100"
-            >
-              Remove Override
-            </button>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={!localProvider || !localModel}
-            className="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Save Override
-          </button>
-        </div>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h4 className="font-medium text-gray-900">{serviceName}</h4>
-            {hasOverride ? (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
-                Custom
-              </span>
-            ) : (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                Default
-              </span>
-            )}
-          </div>
-          {effectiveEmbedding ? (
-            <p className="text-sm text-gray-600">
-              {effectiveEmbedding.llm} / {effectiveEmbedding.model}
-            </p>
-          ) : (
-            <p className="text-sm text-yellow-600">⚠️ No embedding configured</p>
-          )}
-        </div>
-        <button
-          onClick={onEdit}
-          className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-        >
-          {hasOverride ? 'Edit Override' : 'Add Override'}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 export default EmbeddingsSection;
