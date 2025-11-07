@@ -1,0 +1,61 @@
+# Flex Chat Code Guidelines
+
+## Comments and Documentation
+
+### What to Include
+- **What** the code does (current behavior)
+- **Why** architectural decisions were made (in design docs, not code)
+- **How** complex algorithms work (in-line explanations)
+- Temporary debugging notes (clearly marked as TODO/DEBUG)
+
+### What to NEVER Include
+- ❌ Historical context ("removed X", "no longer does Y", "used to be Z")
+- ❌ Explanations of what other components do ("Node backend generates embeddings")
+- ❌ Justifications for what's NOT present ("storage-only", "wrapper doesn't do X")
+- ❌ Migration commentary ("deprecated", "legacy", "old way was...")
+- ❌ Celebratory markers ("✅", "🎉") in committed code
+
+### Examples
+
+**BAD:**
+```python
+# STORAGE-ONLY MODE: No embedding generation in wrapper
+# Node backend now handles all embeddings
+print("✅ Storage-only mode: Node backend generates all embeddings")
+```
+
+**GOOD:**
+```python
+# Validate incoming embeddings
+if not embedding or len(embedding) == 0:
+    raise ValueError("Missing embedding data")
+```
+
+**BAD:**
+```javascript
+// RAG service-specific overrides removed
+// This used to support per-service models but we deprecated that
+```
+
+**GOOD:**
+```javascript
+// Apply global embedding defaults
+const model = config.embedding.model;
+```
+
+### Where Historical Context DOES Belong
+- ✅ Git commit messages
+- ✅ CHANGELOG.md
+- ✅ Migration guides (docs/)
+- ✅ OpenSpec proposals (openspec/changes/)
+- ✅ Design documents (design.md)
+
+### Rationale
+Code comments should describe the present state. The version control system (git) tracks history. Mixing historical context into code comments:
+- Creates confusion about current behavior
+- Becomes stale as time passes
+- Clutters the codebase with obsolete information
+- Makes it harder to understand what the code actually does now
+
+**Remember**: Comments explain the code AS IT IS, not how it got there.
+

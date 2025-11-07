@@ -131,8 +131,6 @@ function EmbeddingsSection({ workingConfig, onUpdate, modelsCache, setModelsCach
           )}
         </div>
         
-        {/* RAG service-specific overrides removed */}
-        
         {/* Info Box */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-start gap-3">

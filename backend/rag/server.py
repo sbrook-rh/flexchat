@@ -21,11 +21,10 @@ parser.add_argument('--port', type=int, default=5006,
 args = parser.parse_args()
 
 # ============================================================================
-# STORAGE-ONLY MODE: No embedding generation in wrapper
+# ChromaDB Storage Service
 # ============================================================================
-# Node backend generates ALL embeddings (documents and queries)
-# This service is a pure ChromaDB storage proxy
-print(f"✅ Storage-only mode: Node backend generates all embeddings")
+# This service provides HTTP access to ChromaDB for document storage and retrieval.
+# All embeddings must be pre-computed and included in requests.
 
 # Initialize FastAPI
 app = FastAPI(title="ChromaDB Wrapper Service", version="2.0.0")
@@ -49,7 +48,7 @@ class QueryRequest(BaseModel):
     query: str
     top_k: int = 3
     collection: Optional[str] = None  # Allow dynamic collection selection
-    query_embedding: List[float]  # REQUIRED: Pre-computed embedding from Node backend
+    query_embedding: List[float]  # Pre-computed embedding vector
 
 class CreateCollectionRequest(BaseModel):
     name: str
@@ -367,8 +366,7 @@ def query_db(request: QueryRequest):
                 detail=f"Collection '{collection_name}' not found"
             )
         
-        # Use pre-computed embedding from Node backend (REQUIRED)
-        print(f"   ✅ Using pre-computed query embedding from Node backend")
+        # Use provided query embedding for similarity search
         query_embedding = request.query_embedding
         
         # Get collection metadata for response
