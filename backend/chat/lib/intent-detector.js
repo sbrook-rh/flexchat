@@ -60,8 +60,8 @@ async function detectIntent(topic, rag, intentConfig, aiProviders) {
     return undefined;
   }
 
-  const categoriesText = categories.map(c => `- "${c.name}": ${c.description || ''}`).join('\n');
-  const prompt = `You are classifying the user's query.\n\nAvailable categories:\n${categoriesText}\n- other: Query doesn't fit any category\n\nCurrent query/topic: "${topic}"\n\nReply with ONLY one of the category names from the list above.\nDo NOT invent or modify categories.\nIf nothing fits exactly, reply: other.`;
+  const categoriesText = categories.map(c => `• ${c.name}: ${c.description || ''}`).join('\n');
+  const prompt = `Task: Select the matching category.\n\nQuery: "${topic}"\n\nCategories:\n${categoriesText}\n• other: Query doesn't fit any category\n\nReply with one category name only.`;
 
   try {
     const messages = [{ role: 'user', content: prompt }];

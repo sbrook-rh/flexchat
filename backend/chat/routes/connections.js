@@ -345,5 +345,118 @@ router.get('/env-vars/suggestions', (req, res) => {
   }
 });
 
+/**
+ * POST /api/connections/intent/test
+ * Test intent detection with a query
+ * Uses the same pattern as other test endpoints - receives connection config in payload
+ * 
+ * Body:
+ * {
+ *   query: string,
+ *   provider_config: { provider, ...fields },
+ *   model: string
+ * }
+ */
+router.post('/intent/test', async (req, res) => {
+  try {
+    const { query, provider_config, model } = req.body;
+
+    if (!query || !provider_config || !model) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        required: ['query', 'provider_config', 'model']
+      });
+    }
+
+    // Use the same normalization pattern as other test endpoints
+    const normalizedPayload = {
+      body: {
+        provider: provider_config.provider,
+        config: provider_config
+      }
+    };
+    
+    const { provider, processedConfig } = normalizeConnectionPayload(normalizedPayload, 'llm');
+
+    // Dynamically load the LLM provider class (same as model discovery)
+    const ProviderClass = loadProviderClass('llm', provider);
+    
+    // Create temporary instance
+    const tempProvider = new ProviderClass(processedConfig);
+
+    // Get current working config to extract configured intents
+    const workingConfig = req.body.working_config || {};
+    
+    // Build categories from configured intents
+    const categories = [];
+    if (workingConfig.intent && workingConfig.intent.detection) {
+      for (const [name, description] of Object.entries(workingConfig.intent.detection)) {
+        categories.push({ name, description });
+      }
+    }
+
+    // Add selected RAG collections (from applied config)
+    // User can optionally include collections from the applied configuration
+    const selectedCollections = req.body.selected_collections || [];
+    for (const col of selectedCollections) {
+      categories.push({
+        name: `${col.service}/${col.name}`,
+        description: col.metadata?.description || 'No description available'
+      });
+    }
+
+    if (categories.length === 0) {
+      return res.status(400).json({
+        error: 'No intents or RAG collections configured'
+      });
+    }
+
+    // Build the classification prompt (Option 4: Concise Instruction-First)
+    const categoriesText = categories.map(c => `• ${c.name}: ${c.description || ''}`).join('\n');
+    const prompt = `Task: Select the matching category.
+
+Query: "${query}"
+
+Categories:
+${categoriesText}
+• other: Query doesn't fit any category
+
+Reply with one category name only.`;
+
+    console.log(`🧪 Testing intent detection for query: "${query}"`);
+    console.log(`   Categories: ${categories.length} (${categories.map(c => c.name).join(', ')})`);
+
+    // Call the LLM
+    const messages = [{ role: 'user', content: prompt }];
+    const response = await tempProvider.generateChat(messages, model, {
+      max_tokens: 50,
+      temperature: 0.1  // Low temperature for deterministic classification
+    });
+
+    const detectedIntent = response.content.trim();
+    
+    console.log(`  📥 Raw model response: "${response.content}"`);
+    console.log(`  ✅ Detected intent: "${detectedIntent}"`);
+
+    res.json({
+      query,
+      detected_intent: detectedIntent,
+      available_intents: categories.map(c => c.name),
+      intent_count: Object.keys(workingConfig.intent?.detection || {}).length,
+      collection_count: selectedCollections.length,
+      provider,
+      model,
+      prompt_used: prompt
+    });
+
+  } catch (error) {
+    console.error('Error testing intent detection:', error);
+    res.status(500).json({
+      error: 'Intent detection test failed',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;
 

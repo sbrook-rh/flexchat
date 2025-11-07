@@ -62,19 +62,17 @@ async function buildProfileFromPartials(partialResults, topic, intentConfig, aiP
   }
   
   // Build the classification prompt
-  const categoriesText = categories.map(c => `- "${c.name}": ${c.description}`).join('\n');
+  const categoriesText = categories.map(c => `• ${c.name}: ${c.description}`).join('\n');
   
-const prompt = `You are classifying the user's query.
+const prompt = `Task: Select the matching category.
 
-Available categories:
+Query: "${topic}"
+
+Categories:
 ${categoriesText}
-- other: Query doesn't fit any category
+• other: Query doesn't fit any category
 
-Current query/topic: "${topic}"
-
-Reply with ONLY one of the category names from the list above.
-Do NOT invent or modify categories.
-If nothing fits exactly, reply: other.`;
+Reply with one category name only.`;
 
   console.log(`   📋 ${categories.length} categories available for classification`);
   // console.log(`   🔍 Intent detection prompt:\n${prompt}\n`);
