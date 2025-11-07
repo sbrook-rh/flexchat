@@ -1294,3 +1294,219 @@ Automatically update chat title from detected topic for new conversations:
 
 ---
 
+### Decision 26: Modal-Based Intent Testing with Collection Selection
+
+**Context:**
+Need a way to test intent classification with the configured model before deployment. The test should simulate production behavior including how RAG collections appear as intent categories when they have partial matches.
+
+**Options Considered:**
+
+**A) Inline test UI with auto-include all collections**
+- Pro: Simple, one-click testing
+- Con: Can't control which collections are tested
+- Con: Clutters main config screen
+- Con: Can't test "intents only" vs "intents + collections" scenarios
+
+**B) Modal with optional collection selection (CHOSEN)**
+- Pro: User controls test scenario
+- Pro: Clean main UI (simple "Test" button)
+- Pro: Shows which collections are available from applied config
+- Con: Extra click to open modal
+- Pro: Educational - demonstrates how collections become intent options
+
+**C) Separate test page**
+- Pro: Maximum space for testing
+- Con: Navigation overhead
+- Con: Loses context of what's being configured
+
+**Decision:**
+Implement modal-based tester (Option B) with:
+1. Simple "Test" button in main Intent section
+2. Modal shows configured provider/model being tested
+3. Optional checkboxes to include collections from applied config
+4. Clear note explaining applied-config-only limitation
+5. Results show breakdown of categories tested (intent_count, collection_count)
+
+**Rationale:**
+- Balances discoverability with UI cleanliness
+- Provides educational value by showing hierarchical matching
+- Allows testing different scenarios (with/without collections)
+- Fetches from `/api/ui-config` to show "real" collections that exist
+
+**Trade-offs:**
+- ✅ Clean main UI
+- ✅ Flexible testing scenarios
+- ✅ Shows production-like behavior
+- ❌ Applied config only (can't test unsaved RAG services)
+- ✅ Educational about how intents and collections interact
+
+**Implemented:** Phase 3b.4
+
+---
+
+### Decision 27: Hierarchical Intent Detection via Collection Descriptions
+
+**Context:**
+During testing, discovered that the system demonstrates intelligent hierarchical intent matching when RAG collections are included as categories.
+
+**Discovery:**
+When a user query matches both a general intent and a specific RAG collection:
+- **Without collection selected:** LLM chooses general intent (e.g., "cooking")
+- **With collection selected:** LLM chooses specific match (e.g., "recipes/tofu-magic")
+
+**Example:**
+Query: "I need a tofu recipe for dinner"
+
+Test 1 (3 intents, 0 collections):
+- Categories: support, subscriptions, cooking, other
+- Result: **cooking** (general match)
+
+Test 2 (3 intents, 1 collection):
+- Categories: support, subscriptions, cooking, recipes/tofu-magic, other
+- Result: **recipes/tofu-magic** (specific match)
+
+**Implications:**
+1. **General intents** act as catch-all categories
+2. **RAG collection descriptions** provide specificity when selected
+3. **LLM naturally prioritizes** the most specific match
+4. **System is self-organizing**: more specific categories "win" when available
+
+**Design Pattern:**
+This validates the architectural decision to:
+- Keep configured intents broad (support, billing, cooking)
+- Rely on RAG collection descriptions for specificity
+- Dynamically build category list based on selected collections
+- Let LLM intelligence handle the hierarchical matching
+
+**Benefits:**
+- ✅ Users don't need to configure every possible specific intent
+- ✅ Collection descriptions serve dual purpose (RAG + intent)
+- ✅ System adapts based on which collections are selected
+- ✅ Natural fallback to general categories when specific ones unavailable
+
+**Production Behavior:**
+In actual chat flow:
+1. User selects collections (e.g., "tofu-magic", "comfort-soups")
+2. Intent classifier sees: [configured intents] + [selected collection descriptions] + ["other"]
+3. LLM picks most specific match
+4. If "recipes/tofu-magic" wins → query that collection
+5. If "cooking" wins → use general cooking response handler
+6. If "other" wins → use default response handler
+
+**Implemented:** Validated in Phase 3b.4-3b.6
+
+---
+
+### Decision 28: Optimized Classification Prompt Format
+
+**Context:**
+Initial prompt format worked but produced inconsistent results across different models, especially small models like gemma:1b. Some models would return "other" even for clear matches, while others would invent new category names.
+
+**Testing Process:**
+Systematically tested 4 different prompt formats with 3 models (gemma:1b, qwen2.5:1.5b, phi3:mini):
+- Option 1: "Classify this query" (direct, simplified)
+- Option 2: "Which category best matches" (numbered list)
+- Option 3: "What category does this belong to" (question format)
+- Option 4: "Task: Select the matching category" (instruction-first)
+
+**Results:**
+
+| Prompt | gemma:1b | qwen2.5:1.5b | phi3:mini | Speed |
+|--------|----------|--------------|-----------|-------|
+| Option 1 | ❌ "other" | ✅ correct | ✅ correct | Medium |
+| Option 2 | ⚠️ "recipes/tofu" | ✅ correct | ✅ correct | Mixed |
+| Option 3 | ✅ correct | ✅ "Category: X" | ⚠️ verbose | Fast |
+| Option 4 | ✅ correct | ✅ correct | ✅ correct | **Instant** |
+
+**Decision:**
+Use Option 4 format across all intent classification:
+
+```
+Task: Select the matching category.
+
+Query: "{user_query}"
+
+Categories:
+• category-name: description
+• category-name: description
+• other: Query doesn't fit any category
+
+Reply with one category name only.
+```
+
+**Key Changes:**
+1. **Concise instruction**: "Task: Select..." instead of "You are classifying..."
+2. **Query first**: Show what needs classification upfront
+3. **Bullet points**: Use `•` instead of `-` or numbered lists
+4. **Simple directive**: "Reply with one category name only" (positive instruction)
+5. **Removed negatives**: No "DO NOT invent" or "DO NOT modify" (models respond better to positive instructions)
+
+**Updated Files:**
+- `backend/chat/routes/connections.js` (test endpoint)
+- `backend/chat/lib/intent-detector.js` (production)
+- `backend/chat/lib/profile-builder.js` (ETL profile building)
+
+**Results:**
+- ✅ All models return correct answer instantly
+- ✅ gemma:1b now works reliably (was failing before)
+- ✅ Consistent format across test and production
+- ✅ No invented category names
+- ✅ Deterministic with temperature 0.1
+
+**Trade-offs:**
+- ✅ Universal compatibility across model sizes
+- ✅ Faster responses (simpler parsing)
+- ✅ More predictable behavior
+- ✅ Better UX with instant results
+
+**Implemented:** Phase 3b.6
+
+---
+
+### Decision 29: Improved Fast Model Detection
+
+**Context:**
+Lightning bolt (⚡) indicator was missing for 1b models (e.g., `gemma:1b`, `qwen2:1b`) because detection only checked for hardcoded strings "1.5b", "3b", and "mini".
+
+**Problem:**
+```javascript
+// Old detection (missed 1b models)
+return name.includes('1.5b') || name.includes('3b') || name.includes('mini');
+```
+
+**Decision:**
+Use regex to extract parameter count and check if ≤3B:
+
+```javascript
+// New detection (catches all small models)
+const paramMatch = name.match(/(\d+\.?\d*)b/);
+if (paramMatch) {
+  const params = parseFloat(paramMatch[1]);
+  if (params <= 3) return true;  // 0.5b, 1b, 1.5b, 3b all detected
+}
+return name.includes('mini');  // Also catch named "mini" models
+```
+
+**Benefits:**
+- ✅ Catches 0.5b models (e.g., `qwen2.5:0.5b`)
+- ✅ Catches 1b models (e.g., `gemma:1b`) ← **FIXED**
+- ✅ Catches 1.5b models (as before)
+- ✅ Catches 3b models (as before)
+- ✅ Extensible to any parameter size (just change threshold)
+- ✅ More robust than string matching
+
+**Updated Files:**
+- `frontend/src/sections/IntentSection.jsx`
+- `frontend/src/sections/TopicSection.jsx`
+
+**Future Enhancement:**
+This is a stepping stone toward full model classification system (see `docs/MODEL_CLASSIFICATION_ENHANCEMENT.md`) which will add:
+- Size classes (tiny, small, medium, large, xlarge)
+- Variant detection (base, instruct, chat)
+- Capability badges (text, vision, reasoning)
+- Web scraping for accurate metadata
+
+**Implemented:** Phase 3b.2.5
+
+---
+

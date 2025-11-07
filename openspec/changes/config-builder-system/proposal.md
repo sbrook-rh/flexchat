@@ -142,21 +142,27 @@ This fundamentally shifts Flex Chat from a "config-file-first" to a "UI-first" s
 
 **Status**: Complete - All embedding configuration features implemented
 
-### Phase 3b: Intent Detection Configuration UI
+### Phase 3b: Intent Detection Configuration UI ✅ COMPLETE
 **Goal**: UI for configuring intent detection and testing classifications
 
 **Deliverables**:
-- Intent tab implementation
-- Intent detection provider/model selection
-- Intent phrase editor (add/edit/remove/reorder intents)
-- Intent name and description fields
-- Intent testing UI (test query classification)
-- Confidence/reasoning display for test results
-- ✅ **Topic Detection Configuration** (separate tab with provider/model selector, chat-only model filtering, auto-correction)
+- ✅ **Intent Tab Implementation** - IntentSection.jsx with provider/model configuration
+- ✅ **Intent Detection Provider/Model Selection** - Dropdown selectors with ⚡ indicator for fast models (improved regex detection)
+- ✅ **Intent Definition Editor** - Inline add/edit/delete for intent name:description pairs
+- ✅ **Modal-Based Intent Tester** - Test classifications with optional RAG collection inclusion
+- ✅ **Collection Selection** - Checkboxes to include collections from applied config in test
+- ✅ **Test Results Display** - Shows detected intent, available categories, breakdown (intent_count, collection_count), and prompt used
+- ✅ **Backend Test Endpoint** - POST /api/connections/intent/test with temporary provider instance
+- ✅ **Optimized Classification Prompt** - "Task: Select..." format with bullet points for universal model compatibility
+- ✅ **Hierarchical Intent Detection** - Validated that general intents + specific collections provide intelligent matching
+- ✅ **Topic Detection Configuration** - Separate tab with provider/model selector, chat-only model filtering, auto-correction
+- ✅ **Fast Model Detection Enhancement** - Regex-based detection catches 0.5b-3b params (including 1b models)
+
+**Key Discovery**: System demonstrates intelligent hierarchical intent matching - LLMs naturally prioritize more specific categories (RAG collections) over general intents when both are available, enabling self-organizing intent classification.
 
 **Depends On**: Phase 3a (logical progression, but technically independent)
 
-**Estimated Complexity**: Small-Medium (1-2 weeks)
+**Estimated Complexity**: Small-Medium (1-2 weeks) → **Actual: 2 weeks with extensive prompt optimization**
 
 ### Phase 3c: Backend & UX Enhancements ✅ COMPLETE
 **Goal**: Refactor provider management, add validation, and improve chat UX

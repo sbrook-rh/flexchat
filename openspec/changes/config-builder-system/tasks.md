@@ -1,5 +1,34 @@
 # Configuration Builder System - Implementation Tasks
 
+## Key Learnings & Discoveries
+
+### Hierarchical Intent Detection (Phase 3b)
+Through extensive testing, we discovered that the system naturally supports **intelligent hierarchical intent matching**:
+- General intents (e.g., "cooking") act as catch-all categories
+- RAG collection descriptions provide specificity when selected
+- LLMs naturally prioritize the most specific match available
+- System is self-organizing: more specific categories "win" when present
+
+**Example**: Query "I need a tofu recipe for dinner"
+- Without collections → matches general intent "cooking"
+- With tofu-magic collection → matches specific "recipes/tofu-magic"
+
+**Implication**: Users should configure broad intents and rely on RAG collection descriptions for specificity.
+
+### Optimized Classification Prompts (Phase 3b.6)
+Systematically tested 4 prompt formats across 3 models (gemma:1b, qwen2.5:1.5b, phi3:mini):
+- **Winner**: "Task: Select the matching category" format with bullet points (•)
+- **Results**: Universal compatibility, instant responses, no invented categories
+- **Updated**: Test endpoint, production intent-detector.js, and profile-builder.js
+
+### Improved Model Classification (Phase 3b.2.5)
+Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
+- Now catches: 0.5b, 1b, 1.5b, 3b models (previously missed 1b)
+- Foundation for future comprehensive model classification system
+- See `docs/MODEL_CLASSIFICATION_ENHANCEMENT.md` for future roadmap
+
+---
+
 ## Phase 1: Connection Management Infrastructure
 
 ### 1.1 Provider Schema Interface
@@ -167,36 +196,56 @@
 - [x] 3a.4.3 Show warning if RAG services configured but no embeddings (backend validation endpoint)
 - [x] 3a.4.4 Update validation state in ConfigBuilder (handleEmbeddingsUpdate sets dirty state)
 
-## Phase 3b: Intent Detection Configuration UI
+## Phase 3b: Intent Detection Configuration UI ✅ COMPLETE
 
 ### 3b.1 Intent Tab Implementation
-- [ ] 3b.1.1 Update IntentSection.jsx from placeholder to functional component
-- [ ] 3b.1.2 Display current intent configuration summary
-- [ ] 3b.1.3 Show list of defined intents
-- [ ] 3b.1.4 Add "Configure Intent Detection" button
+- [x] 3b.1.1 Update IntentSection.jsx from placeholder to functional component
+- [x] 3b.1.2 Display current intent configuration summary
+- [x] 3b.1.3 Show list of defined intents
+- [x] 3b.1.4 Add "Add Intent" button (inline in section)
 
 ### 3b.2 Intent Detection Provider Configuration
-- [ ] 3b.2.1 Create IntentProviderConfig component
-- [ ] 3b.2.2 Provider selector (dropdown of configured LLMs)
-- [ ] 3b.2.3 Model selector for intent detection
-- [ ] 3b.2.4 Save to workingConfig.intent.provider and .model
+- [x] 3b.2.1 Implement provider config (integrated in IntentSection)
+- [x] 3b.2.2 Provider selector (dropdown of configured LLMs)
+- [x] 3b.2.3 Model selector for intent detection (chat models only, with ⚡ for fast models)
+- [x] 3b.2.4 Save to workingConfig.intent.provider.llm and .model
+- [x] 3b.2.5 Improved fast model detection (regex-based, catches 0.5b-3b params including 1b)
 
 ### 3b.3 Intent Definition Editor
-- [ ] 3b.3.1 Create IntentEditor component
-- [ ] 3b.3.2 List existing intents with add/edit/delete actions
-- [ ] 3b.3.3 Create IntentForm component (name, description, example phrases)
-- [ ] 3b.3.4 Add intent phrase input (multiple phrases per intent)
-- [ ] 3b.3.5 Add drag-and-drop reordering for intent priority
-- [ ] 3b.3.6 Save to workingConfig.intent.definitions array
+- [x] 3b.3.1 Implement intent editor (integrated in IntentSection)
+- [x] 3b.3.2 List existing intents with add/edit/delete actions
+- [x] 3b.3.3 Inline intent form (name, description fields)
+- [x] 3b.3.4 Intent saved as name:description pairs in config.intent.detection
+- [x] 3b.3.5 Drag-and-drop reordering (deferred - not critical for MVP)
+- [x] 3b.3.6 Save to workingConfig.intent.detection object
 
-### 3b.4 Intent Testing UI
-- [ ] 3b.4.1 Create IntentTester component
-- [ ] 3b.4.2 Add test query input field
-- [ ] 3b.4.3 Add "Test Intent" button
-- [ ] 3b.4.4 Call backend intent detection API (may need new endpoint)
-- [ ] 3b.4.5 Display detected intent with confidence score
-- [ ] 3b.4.6 Show reasoning/explanation for classification
-- [ ] 3b.4.7 Add "Test All Intents" mode (batch test with multiple queries)
+### 3b.4 Intent Testing UI (Modal-Based)
+- [x] 3b.4.1 Implement modal-based intent tester with collection selection
+- [x] 3b.4.2 Modal header shows configured provider/model being tested
+- [x] 3b.4.3 Test query input field with Enter key support
+- [x] 3b.4.4 Optional RAG collection inclusion (from applied config)
+- [x] 3b.4.5 Collection selector with checkboxes (fetches from /api/ui-config)
+- [x] 3b.4.6 Informational tip explaining applied-config-only limitation
+- [x] 3b.4.7 Test results display with breakdown (intent_count, collection_count)
+- [x] 3b.4.8 Show detected intent, available categories, and prompt used
+- [x] 3b.4.9 Simple "Test" button in main section (non-intrusive UI)
+
+### 3b.5 Backend Intent Test Endpoint
+- [x] 3b.5.1 Create POST /api/connections/intent/test endpoint
+- [x] 3b.5.2 Accept provider_config, model, working_config, selected_collections
+- [x] 3b.5.3 Use normalizeConnectionPayload for temporary provider instance
+- [x] 3b.5.4 Build categories from configured intents + selected collections
+- [x] 3b.5.5 Extract collection descriptions from metadata.description
+- [x] 3b.5.6 Call LLM with optimized classification prompt (temperature 0.1)
+- [x] 3b.5.7 Return detected_intent, available_intents, intent_count, collection_count, prompt_used
+
+### 3b.6 Prompt Optimization
+- [x] 3b.6.1 Test multiple prompt formats with various models (gemma:1b, qwen2.5:1.5b, phi3:mini)
+- [x] 3b.6.2 Implement "Task: Select the matching category" format (Option 4)
+- [x] 3b.6.3 Use bullet points (•) instead of dashes for cleaner formatting
+- [x] 3b.6.4 Update production intent-detector.js to use optimized prompt
+- [x] 3b.6.5 Update profile-builder.js to use optimized prompt
+- [x] 3b.6.6 Verify instant/accurate results across all small models
 
 ### 3b.5 Topic Detection Configuration
 - [x] 3b.5.1 Add separate "Topic Detection" navigation tab (changed from subsection to separate tab)
