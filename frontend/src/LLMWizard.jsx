@@ -450,23 +450,26 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
             </div>
             
             {/* Decision 17: Offer to replace/update default response handler */}
-            {workingConfig?.responses?.length > 0 && selectedModel && 
-             !(editMode && workingConfig.responses[0].llm === providerName && workingConfig.responses[0].model === selectedModel) && (
+            {(() => {
+              // Find the default handler (the one without a "match" key)
+              const defaultHandler = workingConfig?.responses?.find(r => !r.match);
+              return workingConfig?.responses?.length > 0 && selectedModel && defaultHandler &&
+               !(editMode && defaultHandler.llm === providerName && defaultHandler.model === selectedModel) && (
               <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <h3 className="text-sm font-medium text-amber-900 mb-2">Default Response Handler</h3>
                 <p className="text-sm text-amber-800 mb-3">
-                  {editMode && workingConfig.responses[0].llm === providerName ? (
+                  {editMode && defaultHandler.llm === providerName ? (
                     <>
                       Your default response handler currently uses:{' '}
                       <code className="bg-amber-100 px-2 py-0.5 rounded font-mono text-xs">
-                        {workingConfig.responses[0].llm}/{workingConfig.responses[0].model}
+                        {defaultHandler.llm}/{defaultHandler.model}
                       </code>
                     </>
                   ) : (
                     <>
                       You already have a default response handler using:{' '}
                       <code className="bg-amber-100 px-2 py-0.5 rounded font-mono text-xs">
-                        {workingConfig.responses[0].llm}/{workingConfig.responses[0].model}
+                        {defaultHandler.llm}/{defaultHandler.model}
                       </code>
                     </>
                   )}
@@ -480,7 +483,7 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
                   />
                   <div className="flex-1">
                     <span className="text-sm font-medium text-gray-900">
-                      {editMode && workingConfig.responses[0].llm === providerName
+                      {editMode && defaultHandler.llm === providerName
                         ? `Update to use ${selectedModel}`
                         : `Replace with ${providerName}/${selectedModel}`
                       }
@@ -491,7 +494,8 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
                   </div>
                 </label>
               </div>
-            )}
+              );
+            })()}
           </div>
         );
       

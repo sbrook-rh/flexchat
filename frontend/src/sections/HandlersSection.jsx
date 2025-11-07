@@ -6,6 +6,8 @@ import ConfigSection from '../ConfigSection';
  */
 function HandlersSection({ workingConfig }) {
   const handlerCount = workingConfig?.responses?.length || 0;
+  // Find the default handler (the one without a "match" key)
+  const defaultIndex = workingConfig?.responses?.findIndex(r => !r.match) ?? -1;
   
   return (
     <ConfigSection
@@ -25,7 +27,8 @@ function HandlersSection({ workingConfig }) {
                   <code className="bg-green-100 px-2 py-0.5 rounded font-mono text-xs">
                     {handler.llm}/{handler.model}
                   </code>
-                  {idx === 0 && <span className="ml-2 text-xs text-green-600">(default)</span>}
+                  {idx === defaultIndex && <span className="ml-2 text-xs text-green-600">(default)</span>}
+                  {handler.match && <span className="ml-2 text-xs text-green-700">(conditional)</span>}
                 </div>
               ))}
             </div>

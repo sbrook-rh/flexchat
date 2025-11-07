@@ -38,9 +38,16 @@ async function generateResponse(profile, responseRule, aiProviders, userMessage,
     return template.replace(/\{\{([^}]+)\}\}/g, (match, path) => {
       const trimmedPath = path.trim();
       
-      // Special case: rag_context should format documents
+      // Special case: rag_context should format documents with source attribution
       if (trimmedPath === 'rag_context') {
-        return (profile.documents.map(doc => doc.text).join("\n"));
+        if (!profile.documents || profile.documents.length === 0) {
+          return '[No relevant documents found]';
+        }
+        return profile.documents.map(doc => {
+          const title = doc.metadata?.title || 'Untitled';
+          const source = doc.collection ? ` (from ${doc.collection})` : '';
+          return `### ${title}${source}\n\n${doc.text}`;
+        }).join("\n\n---\n\n");
       }
       
       // Handle nested paths like "service.prompt"
@@ -64,6 +71,7 @@ async function generateResponse(profile, responseRule, aiProviders, userMessage,
   // Substitute variables in prompt (this becomes the system message)
   const systemPrompt = substituteVariables(responseRule.prompt, profile);
   console.log(`   📝 System prompt length: ${systemPrompt.length} characters`);
+  console.log(`   📝 System prompt: ${systemPrompt}`);
   
   // Build messages array: system + history + user
   const messages = [

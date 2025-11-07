@@ -223,12 +223,16 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       console.log('📝 New config:', { topic: newConfig.topic, responses: newConfig.responses });
     } else if (!hasNoResponses && providerData.replaceDefaultHandler && providerData.selectedModel) {
       // Second+ LLM: Replace default response handler if user opted in
-      newConfig.responses[0] = {
-        llm: providerData.name,
-        model: providerData.selectedModel,
-        prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
-      };
-      console.log(`✓ Replaced default response handler with ${providerData.name}/${providerData.selectedModel}`);
+      // Use server-provided default handler index, or find it client-side as fallback
+      const defaultHandlerIndex = uiConfig?.defaultHandlerIndex ?? newConfig.responses.findIndex(r => !r.match);
+      if (defaultHandlerIndex !== -1) {
+        newConfig.responses[defaultHandlerIndex] = {
+          llm: providerData.name,
+          model: providerData.selectedModel,
+          prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
+        };
+        console.log(`✓ Replaced default response handler with ${providerData.name}/${providerData.selectedModel}`);
+      }
     } else if (!hasNoResponses) {
       console.log('ℹ️ Response handler already exists, user chose not to replace');
     } else {

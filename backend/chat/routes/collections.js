@@ -7,6 +7,8 @@ const {
   updateCollectionMetadata, 
   addDocuments 
 } = require('../lib/collection-manager');
+const { generateEmbeddings } = require('../lib/embedding-generator');
+const { getProcessedConfig } = require('../lib/config-loader');
 
 /**
  * Create collections router with dependency injection
@@ -78,11 +80,18 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       // Chat is ready if we have both working providers AND response handlers
       const chatReady = hasWorkingProviders && hasResponseHandlers;
       
+      // Find the default response handler (the one without a "match" key)
+      const defaultHandlerIndex = config.responses 
+        ? config.responses.findIndex(r => !r.match)
+        : -1;
+      
       res.json({
         // Existing fields
         collections: collectionsData.collections,
         wrappers: collectionsData.wrappers,
         modelSelection,
+        llms: config.llms || {},  // Add LLM connections for embedding resolution
+        defaultHandlerIndex,  // Index of the default (fallback) handler, or -1 if none
         
         // Phase 1.6.5: New fields for Configuration Builder
         hasConfig,
@@ -108,7 +117,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
    */
   router.post('/collections', async (req, res) => {
     try {
-      const { name, metadata, service } = req.body;
+      const { name, metadata, service, embedding_connection, embedding_model } = req.body;
       
       if (!name) {
         return res.status(400).json({ error: 'Collection name is required' });
@@ -117,10 +126,45 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       if (!service) {
         return res.status(400).json({ error: 'Service name is required' });
       }
+      if (!embedding_connection) {
+        return res.status(400).json({ error: 'embedding_connection is required' });
+      }
       
-      const config = getConfig();
+      // Resolve embedding provider/model and dimensions
+      const rawConfig = getConfig();
+      const processedConfig = getProcessedConfig(rawConfig);
+      const llmConfig = processedConfig.llms?.[embedding_connection];
+      if (!llmConfig) {
+        return res.status(400).json({ error: `LLM connection "${embedding_connection}" not found` });
+      }
+      const provider = llmConfig.provider;
+      
+      // Require embedding_model from UI
+      if (!embedding_model) {
+        return res.status(400).json({ error: 'embedding_model is required' });
+      }
+      
+      // Probe embedding dimensions (best-effort)
+      let embeddingDimensions = undefined;
+      try {
+        const dimsProbe = await generateEmbeddings(['dimension-probe'], embedding_connection, processedConfig, embedding_model);
+        if (Array.isArray(dimsProbe) && Array.isArray(dimsProbe[0])) {
+          embeddingDimensions = dimsProbe[0].length;
+        }
+      } catch (e) {
+        console.warn(`⚠️ Failed to probe embedding dimensions for "${embedding_connection}": ${e.message}`);
+      }
+      
+      const enrichedMetadata = {
+        ...(metadata || {}),
+        embedding_provider: provider,
+        embedding_model: embedding_model,
+        embedding_connection_id: embedding_connection,
+        ...(embeddingDimensions ? { embedding_dimensions: embeddingDimensions } : {})
+      };
+      
       const { ragProviders } = getProviders();
-      const result = await createCollection(service, name, metadata, config.rag_services, ragProviders);
+      const result = await createCollection(service, name, enrichedMetadata, processedConfig.rag_services, ragProviders);
       res.json(result);
     } catch (error) {
       console.error('❌ Error creating collection:', error);
@@ -139,7 +183,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
   router.post('/collections/:name/documents', async (req, res) => {
     try {
       const { name } = req.params;
-      const { documents, service } = req.body;
+      const { documents, service, embedding_connection, embedding_model } = req.body;
       
       if (!documents || !Array.isArray(documents)) {
         return res.status(400).json({ error: 'Documents array is required' });
@@ -149,9 +193,43 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
         return res.status(400).json({ error: 'Service name is required' });
       }
       
-      const config = getConfig();
+      if (!embedding_connection) {
+        return res.status(400).json({ error: 'embedding_connection is required' });
+      }
+      
+      const rawConfig = getConfig();
+      const processedConfig = getProcessedConfig(rawConfig);
+      
+      // Require embedding_model from UI
+      if (!embedding_model) {
+        return res.status(400).json({ error: 'embedding_model is required' });
+      }
+      
+      // Generate embeddings in Node
+      const texts = documents
+        .map(d => (d && typeof d.text === 'string' ? d.text : ''))
+        .filter(t => t && t.length > 0);
+      
+      if (texts.length === 0) {
+        return res.status(400).json({ error: 'No valid documents with text provided' });
+      }
+      
+      const embeddings = await generateEmbeddings(texts, embedding_connection, processedConfig, embedding_model);
+      
+      // Attach embeddings to documents (skip empty-text docs)
+      const documentsWithEmbeddings = [];
+      let embIdx = 0;
+      for (const doc of documents) {
+        const text = doc && typeof doc.text === 'string' ? doc.text : '';
+        if (!text) continue;
+        documentsWithEmbeddings.push({
+          ...doc,
+          embedding: embeddings[embIdx++]
+        });
+      }
+      
       const { ragProviders } = getProviders();
-      const result = await addDocuments(service, name, documents, config.rag_services, ragProviders);
+      const result = await addDocuments(service, name, documentsWithEmbeddings, rawConfig.rag_services, ragProviders);
       res.json(result);
     } catch (error) {
       console.error(`❌ Error adding documents to collection ${req.params.name}:`, error);
