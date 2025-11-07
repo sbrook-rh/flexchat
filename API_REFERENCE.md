@@ -189,6 +189,210 @@ curl -X POST http://localhost:5006/query \
   }'
 ```
 
+## Collections API (Port 5173)
+
+### Collection Management
+
+#### POST /api/collections
+**Purpose**: Create a new collection with embedding configuration
+**Request Body**:
+```json
+{
+  "name": "string",                    // Collection ID (kebab-case, 3-63 chars)
+  "service": "string",                 // RAG service name
+  "embedding_connection": "string",    // LLM connection ID for embeddings
+  "embedding_model": "string",         // Exact model ID (e.g., "nomic-embed-text:latest")
+  "metadata": {
+    "display_name": "string",          // Human-readable name
+    "description": "string",           // Collection purpose/detection hint
+    "match_threshold": 0.3,            // Direct match threshold
+    "partial_threshold": 0.5          // Fallback threshold
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "name": "collection-id",
+  "metadata": {
+    "embedding_provider": "ollama",
+    "embedding_model": "nomic-embed-text:latest",
+    "embedding_dimensions": 768,
+    "embedding_connection_id": "ollama-local",
+    "display_name": "Collection Name",
+    "description": "Collection description",
+    "match_threshold": 0.3,
+    "partial_threshold": 0.5,
+    "created_at": "2025-01-01T00:00:00.000Z",
+    "hnsw:space": "cosine"
+  }
+}
+```
+
+**Notes**:
+- `embedding_connection` and `embedding_model` are required
+- Backend probes embedding dimensions automatically
+- Model ID must match exactly (including version tags like `:latest`)
+- Collection metadata is immutable after creation
+
+#### GET /api/collections
+**Purpose**: List all collections across all RAG services
+**Response**:
+```json
+{
+  "collections": [
+    {
+      "name": "collection-id",
+      "service": "ServiceName",
+      "count": 42,
+      "metadata": { ... }
+    }
+  ],
+  "wrappers": [
+    {
+      "name": "ServiceName",
+      "url": "http://localhost:5006",
+      "collection": null
+    }
+  ],
+  "hasWrappers": true
+}
+```
+
+#### POST /api/collections/:name/documents
+**Purpose**: Upload documents to a collection (embeddings generated automatically)
+**Request Body**:
+```json
+{
+  "documents": [
+    {
+      "text": "Document content",
+      "metadata": {
+        "source": "file",
+        "filename": "example.txt",
+        "uploaded_at": "2025-01-01T00:00:00.000Z"
+      }
+    }
+  ],
+  "service": "ServiceName",
+  "embedding_connection": "ollama-local",  // Required
+  "embedding_model": "nomic-embed-text:latest"  // Required
+}
+```
+
+**Response**:
+```json
+{
+  "count": 1,
+  "message": "Added 1 document(s)"
+}
+```
+
+**Notes**:
+- Backend generates embeddings using specified connection and model
+- Must match collection's embedding configuration
+- RAG wrapper validates pre-computed embeddings
+
+#### PUT /api/collections/:name/metadata
+**Purpose**: Update collection metadata (**full replacement**)
+**Request Body**:
+```json
+{
+  "service": "ServiceName",
+  "metadata": {
+    // Complete metadata object - partial updates NOT supported
+    "description": "Updated description",
+    "match_threshold": 0.25,
+    "partial_threshold": 0.5,
+    "embedding_provider": "ollama",
+    "embedding_model": "nomic-embed-text:latest",
+    "embedding_dimensions": 768,
+    "embedding_connection_id": "ollama-local",
+    "created_at": "2025-01-01T00:00:00.000Z",
+    "updated_at": "2025-01-02T00:00:00.000Z"
+  }
+}
+```
+
+**⚠️ Important**: This endpoint performs a **full replacement** of metadata. You must send the complete metadata object, not just the fields you want to update.
+
+#### DELETE /api/collections/:name?service=ServiceName
+**Purpose**: Delete a collection
+**Response**:
+```json
+{
+  "success": true,
+  "message": "Collection collection-id deleted"
+}
+```
+
+### Connection Discovery
+
+#### POST /api/connections/llm/discovery/models
+**Purpose**: Discover available models from an LLM provider
+**Request Body**:
+```json
+{
+  "provider": "ollama",              // Provider type (ollama, openai, gemini)
+  "config": {
+    "baseUrl": "http://localhost:11434",
+    "provider": "ollama"
+  }
+}
+```
+
+**Response**:
+```json
+{
+  "provider": "ollama",
+  "count": 12,
+  "models": [
+    {
+      "id": "nomic-embed-text:latest",
+      "name": "nomic-embed-text:latest",
+      "type": "embedding",
+      "capabilities": ["embedding"],
+      "maxTokens": "137M",
+      "description": "Ollama model: nomic-embed-text:latest"
+    }
+  ]
+}
+```
+
+### Embedding Metadata Schema
+
+Collections store complete embedding configuration in metadata:
+
+```typescript
+interface CollectionMetadata {
+  // Required embedding fields
+  embedding_provider: string;      // e.g., "ollama", "openai", "gemini"
+  embedding_model: string;         // e.g., "nomic-embed-text:latest"
+  embedding_dimensions: number;    // e.g., 768, 1536, 384
+  embedding_connection_id: string; // LLM connection used at creation
+  
+  // Collection configuration
+  display_name: string;
+  description: string;
+  match_threshold: number;
+  partial_threshold: number;
+  
+  // Timestamps
+  created_at: string;              // ISO 8601
+  updated_at?: string;
+  
+  // ChromaDB fields
+  "hnsw:space": "cosine";
+}
+```
+
+**Key Points**:
+- Embedding metadata is immutable (set at collection creation)
+- `embedding_connection_id` may differ from current config (connections can be renamed)
+- Model IDs must match exactly (no fuzzy matching on version tags)
+- Dimensions are auto-detected by probing the model
+
 ## Integration Notes
 
 ### Frontend Integration
@@ -196,9 +400,17 @@ curl -X POST http://localhost:5006/query \
 - Implements retry logic for 429 responses
 - Stores conversation history in localStorage
 - Handles loading states and error messages
+- Modal-based collection create/edit/upload workflows
+- Smart connection resolution for document uploads
 
 ### Service Communication
 - Chat API calls RAG service for KNOWLEDGE intents
 - All services use JSON for data exchange
 - CORS configured for localhost development
 - Proxy configuration in `setupProxy.js` for development
+
+### Phase 0.5 Architecture
+- **Node backend** generates embeddings (not RAG wrapper)
+- **UI** resolves compatible embedding connections via model discovery
+- **RAG wrapper** is storage-only (validates pre-computed embeddings)
+- **Collections** lock embedding configuration at creation time
