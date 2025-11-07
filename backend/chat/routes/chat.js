@@ -79,7 +79,8 @@ function createChatRouter(getConfig, getProviders) {
         normalizedTopic,
         selectedCollections,
         config.rag_services || {},
-        ragProviders
+        ragProviders,
+        config  // Pass full config for embedding generation
       );
 
       // Phase 3: Intent detection (with inline refinement on 'other' + partials)
@@ -87,10 +88,11 @@ function createChatRouter(getConfig, getProviders) {
 
       // Phase 4: Build profile
       const profile = buildProfile(topic, rag, intent);
+      // console.log(`🔍 Profile: ${JSON.stringify(profile)}`);
 
       // Phase 5: Match response rule
       const responseHandler = findResponseHandler(profile, config.responses);
-
+      
       // Phase 6: Generate response
       const responseData = await generateResponse(profile, responseHandler, aiProviders, userMessage, previousMessages);
 

@@ -20,91 +20,12 @@ parser.add_argument('--port', type=int, default=5006,
                     help='Server port (default: 5006)')
 args = parser.parse_args()
 
-# Embedding provider configuration
-EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "ollama").lower()
-print(f"🔧 Embedding provider: {EMBEDDING_PROVIDER}")
-
-# Initialize embedding provider
-embedding_config = {}
-
-if EMBEDDING_PROVIDER == "openai":
-    import openai
-    openai.api_key = os.getenv("OPENAI_API_KEY")
-    if not openai.api_key:
-        print("❌ ERROR: OPENAI_API_KEY is not set in .env file!")
-        exit(1)
-    embedding_config["model"] = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-ada-002")
-    print(f"✅ OpenAI configured with model: {embedding_config['model']}")
-
-elif EMBEDDING_PROVIDER == "gemini":
-    import google.generativeai as genai
-    api_key = os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        print("❌ ERROR: GEMINI_API_KEY is not set in .env file!")
-        exit(1)
-    genai.configure(api_key=api_key)
-    embedding_config["model"] = os.getenv("GEMINI_EMBEDDING_MODEL", "models/embedding-001")
-    print(f"✅ Gemini configured with model: {embedding_config['model']}")
-
-elif EMBEDDING_PROVIDER == "ollama":
-    embedding_config["base_url"] = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-    embedding_config["model"] = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
-    print(f"✅ Ollama configured at {embedding_config['base_url']} with model: {embedding_config['model']}")
-
-else:
-    print(f"❌ ERROR: Unknown EMBEDDING_PROVIDER '{EMBEDDING_PROVIDER}'. Supported: openai, gemini, ollama")
-    exit(1)
-
-
-def generate_embedding(text: str, provider: str = None, model: str = None) -> List[float]:
-    """
-    Generate embedding using specified or default provider
-    
-    Args:
-        text: Text to embed
-        provider: Embedding provider (openai, gemini, ollama) - uses default if not specified
-        model: Model name - uses default for provider if not specified
-    """
-    # Use defaults if not specified
-    provider = provider or EMBEDDING_PROVIDER
-    model = model or embedding_config.get("model")
-    
-    try:
-        if provider == "openai":
-            import openai
-            response = openai.embeddings.create(
-                input=text,
-                model=model
-            )
-            return response.data[0].embedding
-        
-        elif provider == "gemini":
-            import google.generativeai as genai
-            result = genai.embed_content(
-                model=model,
-                content=text,
-                task_type="retrieval_document"
-            )
-            return result['embedding']
-        
-        elif provider == "ollama":
-            base_url = embedding_config.get("base_url", "http://localhost:11434")
-            response = requests.post(
-                f"{base_url}/api/embeddings",
-                json={
-                    "model": model,
-                    "prompt": text
-                }
-            )
-            response.raise_for_status()
-            return response.json()["embedding"]
-        
-        else:
-            raise ValueError(f"Unknown embedding provider: {provider}")
-        
-    except Exception as e:
-        print(f"❌ ERROR generating embedding with {provider}/{model}: {e}")
-        raise
+# ============================================================================
+# STORAGE-ONLY MODE: No embedding generation in wrapper
+# ============================================================================
+# Node backend generates ALL embeddings (documents and queries)
+# This service is a pure ChromaDB storage proxy
+print(f"✅ Storage-only mode: Node backend generates all embeddings")
 
 # Initialize FastAPI
 app = FastAPI(title="ChromaDB Wrapper Service", version="2.0.0")
@@ -128,6 +49,7 @@ class QueryRequest(BaseModel):
     query: str
     top_k: int = 3
     collection: Optional[str] = None  # Allow dynamic collection selection
+    query_embedding: List[float]  # REQUIRED: Pre-computed embedding from Node backend
 
 class CreateCollectionRequest(BaseModel):
     name: str
@@ -249,13 +171,6 @@ def create_collection(request: CreateCollectionRequest):
         provider = request.embedding_provider or EMBEDDING_PROVIDER
         model = request.embedding_model or embedding_config.get("model")
         
-        # Validate provider is configured
-        if provider not in ["openai", "gemini", "ollama"]:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Unsupported embedding provider: {provider}. Supported: openai, gemini, ollama"
-            )
-        
         # Automatically add embedding provider info to metadata
         collection_metadata = request.metadata or {}
         collection_metadata["embedding_provider"] = provider
@@ -329,56 +244,50 @@ def delete_collection(name: str):
 # Document management endpoints
 @app.post("/collections/{collection_name}/documents")
 def add_documents(collection_name: str, request: AddDocumentsRequest):
-    """Add documents to a collection"""
+    """Add documents to a collection with pre-computed embeddings"""
     try:
         collection = chroma_client.get_collection(name=collection_name)
         
         if not request.documents:
             raise HTTPException(status_code=400, detail="No documents provided")
         
-        # Determine which embedding provider/model to use
-        # Priority: API request > collection metadata > defaults from .env
-        collection_metadata = collection.metadata or {}
-        provider = (
-            request.embedding_provider or 
-            collection_metadata.get("embedding_provider") or 
-            EMBEDDING_PROVIDER
-        )
-        model = (
-            request.embedding_model or 
-            collection_metadata.get("embedding_model") or 
-            embedding_config.get("model")
-        )
-        
-        print(f"📝 Processing {len(request.documents)} documents for collection {collection_name}...")
-        print(f"   📐 Using embeddings: {provider}/{model}")
+        print(f"📝 Processing {len(request.documents)} documents for collection {collection_name} (pre-computed embeddings required)...")
         
         # Prepare data
         texts = []
         metadatas = []
         ids = []
         embeddings = []
+        dims = None
         
         # Process each document
         for i, doc in enumerate(request.documents):
             text = doc.get('text', '')
             if not text:
                 continue
-                
+            emb = doc.get('embedding')
+            if emb is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="All documents must include pre-computed embeddings"
+                )
+            if not isinstance(emb, list) or not all(isinstance(x, (int, float)) for x in emb):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Embedding must be an array of numbers"
+                )
+            if dims is None:
+                dims = len(emb)
+            elif len(emb) != dims:
+                raise HTTPException(
+                    status_code=400,
+                    detail="All embeddings in a single request must have the same dimensions"
+                )
+            
             texts.append(text)
-            
-            # Prepare metadata
-            doc_metadata = doc.get('metadata', {})
-            metadatas.append(doc_metadata)
-            
-            # Use provided ID or generate one
-            doc_id = doc.get('id') or f"doc_{uuid.uuid4()}"
-            ids.append(doc_id)
-            
-            # Generate embedding using collection's provider/model
-            print(f"  🔄 Generating embedding for document {i+1}/{len(request.documents)}...")
-            embedding = generate_embedding(text, provider=provider, model=model)
-            embeddings.append(embedding)
+            metadatas.append(doc.get('metadata', {}))
+            ids.append(doc.get('id') or f"doc_{uuid.uuid4()}")
+            embeddings.append(emb)
         
         if not texts:
             raise HTTPException(status_code=400, detail="No valid documents with text provided")
@@ -458,21 +367,18 @@ def query_db(request: QueryRequest):
                 detail=f"Collection '{collection_name}' not found"
             )
         
-        # Get embedding provider/model from collection metadata (or use defaults)
+        # Use pre-computed embedding from Node backend (REQUIRED)
+        print(f"   ✅ Using pre-computed query embedding from Node backend")
+        query_embedding = request.query_embedding
+        
+        # Get collection metadata for response
         collection_metadata = collection.metadata or {}
-        embedding_provider = collection_metadata.get("embedding_provider", EMBEDDING_PROVIDER)
-        embedding_model = collection_metadata.get("embedding_model", embedding_config.get("model"))
-        
-        print(f"   📐 Using embeddings: {embedding_provider}/{embedding_model}")
-        
-        # Convert user query to embedding using collection's provider/model
-        query_embedding = generate_embedding(request.query, provider=embedding_provider, model=embedding_model)
 
-        # Search ChromaDB with distances included
+        # Search ChromaDB with distances and documents included
         results = collection.query(
             query_embeddings=[query_embedding],
             n_results=request.top_k,
-            include=["metadatas", "distances"]
+            include=["metadatas", "distances", "documents"]
         )
 
         # Debugging: Print raw ChromaDB response
@@ -483,17 +389,18 @@ def query_db(request: QueryRequest):
             print("⚠️ No relevant results found in ChromaDB.")
             return {"results": [], "message": "No relevant data found."}
 
-        # ✅ Return metadata + distance for each result
+        # ✅ Return documents + metadata + distance for each result
         retrieved_results = []
-        for i, match in enumerate(results["metadatas"][0]):
-            distance = results["distances"][0][i]  # Get distance score
-
-            if match and "text" in match:
-                retrieved_results.append({
-                    "text": match["text"],
-                    "distance": distance,
-                    "metadata": match
-                })
+        documents = results.get("documents", [[]])[0]
+        metadatas = results.get("metadatas", [[]])[0]
+        distances = results.get("distances", [[]])[0]
+        
+        for i in range(len(metadatas)):
+            retrieved_results.append({
+                "text": documents[i] if i < len(documents) else "",
+                "distance": distances[i] if i < len(distances) else 1.0,
+                "metadata": metadatas[i] if i < len(metadatas) else {}
+            })
 
         return {
             "results": retrieved_results,

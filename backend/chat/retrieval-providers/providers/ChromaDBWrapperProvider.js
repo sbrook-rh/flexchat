@@ -371,11 +371,21 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
     }
     
     try {
+      // Promote embedding fields to top-level if present in metadata
+      const topLevel = {};
+      if (metadata && metadata.embedding_provider) {
+        topLevel.embedding_provider = metadata.embedding_provider;
+      }
+      if (metadata && metadata.embedding_model) {
+        topLevel.embedding_model = metadata.embedding_model;
+      }
+      
       const response = await axios.post(
         `${this.baseUrl}/collections`,
-        { 
+        {
           name: collectionName,
-          metadata 
+          ...topLevel,
+          metadata
         },
         {
           timeout: 10000,
@@ -469,13 +479,20 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
 
     try {
       const response = await this.withRetry(async () => {
+        const payload = {
+          query: text,
+          collection: collection,  // Dynamic collection support
+          top_k: options.top_k || this.defaultTopK
+        };
+        
+        // Include pre-computed query embedding if provided
+        if (options.query_embedding) {
+          payload.query_embedding = options.query_embedding;
+        }
+        
         return await axios.post(
           `${this.baseUrl}/query`,
-          {
-            query: text,  // Send text, wrapper handles embedding
-            collection: collection,  // Dynamic collection support
-            top_k: options.top_k || this.defaultTopK
-          },
+          payload,
           {
             timeout: options.timeout || this.timeout,
             headers: {
@@ -490,7 +507,10 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
       // Parse wrapper response
       const data = response.data;
       
+      console.log(`   🔍 Wrapper response for ${collection}:`, JSON.stringify(data).substring(0, 200));
+      
       if (!data || !data.results) {
+        console.log(`   ⚠️  No results field in wrapper response`);
         return { results: [], collectionMetadata: {} };
       }
 

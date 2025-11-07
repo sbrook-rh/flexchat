@@ -6,16 +6,19 @@
  * Does NOT make routing decisions - just collects data.
  */
 
+const { generateEmbeddings } = require('./embedding-generator');
+
 /**
  * Collect RAG results from selected collections
  * 
  * @param {string} topic - The detected topic (normalized) used for querying RAG
- * @param {Array<Object>} selectedCollections - Array of { service, name }
+ * @param {Array<Object>} selectedCollections - Array of { service, name, embedding_connection, embedding_model }
  * @param {Object} ragServicesConfig - RAG services configuration from config.rag_services
  * @param {Object} ragProviders - Map of initialized RAG provider instances
+ * @param {Object} config - Full application config (for embedding generation)
  * @returns {Promise<{ result: 'match' | 'partial' | 'none', data: Object | Array | null }>} Normalized envelope
  */
-async function collectRagResults(topic, selectedCollections, ragServicesConfig, ragProviders) {
+async function collectRagResults(topic, selectedCollections, ragServicesConfig, ragProviders, config) {
   console.log(`\n🔍 Collecting RAG results...`);
   
   const ragResults = [];
@@ -25,6 +28,9 @@ async function collectRagResults(topic, selectedCollections, ragServicesConfig, 
     console.log(`   ℹ️  No collections selected, skipping RAG queries`);
     return { result: 'none', data: null };
   }
+  
+  // Cache for query embeddings: Key = "connectionId:model", Value = embedding array
+  const embeddingCache = new Map();
   
   // Iterate through selected collections
   for (const collection of selectedCollections) {
@@ -46,11 +52,46 @@ async function collectRagResults(topic, selectedCollections, ragServicesConfig, 
     }
     
     try {
+      // Generate query embedding (with caching for same connection+model)
+      let queryEmbedding = null;
+      
+      if (collection.embedding_connection && collection.embedding_model) {
+        const embeddingKey = `${collection.embedding_connection}:${collection.embedding_model}`;
+        
+        // Check cache first
+        if (embeddingCache.has(embeddingKey)) {
+          console.log(`   ♻️  Reusing cached embedding for ${embeddingKey}`);
+          queryEmbedding = embeddingCache.get(embeddingKey);
+        } else {
+          // Generate new embedding
+          console.log(`   🔧 Generating query embedding for ${embeddingKey}`);
+          try {
+            const embeddings = await generateEmbeddings(
+              [topic],
+              collection.embedding_connection,
+              config,
+              collection.embedding_model
+            );
+            queryEmbedding = embeddings[0];
+            embeddingCache.set(embeddingKey, queryEmbedding);
+          } catch (error) {
+            console.error(`   ❌ Failed to generate embedding for ${embeddingKey}:`, error.message);
+            // Continue without embedding - will fail at wrapper level
+          }
+        }
+      } else {
+        console.warn(`   ⚠️  Collection ${collectionName} missing embedding connection info`);
+      }
+      
       // Query the collection
       const queryOptions = {
         collection: collectionName,
         top_k: 3  // TODO: make configurable
       };
+      
+      if (queryEmbedding) {
+        queryOptions.query_embedding = queryEmbedding;
+      }
       
       const response = await provider.query(topic, queryOptions);
       
@@ -101,7 +142,9 @@ async function collectRagResults(topic, selectedCollections, ragServicesConfig, 
         documents: results.map(r => ({
           text: r.text,
           title: r.metadata?.title,
-          source: r.metadata?.source
+          source: r.metadata?.source,
+          metadata: r.metadata,
+          collection: collectionName  // Add collection name to each document
         })),
         distance: minDistance,
         description
