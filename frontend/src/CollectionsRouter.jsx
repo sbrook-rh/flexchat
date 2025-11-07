@@ -15,38 +15,41 @@ function CollectionsRouter({ uiConfig, reloadConfig }) {
   const [searchParams] = useSearchParams();
   const wrapper = searchParams.get('wrapper');
   const navigate = useNavigate();
-  
+  const wrappers = uiConfig?.wrappers || [];
+  const hasNoServices = wrappers.length === 0;
+  const hasSingleService = wrappers.length === 1;
+  const singleServiceName = hasSingleService ? wrappers[0].name : null;
+  const shouldRedirectToSingle = !wrapper && hasSingleService;
+
+  // Perform redirect when exactly one service and no explicit wrapper is selected
+  useEffect(() => {
+    if (shouldRedirectToSingle && singleServiceName) {
+      navigate(`/collections?wrapper=${singleServiceName}`, { replace: true });
+    }
+  }, [shouldRedirectToSingle, singleServiceName, navigate]);
+
   // If wrapper specified, show collections for that service
   if (wrapper) {
     return <Collections uiConfig={uiConfig} reloadConfig={reloadConfig} />;
   }
-  
-  // Get RAG services from uiConfig (wrappers are the RAG services)
-  const wrappers = uiConfig?.wrappers || [];
-  
+
   // No services configured
-  if (wrappers.length === 0) {
+  if (hasNoServices) {
     return <NoServicesMessage />;
   }
-  
-  // Exactly one service - auto-redirect
-  if (wrappers.length === 1) {
-    const serviceName = wrappers[0].name;
-    
-    useEffect(() => {
-      navigate(`/collections?wrapper=${serviceName}`, { replace: true });
-    }, [navigate, serviceName]);
-    
+
+  // Exactly one service - show loading while redirect effect runs
+  if (hasSingleService) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading collections for {serviceName}...</p>
+          <p className="text-gray-600">Loading collections for {singleServiceName}...</p>
         </div>
       </div>
     );
   }
-  
+
   // Multiple services - show selector
   return <ServiceSelector wrappers={wrappers} uiConfig={uiConfig} />;
 }

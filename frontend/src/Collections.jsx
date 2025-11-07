@@ -10,6 +10,9 @@ function Collections({ uiConfig, reloadConfig }) {
   const [loading, setLoading] = useState(true);
   // eslint-disable-next-line no-unused-vars
   const [error, setError] = useState(null);
+  const [llms, setLlms] = useState({});
+  const [defaultEmbedding, setDefaultEmbedding] = useState(null);
+  const [embeddingModels, setEmbeddingModels] = useState([]);
   
   // New collection form
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -17,7 +20,9 @@ function Collections({ uiConfig, reloadConfig }) {
     displayName: '',
     description: '',
     match_threshold: 0.3,
-    partial_threshold: 0.5
+    partial_threshold: 0.5,
+    embedding_connection: '',
+    embedding_model: ''
   });
   const [collectionId, setCollectionId] = useState('');
   const [idError, setIdError] = useState('');
@@ -30,11 +35,15 @@ function Collections({ uiConfig, reloadConfig }) {
     partial_threshold: 0.5
   });
   
-  // Upload form
-  const [selectedCollection, setSelectedCollection] = useState('');
+  // Upload form (modal)
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadTargetCollection, setUploadTargetCollection] = useState(null);
   const [uploadText, setUploadText] = useState('');
   const [uploadFiles, setUploadFiles] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [resolvedConnection, setResolvedConnection] = useState(null);
+  const [connectionError, setConnectionError] = useState(null);
+  const [resolvingConnection, setResolvingConnection] = useState(false);
 
   // Populate from uiConfig on mount
   useEffect(() => {
@@ -44,6 +53,66 @@ function Collections({ uiConfig, reloadConfig }) {
       setLoading(false);
     }
   }, [uiConfig]);
+
+  // Load current config (to get available LLM connection IDs)
+  useEffect(() => {
+    fetch('/api/config/export')
+      .then(res => res.json())
+      .then(cfg => {
+        setLlms(cfg.llms || {});
+        setDefaultEmbedding(cfg.embedding || null);
+      })
+      .catch(() => setLlms({}));
+  }, []);
+
+  // Fetch embedding-capable models for a given connection
+  const fetchEmbeddingModelsForConnection = async (connectionId) => {
+    const conn = llms[connectionId];
+    if (!conn) {
+      setEmbeddingModels([]);
+      return;
+    }
+    try {
+      const res = await fetch('/api/connections/llm/discovery/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: conn.provider,
+          config: conn
+        })
+      });
+      const data = await res.json();
+      const models = Array.isArray(data.models) ? data.models : [];
+      const embeddingOnly = models.filter(m =>
+        m.type === 'embedding' || (m.capabilities || []).includes('embedding')
+      );
+      setEmbeddingModels(embeddingOnly);
+    } catch (e) {
+      console.error('Failed to fetch models:', e);
+      setEmbeddingModels([]);
+    }
+  };
+
+  // When opening the create modal, preselect defaults if available
+  useEffect(() => {
+    if (showCreateForm && defaultEmbedding && Object.keys(llms).includes(defaultEmbedding.llm)) {
+      // Preselect connection and fetch models
+      setNewCollection(prev => ({ ...prev, embedding_connection: defaultEmbedding.llm }));
+      fetchEmbeddingModelsForConnection(defaultEmbedding.llm);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showCreateForm]);
+
+  // When embedding models load, preselect default model if it's in the list
+  useEffect(() => {
+    if (showCreateForm && defaultEmbedding && newCollection.embedding_connection === defaultEmbedding.llm && embeddingModels.length > 0) {
+      const defaultModelInList = embeddingModels.some(m => m.id === defaultEmbedding.model);
+      if (defaultModelInList) {
+        setNewCollection(prev => ({ ...prev, embedding_model: defaultEmbedding.model }));
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [embeddingModels, showCreateForm]);
 
   // Generate a valid collection ID from display name
   const generateCollectionId = (displayName) => {
@@ -115,6 +184,14 @@ function Collections({ uiConfig, reloadConfig }) {
       alert('Please enter a collection name');
       return;
     }
+    if (!newCollection.embedding_connection) {
+      alert('Please select an embedding connection');
+      return;
+    }
+    if (!newCollection.embedding_model) {
+      alert('Please select an embedding model');
+      return;
+    }
     
     try {
       const response = await fetch('/api/collections', {
@@ -123,6 +200,8 @@ function Collections({ uiConfig, reloadConfig }) {
         body: JSON.stringify({
           name: collectionId,  // Use generated ID as the actual collection name
           service: currentWrapper,
+          embedding_connection: newCollection.embedding_connection,
+          embedding_model: newCollection.embedding_model,
           metadata: {
             display_name: newCollection.displayName,  // Store original display name
             description: newCollection.description,
@@ -145,7 +224,9 @@ function Collections({ uiConfig, reloadConfig }) {
         displayName: '',
         description: '',
         match_threshold: 0.3,
-        partial_threshold: 0.5
+        partial_threshold: 0.5,
+        embedding_connection: '',
+        embedding_model: ''
       });
       setCollectionId('');
       setIdError('');
@@ -166,12 +247,20 @@ function Collections({ uiConfig, reloadConfig }) {
     }
     
     try {
+      // Get existing collection metadata to preserve embedding fields
+      const existingCollection = collections.find(c => c.name === editingCollection);
+      const existingMetadata = existingCollection?.metadata || {};
+      
+      // Remove hnsw:space - ChromaDB doesn't allow changing it after creation
+      const { 'hnsw:space': _, ...preservedMetadata } = existingMetadata;
+      
       const response = await fetch(`/api/collections/${editingCollection}/metadata`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           service: currentWrapper,
           metadata: {
+            ...preservedMetadata,  // Preserve all existing metadata except hnsw:space
             description: editForm.description,
             match_threshold: parseFloat(editForm.match_threshold),
             partial_threshold: parseFloat(editForm.partial_threshold),
@@ -243,11 +332,101 @@ function Collections({ uiConfig, reloadConfig }) {
     }
   };
 
+  const openUploadModal = async (collection) => {
+    setUploadTargetCollection(collection);
+    setShowUploadModal(true);
+    setUploadText('');
+    setUploadFiles([]);
+    setResolvedConnection(null);
+    setConnectionError(null);
+    setResolvingConnection(true);
+
+    // Try to resolve a compatible connection
+    await resolveCompatibleConnection(collection);
+  };
+
+  const closeUploadModal = () => {
+    setShowUploadModal(false);
+    setUploadTargetCollection(null);
+    setUploadText('');
+    setUploadFiles([]);
+    setResolvedConnection(null);
+    setConnectionError(null);
+    setResolvingConnection(false);
+  };
+
+  const resolveCompatibleConnection = async (collection) => {
+    try {
+      const meta = collection.metadata;
+      if (!meta || !meta.embedding_provider || !meta.embedding_model) {
+        setConnectionError('Collection is missing embedding metadata.');
+        setResolvingConnection(false);
+        return;
+      }
+
+      // Step 1: Try to match by embedding_connection_id
+      if (meta.embedding_connection_id && llms[meta.embedding_connection_id]) {
+        setResolvedConnection(meta.embedding_connection_id);
+        setResolvingConnection(false);
+        return;
+      }
+
+      // Step 2: Search all LLM connections by discovering models
+      const requiredProvider = meta.embedding_provider;
+      const requiredModel = meta.embedding_model;
+
+      for (const [connectionId, connectionConfig] of Object.entries(llms)) {
+        if (connectionConfig.provider !== requiredProvider) continue;
+
+        // Discover models for this connection
+        try {
+          const res = await fetch('/api/connections/llm/discovery/models', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider: connectionConfig.provider,
+              config: connectionConfig
+            })
+          });
+          const data = await res.json();
+          const models = Array.isArray(data.models) ? data.models : [];
+          const embeddingModels = models.filter(m =>
+            m.type === 'embedding' || (m.capabilities || []).includes('embedding')
+          );
+
+          // Check if required model is in the list (exact match only)
+          if (embeddingModels.some(m => m.id === requiredModel)) {
+            setResolvedConnection(connectionId);
+            setResolvingConnection(false);
+            return;
+          }
+        } catch (err) {
+          console.warn(`Failed to discover models for ${connectionId}:`, err);
+        }
+      }
+
+      // Step 3: No match found
+      setConnectionError(
+        `No configured LLM connection supports ${requiredProvider}/${requiredModel}. ` +
+        `Please configure an ${requiredProvider} connection with this model.`
+      );
+      setResolvingConnection(false);
+    } catch (err) {
+      setConnectionError(`Error resolving connection: ${err.message}`);
+      setResolvingConnection(false);
+    }
+  };
+
   const uploadDocuments = async (e) => {
     e.preventDefault();
     
-    if (!selectedCollection) {
-      alert('Please select a collection');
+    if (!uploadTargetCollection) {
+      alert('No collection selected');
+      return;
+    }
+
+    if (!resolvedConnection) {
+      alert('No compatible embedding connection found. Please check the error message.');
       return;
     }
     
@@ -352,12 +531,14 @@ function Collections({ uiConfig, reloadConfig }) {
     
     try {
       setUploading(true);
-      const response = await fetch(`/api/collections/${selectedCollection}/documents`, {
+      const response = await fetch(`/api/collections/${uploadTargetCollection.name}/documents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           documents,
-          service: currentWrapper
+          service: uploadTargetCollection.service,
+          embedding_connection: resolvedConnection,
+          embedding_model: uploadTargetCollection.metadata?.embedding_model
         })
       });
       
@@ -367,14 +548,10 @@ function Collections({ uiConfig, reloadConfig }) {
       }
       
       const result = await response.json();
-      alert(`Successfully uploaded ${result.count} document(s) to "${selectedCollection}"`);
+      alert(`Successfully uploaded ${result.count} document(s) to "${uploadTargetCollection.metadata?.display_name || uploadTargetCollection.name}"`);
       
-      // Reset form
-      setUploadText('');
-      setUploadFiles([]);
-      setSelectedCollection('');
-      
-      // Reload to update counts
+      // Close modal and reload
+      closeUploadModal();
       reloadConfig();
     } catch (err) {
       alert('Error uploading documents: ' + err.message);
@@ -530,10 +707,7 @@ function Collections({ uiConfig, reloadConfig }) {
                           Edit
                         </button>
                         <button
-                          onClick={() => {
-                            setSelectedCollection(collection.name);
-                            window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
-                          }}
+                          onClick={() => openUploadModal(collection)}
                           className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
                         >
                           Upload Docs
@@ -555,14 +729,15 @@ function Collections({ uiConfig, reloadConfig }) {
           </div>
         </div>
 
-        {/* Create Collection Form */}
+        {/* Create Collection Modal */}
         {showCreateForm && (
-          <div className="bg-white rounded-lg shadow mb-8">
-            <div className="p-6 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Create New Collection</h2>
-            </div>
-            
-            <form onSubmit={createCollection} className="p-6 space-y-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <form onSubmit={createCollection} className="bg-white rounded-lg shadow w-full max-w-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Create New Collection</h2>
+                <button type="button" onClick={() => setShowCreateForm(false)} className="text-gray-500 hover:text-gray-800">✕</button>
+              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Collection Name *
@@ -614,6 +789,49 @@ function Collections({ uiConfig, reloadConfig }) {
                 <p className="text-xs text-gray-500 mt-1">Used by the AI to decide if this collection should be consulted</p>
               </div>
 
+              {/* Advanced: Embedding preset */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="mb-2">
+                  <h3 className="text-sm font-semibold text-gray-900">Embedding Preset</h3>
+                  <p className="text-xs text-gray-600">Choose which LLM connection to use for embeddings.</p>
+                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Embedding Connection *
+                </label>
+                <select
+                  value={newCollection.embedding_connection || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setNewCollection({ ...newCollection, embedding_connection: val, embedding_model: '' });
+                    if (val) fetchEmbeddingModelsForConnection(val);
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select connection...</option>
+                  {Object.keys(llms).map((id) => (
+                    <option key={id} value={id}>{id} ({llms[id].provider})</option>
+                  ))}
+                </select>
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Embedding Model *
+                  </label>
+                  <select
+                    value={newCollection.embedding_model || (defaultEmbedding && defaultEmbedding.llm === newCollection.embedding_connection ? defaultEmbedding.model : '')}
+                    onChange={(e) => setNewCollection({ ...newCollection, embedding_model: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                    disabled={!newCollection.embedding_connection}
+                  >
+                    <option value="">Select a model...</option>
+                    {embeddingModels.map(m => (
+                      <option key={m.id} value={m.id}>{m.name || m.id}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -648,30 +866,28 @@ function Collections({ uiConfig, reloadConfig }) {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-              >
-                Create Collection
-              </button>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setShowCreateForm(false)} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Create Collection
+                </button>
+              </div>
             </form>
           </div>
         )}
 
-        {/* Edit Collection Form */}
+        {/* Edit Collection Modal */}
         {editingCollection && (
-          <div className="bg-white rounded-lg shadow mb-8">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-900">Edit Collection: {editingCollection}</h2>
-              <button
-                onClick={cancelEditing}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 transition"
-              >
-                Cancel
-              </button>
-            </div>
-            
-            <form onSubmit={updateCollection} className="p-6 space-y-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <form onSubmit={updateCollection} className="bg-white rounded-lg shadow w-full max-w-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">Edit Collection: {editingCollection}</h2>
+                <button type="button" onClick={cancelEditing} className="text-gray-500 hover:text-gray-800">✕</button>
+              </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Collection Name
@@ -698,6 +914,37 @@ function Collections({ uiConfig, reloadConfig }) {
                 />
                 <p className="text-xs text-gray-500 mt-1">Used by the AI to decide if this collection should be consulted</p>
               </div>
+
+              {/* Advanced: Embedding (read-only) */}
+              {(() => {
+                const meta = (collections.find(c => c.name === editingCollection) || {}).metadata || {};
+                return (
+                  <div className="border border-gray-200 rounded-lg p-4">
+                    <div className="mb-2">
+                      <h3 className="text-sm font-semibold text-gray-900">Embedding</h3>
+                      <p className="text-xs text-gray-600">Embedding settings are fixed for this collection.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Provider</label>
+                        <input type="text" value={meta.embedding_provider || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Model</label>
+                        <input type="text" value={meta.embedding_model || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Dimensions</label>
+                        <input type="text" value={meta.embedding_dimensions ?? '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Connection ID</label>
+                        <input type="text" value={meta.embedding_connection_id || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -733,81 +980,94 @@ function Collections({ uiConfig, reloadConfig }) {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-              >
-                Save Changes
-              </button>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={cancelEditing} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Save Changes
+                </button>
+              </div>
             </form>
           </div>
         )}
 
-        {/* Upload Documents */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b border-gray-200">
-            <h2 className="text-xl font-semibold text-gray-900">Upload Documents</h2>
+        {/* Upload Documents Modal */}
+        {showUploadModal && uploadTargetCollection && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <form onSubmit={uploadDocuments} className="bg-white rounded-lg shadow w-full max-w-2xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Upload Documents to "{uploadTargetCollection.metadata?.display_name || uploadTargetCollection.name}"
+                </h2>
+                <button type="button" onClick={closeUploadModal} className="text-gray-500 hover:text-gray-800">✕</button>
+              </div>
+
+              {/* Connection Resolution Status */}
+              {resolvingConnection ? (
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-sm text-gray-600">🔍 Resolving compatible embedding connection...</p>
+                </div>
+              ) : connectionError ? (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-800"><strong>⚠️ Connection Error:</strong></p>
+                  <p className="text-sm text-red-700 mt-1">{connectionError}</p>
+                </div>
+              ) : resolvedConnection ? (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <p className="text-sm text-green-800">
+                    <strong>✓ Embedding Connection:</strong> {resolvedConnection}
+                  </p>
+                  <p className="text-xs text-green-700 mt-1">
+                    Using model: {uploadTargetCollection.metadata?.embedding_provider}/{uploadTargetCollection.metadata?.embedding_model}
+                  </p>
+                </div>
+              ) : null}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Upload Files
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  accept=".txt,.md,.json"
+                  onChange={handleFileChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Supported: .txt, .md, .json
+                  {uploadFiles.length > 0 && ` (${uploadFiles.length} file(s) selected)`}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Or Paste Text
+                </label>
+                <textarea
+                  value={uploadText}
+                  onChange={(e) => setUploadText(e.target.value)}
+                  placeholder="Paste document text here..."
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={closeUploadModal} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
+                <button
+                  type="submit"
+                  disabled={uploading || !resolvedConnection || resolvingConnection}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {uploading ? 'Uploading...' : resolvingConnection ? 'Resolving...' : 'Upload Documents'}
+                </button>
+              </div>
+            </form>
           </div>
-          
-          <form onSubmit={uploadDocuments} className="p-6 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Select Collection *
-              </label>
-              <select
-                value={selectedCollection}
-                onChange={(e) => setSelectedCollection(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                required
-              >
-                <option value="">Choose a collection...</option>
-                {displayCollections.map((c) => (
-                  <option key={c.name} value={c.name}>
-                    {c.name} ({c.count} docs)
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Upload Files
-              </label>
-              <input
-                type="file"
-                multiple
-                accept=".txt,.md,.json"
-                onChange={handleFileChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Supported: .txt, .md, .json
-                {uploadFiles.length > 0 && ` (${uploadFiles.length} file(s) selected)`}
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Or Paste Text
-              </label>
-              <textarea
-                value={uploadText}
-                onChange={(e) => setUploadText(e.target.value)}
-                placeholder="Paste document text here..."
-                rows={8}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={uploading}
-              className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {uploading ? 'Uploading...' : 'Upload to Collection'}
-            </button>
-          </form>
-        </div>
+        )}
       </div>
     </div>
   );

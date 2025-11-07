@@ -87,6 +87,7 @@ const ChatView = ({ uiConfig }) => {
   const [collections, setCollections] = useState([]);
   const [wrappers, setWrappers] = useState([]);
   const [selectedCollections, setSelectedCollections] = useState(new Set());
+  const [llmConfig, setLlmConfig] = useState({});
 
   const [availableModels, setAvailableModels] = useState({});
   const [selectedModels, setSelectedModels] = useState({});
@@ -132,8 +133,10 @@ const ChatView = ({ uiConfig }) => {
     if (uiConfig) {
       const cols = uiConfig.collections || [];
       const wraps = uiConfig.wrappers || [];
+      const llms = uiConfig.llms || {};
       setCollections(cols);
       setWrappers(wraps);
+      setLlmConfig(llms);
 
       if (cols.length > 0) {
         setSelectedCollections(new Set(cols.map(c => `${c.service}:${c.name}`)));
@@ -160,6 +163,58 @@ const ChatView = ({ uiConfig }) => {
     }
   }, [uiConfig]);
 
+  // Resolve embedding connection for a collection
+  const resolveEmbeddingConnection = async (collection) => {
+    const meta = collection.metadata;
+    if (!meta || !meta.embedding_provider || !meta.embedding_model) {
+      throw new Error(`Collection ${collection.name} is missing embedding metadata`);
+    }
+
+    // Step 1: Try exact embedding_connection_id match
+    if (meta.embedding_connection_id && llmConfig[meta.embedding_connection_id]) {
+      return {
+        embedding_connection: meta.embedding_connection_id,
+        embedding_model: meta.embedding_model
+      };
+    }
+
+    // Step 2: Search all LLM connections by discovering models
+    const requiredProvider = meta.embedding_provider;
+    const requiredModel = meta.embedding_model;
+
+    for (const [connectionId, connectionConfig] of Object.entries(llmConfig)) {
+      if (connectionConfig.provider !== requiredProvider) continue;
+
+      try {
+        const res = await fetch('/api/connections/llm/discovery/models', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            provider: connectionConfig.provider,
+            config: connectionConfig
+          })
+        });
+        const data = await res.json();
+        const models = Array.isArray(data.models) ? data.models : [];
+        const embeddingModels = models.filter(m =>
+          m.type === 'embedding' || (m.capabilities || []).includes('embedding')
+        );
+
+        // Check if required model is in the list (exact match only)
+        if (embeddingModels.some(m => m.id === requiredModel)) {
+          return {
+            embedding_connection: connectionId,
+            embedding_model: requiredModel
+          };
+        }
+      } catch (err) {
+        console.warn(`Failed to discover models for ${connectionId}:`, err);
+      }
+    }
+
+    throw new Error(`No compatible connection found for ${requiredProvider}/${requiredModel}`);
+  };
+
   const handleSend = async (retryCount = 0) => {
     if (!input.trim()) return;
     const inputText = input.trim();
@@ -169,10 +224,39 @@ const ChatView = ({ uiConfig }) => {
     setRetryTracker(retryCount);
 
     try {
-      const selectedCollectionsArray = Array.from(selectedCollections).map(key => {
-        const [service, name] = key.split(':');
-        return { service, name };
-      });
+      // Resolve embedding connections for selected collections
+      console.log('🔧 Resolving embedding connections for collections...', { collections, llmConfig });
+      const selectedCollectionsArray = await Promise.all(
+        Array.from(selectedCollections).map(async key => {
+          const [service, name] = key.split(':');
+          const collection = collections.find(c => c.service === service && c.name === name);
+          
+          if (!collection) {
+            console.warn(`Collection not found: ${service}/${name}`);
+            return { service, name };
+          }
+
+          console.log(`🔍 Resolving embedding for ${service}/${name}...`, collection.metadata);
+
+          try {
+            const embeddingInfo = await resolveEmbeddingConnection(collection);
+            console.log(`✅ Resolved: ${service}/${name} → ${embeddingInfo.embedding_connection}/${embeddingInfo.embedding_model}`);
+            return {
+              service,
+              name,
+              embedding_connection: embeddingInfo.embedding_connection,
+              embedding_model: embeddingInfo.embedding_model
+            };
+          } catch (err) {
+            console.error(`❌ Failed to resolve embedding for ${service}/${name}:`, err);
+            // Return without embedding info - backend will handle error
+            return { service, name };
+          }
+        })
+      );
+
+      console.log('📤 Sending payload with collections:', selectedCollectionsArray);
+
       const payload = { prompt: inputText, previousMessages, retryCount, selectedCollections: selectedCollectionsArray, selectedModels, topic };
       const response = await fetch(chatApiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await response.json();
