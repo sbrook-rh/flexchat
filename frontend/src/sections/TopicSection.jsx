@@ -109,7 +109,14 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fe
   // Helper to detect if model name suggests it's small/fast
   const isSmallModel = (modelName) => {
     const name = modelName.toLowerCase();
-    return name.includes('1.5b') || name.includes('3b') || name.includes('mini');
+    // Match models with <= 3B parameters (e.g., 0.5b, 1b, 1.5b, 3b)
+    const paramMatch = name.match(/(\d+\.?\d*)b/);
+    if (paramMatch) {
+      const params = parseFloat(paramMatch[1]);
+      if (params <= 3) return true;
+    }
+    // Also catch common "mini" models
+    return name.includes('mini');
   };
 
   if (!workingConfig) {
