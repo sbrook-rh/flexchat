@@ -68,15 +68,16 @@ function createChatRouter(getConfig, getProviders) {
 
       // Phase 1: Topic detection
       const topicLLMConfig = resolveTopicLLMConfig(config);
-      const topic = await identifyTopic(userMessage, previousMessages, currentTopic, topicLLMConfig, aiProviders);
-      // const { topic, status } = await identifyTopic(...); // future enhancement
-      // if (status === 'new_topic') clearRagCache();
+      const { topic, status } = await identifyTopic(userMessage, previousMessages, currentTopic, topicLLMConfig, aiProviders);
+      // Future: if (status === 'new_topic') clearRagCache();
 
       const normalizedTopic = topic.replace(/\s+/g, ' ').trim().toLowerCase();
 
       // Phase 2: RAG collection
       const rag = await collectRagResults(
+        userMessage,
         normalizedTopic,
+        currentTopic,
         selectedCollections,
         config.rag_services || {},
         ragProviders,

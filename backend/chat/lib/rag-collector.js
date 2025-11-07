@@ -11,14 +11,16 @@ const { generateEmbeddings } = require('./embedding-generator');
 /**
  * Collect RAG results from selected collections
  * 
- * @param {string} topic - The detected topic (normalized) used for querying RAG
+ * @param {string} userMessage - The original user message
+ * @param {string} topic - The detected topic (normalized, with accumulated context)
+ * @param {string} currentTopic - The previous topic (empty string if first message)
  * @param {Array<Object>} selectedCollections - Array of { service, name, embedding_connection, embedding_model }
  * @param {Object} ragServicesConfig - RAG services configuration from config.rag_services
  * @param {Object} ragProviders - Map of initialized RAG provider instances
  * @param {Object} config - Full application config (for embedding generation)
  * @returns {Promise<{ result: 'match' | 'partial' | 'none', data: Object | Array | null }>} Normalized envelope
  */
-async function collectRagResults(topic, selectedCollections, ragServicesConfig, ragProviders, config) {
+async function collectRagResults(userMessage, topic, currentTopic, selectedCollections, ragServicesConfig, ragProviders, config) {
   console.log(`\n🔍 Collecting RAG results...`);
   
   const ragResults = [];
@@ -28,6 +30,11 @@ async function collectRagResults(topic, selectedCollections, ragServicesConfig, 
     console.log(`   ℹ️  No collections selected, skipping RAG queries`);
     return { result: 'none', data: null };
   }
+  
+  // Choose query text: Use userMessage for first message (no context yet), topic for follow-ups
+  const queryText = (!currentTopic || currentTopic.trim() === '') ? userMessage : topic;
+  console.log(`   🔍 Query strategy: ${!currentTopic || currentTopic.trim() === '' ? 'first message (raw query)' : 'follow-up (contextualized topic)'}`);
+  console.log(`   📝 Query text: "${queryText}"`);
   
   // Cache for query embeddings: Key = "connectionId:model", Value = embedding array
   const embeddingCache = new Map();
@@ -67,7 +74,7 @@ async function collectRagResults(topic, selectedCollections, ragServicesConfig, 
           console.log(`   🔧 Generating query embedding for ${embeddingKey}`);
           try {
             const embeddings = await generateEmbeddings(
-              [topic],
+              [queryText],
               collection.embedding_connection,
               config,
               collection.embedding_model
@@ -93,7 +100,7 @@ async function collectRagResults(topic, selectedCollections, ragServicesConfig, 
         queryOptions.query_embedding = queryEmbedding;
       }
       
-      const response = await provider.query(topic, queryOptions);
+      const response = await provider.query(queryText, queryOptions);
       
       if (!response || !response.results || response.results.length === 0) {
         console.log(`   📭 No results from ${serviceName}/${collectionName}`);
