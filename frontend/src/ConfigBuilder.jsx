@@ -431,6 +431,12 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     setValidationState('dirty');
   };
 
+  // Handler for intent detection configuration updates
+  const handleIntentUpdate = (updatedConfig) => {
+    setWorkingConfig(updatedConfig);
+    setValidationState('dirty');
+  };
+
   // Phase 2.5: Render section for active tab
   const renderActiveSection = () => {
     switch (activeTab) {
@@ -473,7 +479,15 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
           />
         );
       case 'intent':
-        return <IntentSection />;
+        return (
+          <IntentSection
+            workingConfig={workingConfig}
+            onUpdate={handleIntentUpdate}
+            modelsCache={modelsCache}
+            setModelsCache={setModelsCache}
+            fetchModelsForProvider={fetchModelsForProvider}
+          />
+        );
       case 'handlers':
         return <HandlersSection workingConfig={workingConfig} />;
       case 'reasoning':
