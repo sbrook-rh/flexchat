@@ -3,6 +3,7 @@ const router = express.Router();
 const ProviderDiscovery = require('../ai-providers/discovery');
 const { ConnectionTester, EnvVarManager } = require('../ai-providers/services');
 const { normalizeConnectionPayload } = require('../lib/connection-payload');
+const { identifyTopic } = require('../lib/topic-detector');
 
 /**
  * GET /api/connections/providers
@@ -453,6 +454,124 @@ Reply with one category name only.`;
     console.error('Error testing intent detection:', error);
     res.status(500).json({
       error: 'Intent detection test failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Test topic detection with conversation evolution
+ * POST /api/connections/topic/test
+ * 
+ * Body: {
+ *   provider_config: { provider, baseUrl, apiKey, ... },
+ *   model: string,
+ *   messages: [{ type: 'user'|'bot', text: string }]  // Full conversation history
+ * }
+ * 
+ * Returns: {
+ *   evolution: [{
+ *     messageIndex: number,
+ *     userMessage: string,
+ *     detectedTopic: string,
+ *     topicStatus: 'continuation'|'new_topic'
+ *   }],
+ *   provider: string,
+ *   model: string
+ * }
+ */
+router.post('/topic/test', async (req, res) => {
+  try {
+    const { provider_config, model, messages } = req.body;
+
+    // Validation
+    if (!provider_config || !model) {
+      return res.status(400).json({
+        error: 'Missing required fields: provider_config, model'
+      });
+    }
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({
+        error: 'messages must be a non-empty array'
+      });
+    }
+
+    console.log(`🧪 Testing topic detection evolution`);
+    console.log(`   Provider/Model: ${provider_config.provider} / ${model}`);
+    console.log(`   Message count: ${messages.length}`);
+
+    // Normalize and create temporary provider instance
+    const normalizedPayload = {
+      body: {
+        provider: provider_config.provider,
+        config: provider_config
+      }
+    };
+
+    const { provider, processedConfig } = normalizeConnectionPayload(normalizedPayload, 'llm');
+    const ProviderClass = loadProviderClass('llm', provider);
+    const tempProvider = new ProviderClass(processedConfig);
+
+    // Create mock aiProviders map with temporary provider
+    const mockProviders = {
+      [provider]: tempProvider
+    };
+
+    // Create llmConfig for identifyTopic
+    const llmConfig = {
+      llm: provider,
+      model: model
+    };
+
+    // Process messages incrementally to show topic evolution
+    const evolution = [];
+    let currentTopic = '';
+
+    for (let i = 0; i < messages.length; i++) {
+      const msg = messages[i];
+      
+      // Only process user messages for topic detection
+      if (msg.type !== 'user') continue;
+
+      // Build history up to this point
+      const previousMessages = messages.slice(0, i);
+      
+      // Use the actual identifyTopic function (same as production)
+      const { topic, status } = await identifyTopic(
+        msg.text,
+        previousMessages,
+        currentTopic,
+        llmConfig,
+        mockProviders
+      );
+
+      // Update current topic
+      currentTopic = topic;
+
+      // Record evolution step
+      evolution.push({
+        messageIndex: i,
+        userMessage: msg.text.length > 100 ? msg.text.slice(0, 100) + '...' : msg.text,
+        detectedTopic: topic,
+        topicStatus: status
+      });
+
+      console.log(`   [${i}] ${status}: "${topic}"`);
+    }
+
+    res.json({
+      evolution,
+      provider,
+      model,
+      messageCount: messages.length,
+      userMessageCount: messages.filter(m => m.type === 'user').length
+    });
+
+  } catch (error) {
+    console.error('Error testing topic detection:', error);
+    res.status(500).json({
+      error: 'Topic detection test failed',
       message: error.message
     });
   }

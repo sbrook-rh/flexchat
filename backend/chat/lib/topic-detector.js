@@ -12,7 +12,7 @@
  * @param {string} currentTopic - Previously detected topic summary.
  * @param {Object} llmConfig - LLM configuration object with { llm, model } properties.
  * @param {Object} aiProviders - Map of AI provider instances.
- * @returns {Promise<string>} Updated topic summary.
+ * @returns {Promise<{topic: string, status: string}>} Object with topic summary and status ('continuation' | 'new_topic')
  */
 async function identifyTopic(userMessage, previousMessages, currentTopic, llmConfig, aiProviders) {
   console.log(`\n🔎 Topic Detection: Identifying conversation topic...`);
@@ -24,7 +24,7 @@ async function identifyTopic(userMessage, previousMessages, currentTopic, llmCon
 
   if (!provider) {
     console.warn(`⚠️ No AI provider found (${providerName}), using userMessage as fallback`);
-    return userMessage;
+    return { topic: userMessage, status: 'new_topic' };
   }
 
   // ---- Build context -------------------------------------------------------
@@ -64,10 +64,9 @@ You are a topic-detection assistant.
 Your job:
 - Identify the main topic of the conversation based on recent exchanges.
 - The latest message may continue the same topic, ask a related follow-up, or change to a new subject.
-- If it’s related, slightly refine the topic; if it’s new, describe the new topic clearly.
+- If it's related, slightly refine the topic; if it's new, describe the new topic clearly.
 - If the current topic is none, and the Recent conversation is blank infer a clear starting topic from the latest message.
-- If the user’s new question is still about the same general domain or goal, treat it as a continuation with a broadened topic summary
-- Keep the topic summary concise and domain-level (≤10 words). Merge refinements conceptually rather than additively.
+- If the user's new question is still about the same general domain or goal, treat it as a continuation with a broadened topic summary
 
 Current known topic: "${currentTopic || "none"}"
 
@@ -77,12 +76,15 @@ ${conversationContext}
 Latest user message:
 "${userMessage}"
 
-Reply in strict JSON:
+Reply ONLY with valid JSON. Use short noun phrases (3-8 words max), not full sentences:
 {
   "topic_status": "continuation" | "new_topic",
-  "topic_summary": "<short updated topic summary>"
+  "topic_summary": "short topic phrase here"
 }
-  `.trim();
+
+Example good summaries: "InstructLab model tuning", "OpenShift AI integration", "Recipe for tofu dinner"
+Example bad summaries: "Begin discussion about...", "Provide a high-level overview of..."
+`.trim();
 
   // console.log(`🧾 Topic detection prompt:\n${prompt}\n`);
 
@@ -97,18 +99,39 @@ Reply in strict JSON:
 
     const raw = response.content.trim();
     const match = raw.match(/\{[\s\S]*\}/); // extract JSON if wrapped in text
-    const parsed = match ? JSON.parse(match[0]) : { topic_status: "continuation", topic_summary: raw };
+    
+    let parsed;
+    try {
+      parsed = match ? JSON.parse(match[0]) : { topic_status: "continuation", topic_summary: raw };
+    } catch (parseErr) {
+      // JSON parsing failed, treat entire response as topic
+      console.warn(`⚠️ Failed to parse JSON response, using raw content as topic`);
+      parsed = { topic_status: "continuation", topic_summary: raw };
+    }
 
+    // Fallback for invalid/generic topics
     if (!parsed.topic_summary || /^(none|general|conversation)$/i.test(parsed.topic_summary)) {
       parsed.topic_summary = currentTopic || userMessage.slice(0, 40);
     }
+    
+    // First message is always a new topic
+    if (!currentTopic || currentTopic.trim() === '') {
+      parsed.topic_status = 'new_topic';
+    }
+    
     console.log(`✅ Topic: "${parsed.topic_summary}" (${parsed.topic_status})`);
 
-    return parsed.topic_summary;
+    return {
+      topic: parsed.topic_summary,
+      status: parsed.topic_status
+    };
 
   } catch (err) {
     console.error(`❌ Topic detection failed: ${err.message}`);
-    return userMessage; // fallback
+    return {
+      topic: userMessage,
+      status: 'new_topic'
+    };
   }
 }
 

@@ -9,6 +9,13 @@ import ConfigSection from '../ConfigSection';
 function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fetchModelsForProvider }) {
   const [availableModels, setAvailableModels] = useState([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  
+  // Topic tester state
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [conversations, setConversations] = useState([]);
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   const llmProviders = Object.keys(workingConfig?.llms || {});
   const currentProvider = workingConfig?.topic?.provider?.llm || '';
@@ -119,6 +126,82 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fe
     return name.includes('mini');
   };
 
+  const handleOpenTestModal = () => {
+    if (!validProvider || !currentModel) {
+      alert('Please configure a topic detection provider and model first.');
+      return;
+    }
+
+    // Load conversations from localStorage
+    try {
+      const stored = localStorage.getItem('chatSessions_v2');
+      if (stored) {
+        const data = JSON.parse(stored);
+        const nonEmptySessions = (data.sessions || [])
+          .filter(s => !s.archived && s.messages && s.messages.length > 0)
+          .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt)); // Most recent first
+        setConversations(nonEmptySessions);
+        if (nonEmptySessions.length > 0) {
+          setSelectedConversation(nonEmptySessions[0].id);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading conversations:', error);
+      setConversations([]);
+    }
+
+    setShowTestModal(true);
+    setTestResult(null);
+  };
+
+  const handleCloseTestModal = () => {
+    setShowTestModal(false);
+    setSelectedConversation(null);
+    setTestResult(null);
+  };
+
+  const handleTestTopicEvolution = async () => {
+    if (!selectedConversation) return;
+
+    setTesting(true);
+    setTestResult(null);
+
+    try {
+      const session = conversations.find(c => c.id === selectedConversation);
+      if (!session || !session.messages || session.messages.length === 0) {
+        throw new Error('No messages in selected conversation');
+      }
+
+      const providerConfig = workingConfig.llms[validProvider];
+      if (!providerConfig) {
+        throw new Error(`Provider ${validProvider} not found in working config`);
+      }
+
+      const response = await fetch('/api/connections/topic/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider_config: providerConfig,
+          model: currentModel,
+          messages: session.messages
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Topic testing failed');
+      }
+
+      const result = await response.json();
+      setTestResult(result);
+    } catch (error) {
+      console.error('Error testing topic evolution:', error);
+      setTestResult({ error: error.message });
+    } finally {
+      setTesting(false);
+    }
+  };
+
   if (!workingConfig) {
     return null;
   }
@@ -221,6 +304,18 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fe
           )}
         </div>
 
+        {/* Topic Tester */}
+        {validProvider && currentModel && (
+          <div className="flex justify-end">
+            <button
+              onClick={handleOpenTestModal}
+              className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+            >
+              Test
+            </button>
+          </div>
+        )}
+
         {/* Tip */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex gap-3">
@@ -241,6 +336,157 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fe
           </div>
         )}
       </div>
+
+      {/* Test Topic Evolution Modal */}
+      {showTestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b px-6 py-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-semibold">Test Topic Detection</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Using <span className="font-medium">{validProvider}</span> / <span className="font-medium">{currentModel}</span>
+                  </p>
+                </div>
+                <button
+                  onClick={handleCloseTestModal}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none ml-4"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Info Tip */}
+              <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                <p className="text-xs text-blue-800">
+                  <strong>Tip:</strong> Select a saved conversation to see how the topic evolves throughout the chat.
+                  The system processes each user message incrementally, showing how topics change or continue.
+                </p>
+              </div>
+
+              {/* Conversation Selector */}
+              {conversations.length > 0 ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Conversation
+                  </label>
+                  <select
+                    value={selectedConversation || ''}
+                    onChange={(e) => setSelectedConversation(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {conversations.map((conv) => (
+                      <option key={conv.id} value={conv.id}>
+                        {conv.title} ({conv.metadata?.messageCount || conv.messages.length} messages)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-4">
+                  <p className="text-sm text-yellow-800">
+                    No saved conversations found. Start a chat to create conversation history.
+                  </p>
+                </div>
+              )}
+
+              {/* Test Button */}
+              {conversations.length > 0 && (
+                <button
+                  onClick={handleTestTopicEvolution}
+                  disabled={testing || !selectedConversation}
+                  className="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium"
+                >
+                  {testing ? 'Analyzing...' : 'Analyze Topic Evolution'}
+                </button>
+              )}
+
+              {/* Test Results */}
+              {testResult && (
+                <div className="border rounded p-4">
+                  {testResult.error ? (
+                    <div className="text-red-600">
+                      <strong>Error:</strong> {testResult.error}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Summary */}
+                      <div className="bg-gray-50 border rounded p-3">
+                        <div className="text-sm font-medium text-gray-700">Analysis Summary</div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {testResult.userMessageCount} user message(s) analyzed
+                        </div>
+                      </div>
+
+                      {/* Topic Evolution Timeline */}
+                      <div>
+                        <div className="text-sm font-medium text-gray-700 mb-3">Topic Evolution:</div>
+                        <div className="space-y-2">
+                          {testResult.evolution.map((step, idx) => {
+                            const isNewTopic = step.topicStatus === 'new_topic';
+                            
+                            return (
+                              <div
+                                key={idx}
+                                className={`border-l-4 pl-4 py-2 ${
+                                  isNewTopic
+                                    ? 'border-purple-500 bg-purple-50'
+                                    : 'border-gray-300 bg-gray-50'
+                                }`}
+                              >
+                                <div className="flex items-start gap-2">
+                                  <span className="text-xs font-medium text-gray-500 min-w-[60px]">
+                                    Msg {step.messageIndex + 1}
+                                  </span>
+                                  <div className="flex-1">
+                                    <div className="text-sm text-gray-700 mb-1">
+                                      {step.userMessage}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm font-semibold text-purple-700">
+                                        → {step.detectedTopic}
+                                      </span>
+                                      {isNewTopic && (
+                                        <span className="text-xs bg-purple-200 text-purple-800 px-2 py-0.5 rounded">
+                                          new topic ✨
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Topic Summary */}
+                      <div className="bg-purple-50 border border-purple-200 rounded p-3">
+                        <div className="text-sm font-medium text-purple-900">Final Topic:</div>
+                        <div className="text-lg font-semibold text-purple-700 mt-1">
+                          {testResult.evolution[testResult.evolution.length - 1]?.detectedTopic}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 bg-gray-50 border-t px-6 py-4 flex justify-end">
+              <button
+                onClick={handleCloseTestModal}
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </ConfigSection>
   );
 }
