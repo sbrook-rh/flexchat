@@ -358,6 +358,25 @@ const addMessageToSnapshot = (snapshot, sessionId, message) => {
   return setActiveSession(next, updatedSession.id);
 };
 
+const removeLastMessageFromSnapshot = (snapshot, sessionId) => {
+  const targetId = sessionId || snapshot.activeSessionId;
+  if (!targetId) {
+    return snapshot;
+  }
+
+  const targetSession = snapshot.sessions.find((session) => session.id === targetId);
+  if (!targetSession || !targetSession.messages || targetSession.messages.length === 0) {
+    return snapshot;
+  }
+
+  const updatedSession = clone(targetSession);
+  updatedSession.messages = updatedSession.messages.slice(0, -1);
+  updatedSession.updatedAt = nowIso();
+  const updated = updateSessionMetadata(updatedSession);
+  
+  return upsertSession(snapshot, updated);
+};
+
 const getApproximateStorageUsage = () => {
   let totalBytes = 0;
 
@@ -488,6 +507,7 @@ export {
   createSession,
   createEmptySession,
   addMessageToSnapshot,
+  removeLastMessageFromSnapshot,
   deleteSessionById,
   archiveSessionById,
   renameSession,

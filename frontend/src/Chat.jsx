@@ -58,6 +58,7 @@ const ChatView = ({ uiConfig }) => {
     activeSessionId,
     activeMessages,
     addMessage,
+    removeLastMessage,
     setActiveTopic,
     archiveSession,
     deleteSession,
@@ -546,9 +547,74 @@ const ChatView = ({ uiConfig }) => {
       <main className="flex flex-col bg-white h-full overflow-y-auto">
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 pb-40">
           <div className="max-w-6xl mx-auto px-4">
-            {activeMessages.map((message, index) => (
-              <div key={`${message.timestamp || index}-${index}`} className={`message-container ${message.type}`}>
-                <div className={`${message.type}-message`}>
+            {activeMessages.map((message, index) => {
+              const isLastMessage = index === activeMessages.length - 1;
+              
+              return (
+                <div 
+                  key={`${message.timestamp || index}-${index}`} 
+                  className={`message-container ${message.type} ${isLastMessage ? 'group relative' : ''}`}
+                >
+                  {/* Action buttons for last message only */}
+                  {isLastMessage && (
+                    <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2 z-10">
+                      {/* Resend button (only for user messages when not loading) */}
+                      {message.type === 'user' && !isLoading && (
+                        <button
+                          onClick={() => {
+                            // Save the message text before deleting
+                            const messageText = message.text;
+                            
+                            // Delete the message from history
+                            removeLastMessage(activeSessionId);
+                            
+                            // Update topic to the new last message's topic
+                            if (activeMessages.length > 1) {
+                              const newLastMessage = activeMessages[activeMessages.length - 2];
+                              if (newLastMessage.topic) {
+                                setActiveTopic(newLastMessage.topic);
+                              }
+                            } else {
+                              setActiveTopic('');
+                            }
+                            
+                            // Populate input field
+                            setInput(messageText);
+                          }}
+                          className="bg-blue-500 hover:bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg"
+                          title="Resend this message"
+                        >
+                          ↻
+                        </button>
+                      )}
+                      
+                      {/* Delete button */}
+                      <button
+                        onClick={() => {
+                          if (window.confirm('Delete this message? This cannot be undone.')) {
+                            removeLastMessage(activeSessionId);
+                            
+                            // Update topic to the new last message's topic
+                            if (activeMessages.length > 1) {
+                              const newLastMessage = activeMessages[activeMessages.length - 2];
+                              if (newLastMessage.topic) {
+                                setActiveTopic(newLastMessage.topic);
+                              }
+                            } else {
+                              // No messages left, clear topic
+                              setActiveTopic('');
+                            }
+                          }
+                        }}
+                        className="bg-red-500 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center shadow-lg"
+                        title="Delete this message"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  )}
+                  
+                  <div className={`${message.type}-message`}>
                   {message.type === 'bot' ? (
                     <>
                       <div className="prose prose-sm dark:prose-invert max-w-none markdown-content">
@@ -574,7 +640,8 @@ const ChatView = ({ uiConfig }) => {
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         {errorMessage && (

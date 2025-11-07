@@ -12,6 +12,7 @@ import {
   updateSessionTopic,
   setActiveSession,
   addMessageToSnapshot,
+  removeLastMessageFromSnapshot,
   createEmptySession,
   getApproximateStorageUsage,
   STORAGE_WARNING_THRESHOLD,
@@ -111,6 +112,11 @@ const SessionManagerProvider = ({ children }) => {
     return result;
   }, [applyAndPersist]);
 
+  const removeLastMessage = useCallback((sessionId) => {
+    const result = applyAndPersist((state) => removeLastMessageFromSnapshot(state, sessionId));
+    return result;
+  }, [applyAndPersist]);
+
   const importSession = useCallback((rawSession, options = {}) => {
     let importResult = null;
     const { snapshot: next } = applyAndPersist((state) => {
@@ -159,11 +165,12 @@ const SessionManagerProvider = ({ children }) => {
       renameSession: rename,
       updateTopic,
       addMessage,
+      removeLastMessage,
       setActiveTopic,
       importSession,
       refresh: hydrateSnapshot
     };
-  }, [snapshot, storageUsage, createSession, switchSession, archiveSession, deleteSession, rename, updateTopic, addMessage, setActiveTopic, importSession, hydrateSnapshot]);
+  }, [snapshot, storageUsage, createSession, switchSession, archiveSession, deleteSession, rename, updateTopic, addMessage, removeLastMessage, setActiveTopic, importSession, hydrateSnapshot]);
 
   return (
     <SessionManagerContext.Provider value={value}>
