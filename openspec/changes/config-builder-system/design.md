@@ -1510,3 +1510,178 @@ This is a stepping stone toward full model classification system (see `docs/MODE
 
 ---
 
+### Decision 30: Hybrid RAG Query Strategy for Context Continuity
+
+**Context:**
+Follow-up questions with pronouns (e.g., "Does it integrate with OpenShift AI?") were losing context when querying RAG collections, while first messages performed better with raw user text than extracted topic summaries.
+
+**Problem:**
+```
+Query 1: "How would I tune a model using InstructLab?"
+  Topic: "InstructLab model tuning"
+  Strategy: Embed topic → distance 0.337
+
+Query 2: "Does it integrate with OpenShift AI?"  
+  Topic: "InstructLab and OpenShift AI integration"
+  Problem: Pronoun "it" lost → searched generic "OpenShift AI" → missed InstructLab context
+```
+
+**Testing Results:**
+Manual testing against `openshift-ai` collection:
+- **Raw first question**: distance 0.306 ✅ (best)
+- **Topic for first**: distance 0.337 (good but not optimal)
+- **Raw follow-up with pronoun**: distance 0.144 (found OpenShift AI, **not** InstructLab)
+- **Contextualized topic**: distance 0.249 ✅ (excellent, preserved context)
+
+**Decision:**
+Implement hybrid query strategy based on conversation state:
+
+```javascript
+// In rag-collector.js
+const queryText = (!currentTopic || currentTopic.trim() === '') 
+  ? userMessage    // First message: use raw user query
+  : topic;         // Follow-up: use accumulated topic with context
+
+console.log(`Query strategy: ${!currentTopic ? 'first message (raw query)' : 'follow-up (contextualized topic)'}`);
+```
+
+**Benefits:**
+- ✅ First messages get full semantic richness (0.306 vs 0.337 distance)
+- ✅ Follow-ups maintain context through topic accumulation
+- ✅ Pronouns automatically resolved ("it" → "InstructLab")
+- ✅ Better distances on follow-ups (0.249 vs 0.144 - improvement of 82%)
+- ✅ Simple logic, easy to understand and maintain
+
+**Updated Files:**
+- `backend/chat/lib/rag-collector.js` - Hybrid query logic
+- `backend/chat/routes/chat.js` - Pass `userMessage`, `topic`, `currentTopic`
+
+**Implemented:** Phase 3d.1
+
+---
+
+### Decision 31: Topic Detection Structured Output
+
+**Context:**
+The `identifyTopic` function returned only a string, making it difficult to access the `topic_status` separately. The topic test endpoint had to duplicate the prompt logic to get both values.
+
+**Problem:**
+```javascript
+// Old (string only)
+const topic = await identifyTopic(userMessage, previousMessages, currentTopic, llmConfig, aiProviders);
+// status information was lost
+
+// Test endpoint duplicated logic
+const response = await tempProvider.generateChat(messages, model, {...});
+// Parsing JSON manually in two places
+```
+
+**Decision:**
+Return structured object `{ topic: string, status: string }`:
+
+```javascript
+// In topic-detector.js
+return {
+  topic: parsed.topic_summary,
+  status: parsed.topic_status  // 'new_topic' or 'continuation'
+};
+
+// In chat.js
+const { topic, status } = await identifyTopic(...);
+// Future: if (status === 'new_topic') clearRagCache();
+```
+
+**Additional Improvements:**
+1. **First message always `new_topic`**: Override LLM output if `currentTopic` is empty
+2. **Robust JSON parsing**: Fallback to raw content if JSON extraction fails
+3. **Better prompt examples**: Show good ("InstructLab model tuning") vs bad ("Begin discussion about...")
+4. **Generic topic detection**: Reject "none", "general", "conversation" as topics
+
+**Benefits:**
+- ✅ Consistent API for topic status
+- ✅ Test endpoint can reuse `identifyTopic` (DRY principle)
+- ✅ Future features can use status (cache clearing, analytics)
+- ✅ Better error handling with fallbacks
+- ✅ More concise topic summaries from improved prompt
+
+**Updated Files:**
+- `backend/chat/lib/topic-detector.js` - Return structured object
+- `backend/chat/routes/chat.js` - Destructure result
+- `backend/chat/routes/connections.js` - Reuse `identifyTopic` in test endpoint
+- `frontend/src/sections/TopicSection.jsx` - Trust backend status
+
+**Implemented:** Phase 3d.2
+
+---
+
+### Decision 32: Hover-Based Message Management in Chat History
+
+**Context:**
+During iterative testing and conversation refinement, users needed ways to:
+1. Remove incorrect/unwanted responses (especially hallucinations)
+2. Retry questions with different models or phrasing
+3. Maintain topic continuity when deleting messages
+
+**Requirements:**
+- Non-intrusive UI (don't clutter every message)
+- Only on last message (most recent context)
+- Confirmation for destructive actions
+- Topic state synchronization
+
+**Decision:**
+Implement hover-based circular action buttons on the last message only:
+
+```jsx
+{isLastMessage && (
+  <div className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
+    {/* Resend button (only for user messages) */}
+    {message.type === 'user' && !isLoading && (
+      <button onClick={handleResend}>↻</button>
+    )}
+    
+    {/* Delete button (all messages) */}
+    <button onClick={handleDelete}>🗑️</button>
+  </div>
+)}
+```
+
+**Delete Logic:**
+1. Show confirmation dialog
+2. Remove message from localStorage (`removeLastMessageFromSnapshot`)
+3. Update topic to new last message's topic (or clear if empty)
+4. Persist changes
+
+**Resend Logic (User Messages Only):**
+1. Save message text
+2. Delete message (same as delete logic)
+3. Populate input field with saved text
+4. User can edit before re-sending
+
+**Benefits:**
+- ✅ Clean UI - buttons only appear on hover
+- ✅ Positioned where user is looking (top-right of message)
+- ✅ No layout shift (absolute positioning)
+- ✅ Topic continuity maintained automatically
+- ✅ Perfect for iterative testing workflows
+- ✅ Confirmation prevents accidental deletion
+
+**Trade-offs:**
+- ❌ Only works on last message (but that's the common case)
+- ❌ Requires hover (not mobile-friendly, but this is a dev tool)
+
+**Future Enhancements:**
+- Delete any message (not just last)
+- Full audit trail of message edits
+- Model selection before resend
+- RAG collection selection before resend
+- Show RAG results for each message
+
+**Updated Files:**
+- `frontend/src/Chat.jsx` - UI implementation
+- `frontend/src/lib/sessionStorage.js` - `removeLastMessageFromSnapshot`
+- `frontend/src/components/SessionManager.jsx` - Context integration
+
+**Implemented:** Phase 3d.4
+
+---
+

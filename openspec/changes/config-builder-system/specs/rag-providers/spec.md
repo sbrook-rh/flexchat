@@ -93,3 +93,38 @@ All RAG providers SHALL implement a standardized interface that ensures consiste
 - **THEN** it returns standardized health status with timestamp and error details
 - **AND** includes service-specific information (collection count, storage size, etc.)
 
+## ADDED Requirements
+
+### Requirement: Hybrid Query Strategy for Contextual Continuity
+The RAG query system SHALL use an intelligent hybrid approach to balance semantic richness with conversational context continuity.
+
+#### Scenario: First Message Query Strategy
+- **WHEN** a user sends the first message in a conversation (no current topic exists)
+- **THEN** the system uses the raw user message text for embedding generation and RAG query
+- **AND** logs the query strategy as "first message (raw query)"
+- **AND** achieves optimal semantic matching for standalone questions
+
+#### Scenario: Follow-up Message Query Strategy
+- **WHEN** a user sends a follow-up message (current topic exists from previous exchanges)
+- **THEN** the system uses the accumulated contextualized topic for embedding generation and RAG query
+- **AND** logs the query strategy as "follow-up (contextualized topic)"
+- **AND** resolves pronouns and implicit references through topic accumulation
+
+#### Scenario: Pronoun Resolution via Topic Context
+- **WHEN** a user asks a follow-up question with pronouns (e.g., "Does it integrate with OpenShift AI?")
+- **THEN** the accumulated topic maintains the subject context (e.g., "InstructLab and OpenShift AI integration")
+- **AND** the query embedding includes the full context, preventing loss of domain specificity
+- **AND** retrieves relevant documents that match the implicit subject
+
+#### Scenario: Query Text Selection Logic
+- **WHEN** the RAG collector determines which text to embed
+- **THEN** it checks if `currentTopic` is empty or whitespace-only
+- **AND** if empty, uses `userMessage` (first message strategy)
+- **AND** if present, uses normalized `topic` (follow-up strategy)
+
+#### Scenario: Embedding Cache Efficiency
+- **WHEN** multiple collections use the same embedding connection and model
+- **THEN** the system generates the embedding once and caches it with key `connectionId:model`
+- **AND** reuses the cached embedding for subsequent collection queries
+- **AND** logs cache hits for observability
+

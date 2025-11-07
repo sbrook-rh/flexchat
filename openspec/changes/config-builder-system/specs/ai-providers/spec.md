@@ -96,3 +96,35 @@ All AI providers SHALL implement a standardized interface that ensures consisten
 - **THEN** it returns supported operations: `chat`, `embeddings`, `reasoning`, `streaming`, `function_calling`
 - **AND** allows UI to show/hide features based on capabilities
 
+## ADDED Requirements
+
+### Requirement: Topic Detection with Structured Output
+The system SHALL provide topic detection that returns structured results with both topic summary and status, enabling better conversation flow management.
+
+#### Scenario: Topic Detection Returns Structured Result
+- **WHEN** `identifyTopic()` is called with user message, conversation history, and current topic
+- **THEN** it returns an object with `{ topic: string, status: string }` structure
+- **AND** the status indicates `new_topic` or `continuation`
+
+#### Scenario: First Message Always New Topic
+- **WHEN** topic detection is called with no current topic (empty string or null)
+- **THEN** the status is automatically set to `new_topic` regardless of LLM output
+- **AND** ensures consistent behavior for conversation starts
+
+#### Scenario: Improved Topic Prompt for Conciseness
+- **WHEN** the topic detection prompt is constructed
+- **THEN** it includes explicit examples of good summaries (short noun phrases like "InstructLab model tuning")
+- **AND** includes examples of bad summaries to avoid (verbose sentences like "Begin discussion about...")
+- **AND** requests JSON-only output with 3-8 word max for topic_summary
+
+#### Scenario: Robust JSON Parsing with Fallbacks
+- **WHEN** the LLM returns topic detection results
+- **THEN** the system attempts to extract and parse JSON from the response
+- **AND** if parsing fails, it falls back to using the raw content as the topic with status "continuation"
+- **AND** validates that the topic summary is not generic (not "none", "general", or "conversation")
+
+#### Scenario: Topic Detection Error Handling
+- **WHEN** topic detection fails due to provider error
+- **THEN** it returns `{ topic: userMessage, status: 'new_topic' }` as a safe fallback
+- **AND** logs the error for debugging without disrupting the chat flow
+

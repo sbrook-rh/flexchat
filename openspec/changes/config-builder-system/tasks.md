@@ -308,6 +308,37 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 3c.7.3 Update chat.js to call identifyTopic with resolved llmConfig
 - [x] 3c.7.4 Add formal topic section to config-schema.json
 
+## Phase 3d: Chat Intelligence & History Enhancements ✅ COMPLETE
+
+### 3d.1 Hybrid RAG Query Strategy
+- [x] 3d.1.1 Update collectRagResults signature to accept userMessage, topic, and currentTopic
+- [x] 3d.1.2 Implement query text selection logic (first message → raw query, follow-up → contextualized topic)
+- [x] 3d.1.3 Add logging for query strategy selection
+- [x] 3d.1.4 Update chat.js to pass all three parameters
+- [x] 3d.1.5 Test with real queries to verify improved semantic matching
+
+### 3d.2 Topic Detection Improvements
+- [x] 3d.2.1 Modify identifyTopic to return structured object `{ topic, status }`
+- [x] 3d.2.2 Add first message detection (always returns new_topic status)
+- [x] 3d.2.3 Improve prompt with explicit examples of good/bad summaries
+- [x] 3d.2.4 Add robust JSON parsing with fallbacks
+- [x] 3d.2.5 Update chat.js to destructure returned object
+- [x] 3d.2.6 Update topic test endpoint to reuse identifyTopic function
+
+### 3d.3 Topic Detection UI Updates
+- [x] 3d.3.1 Remove client-side topic change detection in TopicSection
+- [x] 3d.3.2 Trust backend topicStatus for "new topic" badge
+- [x] 3d.3.3 Update isSmallModel helper to use regex for parameter detection
+
+### 3d.4 Chat History Message Management
+- [x] 3d.4.1 Implement removeLastMessageFromSnapshot in sessionStorage.js
+- [x] 3d.4.2 Export and integrate into SessionManager context
+- [x] 3d.4.3 Add hover-based delete button (🗑️) on last message
+- [x] 3d.4.4 Add confirmation dialog before deletion
+- [x] 3d.4.5 Update topic state when message is deleted
+- [x] 3d.4.6 Add hover-based resend button (↻) for last user message
+- [x] 3d.4.7 Implement resend logic (delete message, populate input field)
+
 ## Phase 4: Response Handler Builder
 
 ### 4.1 Response Handler List UI
