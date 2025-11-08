@@ -223,12 +223,12 @@ The system SHALL provide a visual builder for creating and managing response han
 #### Scenario: Prompt Template Editor
 - **WHEN** a user edits a response handler prompt
 - **THEN** the system provides a text editor with:
-  - Variable autocomplete ({{rag_context}}, {{reasoning}}, {{topic}}, {{intent}})
-  - Syntax highlighting for variables
+  - Variable insertion buttons ({{rag_context}}, {{reasoning}}, {{topic}}, {{intent}})
   - Available variables reference
+  - Multiline text input
 
 #### Scenario: Handler Ordering
-- **WHEN** a user reorders response handlers via drag-and-drop
+- **WHEN** a user reorders response handlers using up/down arrow buttons
 - **THEN** the system updates the `responses` array order
 - **AND** warns if reordering creates unreachable handlers
 

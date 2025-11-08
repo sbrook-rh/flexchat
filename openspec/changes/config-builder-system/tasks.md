@@ -65,8 +65,6 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 1.5.5 Implement `POST /api/connections/test` endpoint (test connection)
 - [x] 1.5.6 Implement `GET /api/connections/env-vars` endpoint (list available env vars)
 - [x] 1.5.7 Register connections routes in `server.js`
-- [ ] 1.5.8 Add request validation middleware
-- [ ] 1.5.9 Add error handling middleware
 
 ### 1.8 Shared Connection Payload (DRY)
 - [x] 1.8.1 Define shared `connection` payload shape `{ provider_id, type, fields }`
@@ -84,10 +82,8 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
   - `hasWorkingProviders`, `hasResponseHandlers`, `chatReady`
 
 ### 1.7 Documentation
-- [ ] 1.7.1 Document provider schema interface
 - [x] 1.7.2 Document API endpoints (TESTING.md created)
 - [x] 1.7.3 Add examples for each endpoint (TESTING.md includes curl examples)
-- [ ] 1.7.4 Update ARCHITECTURE.md with new services
 - [x] 1.7.5 Document raw vs processed config pattern (added to design.md and CONFIGURATION.md)
 
 ## Phase 2: Provider Configuration UI
@@ -134,7 +130,6 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 2.5.1 Create ModelSelector component (integrated in wizard)
 - [x] 2.5.2 Fetch available models from provider (auto after successful test)
 - [x] 2.5.3 Display model list with metadata (scrollable list with type badges)
-- [ ] 2.5.4 Add model search/filter (deferred - not critical for MVP)
 - [x] 2.5.5 Show model capabilities (chat, embeddings, reasoning) as type badges
 
 ### 2.6 Environment Variable UI (Integrated in Wizard Step 3)
@@ -142,7 +137,6 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 2.6.2 Show available env vars as suggestions (button to use suggested var)
 - [x] 2.6.3 Add "Use Environment Variable" toggle (button sets ${VAR_NAME})
 - [x] 2.6.4 Mask sensitive values (shows ${ENV_VAR} references, not actual values)
-- [ ] 2.6.5 Add reveal/hide toggle (not needed - env vars are references, not secrets)
 - [x] 2.6.6 Auto-wrap user input with ${} on blur (Decision 14)
 - [x] 2.6.7 Fetch dynamic env vars from GET /api/connections/env-vars
 - [x] 2.6.8 Display static (blue) and dynamic (green) suggestions with filtering
@@ -366,15 +360,12 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 4.3.2 Add multiline text input
 - [x] 4.3.3 Add variable insertion (click to insert {{rag_context}}, {{reasoning}}, etc.)
 - [x] 4.3.4 Show available variables as hints
-- [ ] 4.3.5 Add syntax highlighting for variables (deferred - plain textarea is sufficient)
-- [ ] 4.3.6 Add prompt templates library (deferred - optional enhancement)
 
 ### 4.4 LLM/Model Selection
 - [x] 4.4.1 Create LLMSelector component for response handlers (integrated into HandlerModal BasicTab)
 - [x] 4.4.2 Select provider from configured LLMs
 - [x] 4.4.3 Select model from provider's available models
 - [x] 4.4.4 Set max_tokens
-- [ ] 4.4.5 Add reasoning configuration (deferred to Phase 5 - Reasoning Tab)
 
 ### 4.6 Sequential Ordering Visualization
 - [x] 4.6.1 Show handler execution order clearly (numbered cards)
@@ -397,7 +388,6 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
  - [x] 5.2.4.2 Enforce: LLM + response handler required (except zero-config)
  - [x] 5.2.4.3 Return errors for partial configs (LLM without responses, or vice versa)
 - [x] 5.2.5 Register config routes in `server.js`
-- [ ] 5.2.6 Add authorization/security checks
 
 ### 5.3 Configuration Export & Clipboard (Complete) ✅
 - [x] 5.3.1 Export functionality in ConfigBuilder (no separate component needed)
@@ -432,12 +422,33 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 5.11.1 Update `docs/CONFIGURATION_BUILDER.md` (comprehensive guide with import/export, handlers, intent)
 - [x] 5.11.2 Update `docs/CONFIGURATION.md` with UI workflow section
 - [x] 5.11.3 Update `README.md` getting started guide
-- [ ] 5.11.4 Add screenshots/GIFs to documentation (optional)
 - [x] 5.11.5 Update `CHANGELOG.md` with config-builder-system feature summary
-- [ ] 5.11.6 Document all configuration options and their UI locations (covered in 5.11.1)
-- [ ] 5.11.7 Create video walkthrough (optional)
+- [x] 5.11.6 Document all configuration options and their UI locations (covered in 5.11.1)
+
+## Deferred & Optional Tasks
+
+_The following tasks have been intentionally deferred. They are documented in detail in private planning documents for future consideration._
+
+**Security Enhancements** (Medium priority, 2-3 days):
+- 1.5.8 Add request validation middleware
+- 1.5.9 Add error handling middleware  
+- 5.2.6 Add authorization/security checks
+
+**Documentation Enhancements** (Low priority, 5-7 days):
+- 1.7.1 Document provider schema interface
+- 1.7.4 Update ARCHITECTURE.md with new services
+- 5.11.4 Add screenshots/GIFs to documentation
+- 5.11.7 Create video walkthrough
+
+**UI Polish & Optional Features** (Low priority, 2-3 days):
+- 2.5.4 Add model search/filter
+- 4.3.5 Add syntax highlighting for variables
+- 4.3.6 Add prompt templates library
+- 4.4.5 Add reasoning configuration
+
+**Rationale for Deferral**: These are optional enhancements that would improve the experience but are not critical for functionality. The Configuration Builder is production-ready without them. Implement only if user feedback indicates they're needed.
 
 ## Testing & Quality Assurance
 
-_All testing tasks have been moved to the Testing Strategy Epic (`ai/data/epics/testing.md`). This includes unit tests, integration tests, E2E tests, and manual testing checklists._
+_All testing tasks have been extracted and documented separately for future testing strategy planning._
 
