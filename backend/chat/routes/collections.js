@@ -9,6 +9,7 @@ const {
 } = require('../lib/collection-manager');
 const { generateEmbeddings } = require('../lib/embedding-generator');
 const { getProcessedConfig } = require('../lib/config-loader');
+const { DEFAULT_TOPIC_PROMPT } = require('../lib/topic-detector');
 
 /**
  * Create collections router with dependency injection
@@ -92,6 +93,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
         modelSelection,
         llms: config.llms || {},  // Add LLM connections for embedding resolution
         defaultHandlerIndex,  // Index of the default (fallback) handler, or -1 if none
+        defaultTopicPrompt: DEFAULT_TOPIC_PROMPT,  // Default prompt for topic detection customization
         
         // Phase 1.6.5: New fields for Configuration Builder
         hasConfig,

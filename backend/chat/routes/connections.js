@@ -482,7 +482,7 @@ Reply with one category name only.`;
  */
 router.post('/topic/test', async (req, res) => {
   try {
-    const { provider_config, model, messages } = req.body;
+    const { provider_config, model, messages, custom_prompt } = req.body;
 
     // Validation
     if (!provider_config || !model) {
@@ -500,6 +500,9 @@ router.post('/topic/test', async (req, res) => {
     console.log(`🧪 Testing topic detection evolution`);
     console.log(`   Provider/Model: ${provider_config.provider} / ${model}`);
     console.log(`   Message count: ${messages.length}`);
+    if (custom_prompt) {
+      console.log(`   Using custom prompt (${custom_prompt.length} chars)`);
+    }
 
     // Normalize and create temporary provider instance
     const normalizedPayload = {
@@ -518,10 +521,11 @@ router.post('/topic/test', async (req, res) => {
       [provider]: tempProvider
     };
 
-    // Create llmConfig for identifyTopic
+    // Create llmConfig for identifyTopic (include custom prompt if provided)
     const llmConfig = {
       llm: provider,
-      model: model
+      model: model,
+      prompt: custom_prompt // Optional custom prompt for testing
     };
 
     // Process messages incrementally to show topic evolution
@@ -538,7 +542,7 @@ router.post('/topic/test', async (req, res) => {
       const previousMessages = messages.slice(0, i);
       
       // Use the actual identifyTopic function (same as production)
-      const { topic, status } = await identifyTopic(
+      const { topic, status, parent_topic } = await identifyTopic(
         msg.text,
         previousMessages,
         currentTopic,
@@ -554,6 +558,7 @@ router.post('/topic/test', async (req, res) => {
         messageIndex: i,
         userMessage: msg.text.length > 100 ? msg.text.slice(0, 100) + '...' : msg.text,
         detectedTopic: topic,
+        parentTopic: parent_topic,
         topicStatus: status
       });
 

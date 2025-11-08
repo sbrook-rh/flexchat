@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 /**
  * HandlerModal - Create or edit a response handler
@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
  */
 function HandlerModal({ handler, workingConfig, onSave, onCancel, modelsCache, setModelsCache, fetchModelsForProvider }) {
   const isEdit = handler !== null;
+  const promptTextareaRef = useRef(null);
   
   // Initialize form state
   const [formData, setFormData] = useState({
@@ -151,9 +152,10 @@ function HandlerModal({ handler, workingConfig, onSave, onCancel, modelsCache, s
             />
           )}
           {activeTab === 'prompt' && (
-            <PromptTab
-              formData={formData}
+            <PromptTab 
+              formData={formData} 
               setFormData={setFormData}
+              promptTextareaRef={promptTextareaRef}
             />
           )}
         </div>
@@ -518,7 +520,7 @@ function MatchTab({ formData, setFormData, workingConfig }) {
 /**
  * PromptTab - Prompt template and parameters
  */
-function PromptTab({ formData, setFormData }) {
+function PromptTab({ formData, setFormData, promptTextareaRef }) {
   return (
     <div className="space-y-6">
       {/* Prompt Template */}
@@ -527,6 +529,7 @@ function PromptTab({ formData, setFormData }) {
           System Prompt <span className="text-red-500">*</span>
         </label>
         <textarea
+          ref={promptTextareaRef}
           value={formData.prompt}
           onChange={(e) => setFormData({ ...formData, prompt: e.target.value })}
           rows={8}
@@ -543,9 +546,28 @@ function PromptTab({ formData, setFormData }) {
                 key={variable}
                 className="px-2 py-1 bg-white border border-gray-300 rounded text-xs cursor-pointer hover:bg-blue-50"
                 onClick={() => {
-                  setFormData({ ...formData, prompt: formData.prompt + ' ' + variable });
+                  const textarea = promptTextareaRef.current;
+                  if (!textarea) return;
+
+                  const currentPrompt = formData.prompt;
+                  const cursorPos = textarea.selectionStart;
+                  const scrollTop = textarea.scrollTop; // Save scroll position
+                  const textBefore = currentPrompt.substring(0, cursorPos);
+                  const textAfter = currentPrompt.substring(cursorPos);
+                  
+                  // Insert variable at cursor position
+                  const newPrompt = textBefore + variable + textAfter;
+                  setFormData({ ...formData, prompt: newPrompt });
+
+                  // Restore cursor position and scroll after insertion
+                  setTimeout(() => {
+                    const newCursorPos = cursorPos + variable.length;
+                    textarea.focus();
+                    textarea.setSelectionRange(newCursorPos, newCursorPos);
+                    textarea.scrollTop = scrollTop; // Restore scroll position
+                  }, 0);
                 }}
-                title="Click to insert"
+                title="Click to insert at cursor position"
               >
                 {variable}
               </code>

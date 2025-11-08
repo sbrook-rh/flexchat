@@ -578,6 +578,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             modelsCache={modelsCache}
             setModelsCache={setModelsCache}
             fetchModelsForProvider={fetchModelsForProvider}
+            uiConfig={uiConfig}
           />
         );
       case 'intent':

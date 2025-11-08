@@ -10,12 +10,16 @@ const { generateResponse } = require('../lib/response-generator');
 /**
  * Resolve LLM configuration for topic detection with cascading fallback
  * @param {Object} config - Full configuration object
- * @returns {Object|null} Object with { llm, model } or null if no config found
+ * @returns {Object|null} Object with { llm, model, prompt? } or null if no config found
  */
 function resolveTopicLLMConfig(config) {
   // Priority 1: Explicit topic configuration
   if (config.topic?.provider?.llm && config.topic?.provider?.model) {
-    return { llm: config.topic.provider.llm, model: config.topic.provider.model };
+    return { 
+      llm: config.topic.provider.llm, 
+      model: config.topic.provider.model,
+      prompt: config.topic.prompt // Optional custom prompt
+    };
   }
   
   // Priority 2: Intent detection configuration
@@ -23,9 +27,10 @@ function resolveTopicLLMConfig(config) {
     return { llm: config.intent.provider.llm, model: config.intent.provider.model };
   }
   
-  // Priority 3: First response handler's model (always exists in config builder)
-  if (config.responses?.[0]?.llm && config.responses?.[0]?.model) {
-    return { llm: config.responses[0].llm, model: config.responses[0].model };
+  // Priority 3: Default/fallback response handler (first one with no match criteria)
+  const defaultHandler = config.responses?.find(handler => !handler.match);
+  if (defaultHandler?.llm && defaultHandler?.model) {
+    return { llm: defaultHandler.llm, model: defaultHandler.model };
   }
   
   return null; // No valid config found

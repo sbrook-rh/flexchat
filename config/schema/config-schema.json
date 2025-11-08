@@ -21,6 +21,10 @@
             }
           },
           "required": ["llm", "model"]
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Custom prompt template for topic detection. Available placeholders: {{currentTopic}}, {{conversationContext}}, {{userMessage}}"
         }
       },
       "required": ["provider"]
