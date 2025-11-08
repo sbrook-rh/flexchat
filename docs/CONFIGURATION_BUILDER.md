@@ -86,11 +86,20 @@ If you have an existing `config.json`, the Configuration Builder will load it au
 
 ### Configuration Management
 
-**Validate, Apply, and Export** your configuration:
+**Import, validate, apply, and export** your configuration:
 
+- **Import**: Load configuration from JSON file (header button)
+  - Replaces current configuration with confirmation dialog
+  - Warns if you have unsaved changes
+  - Validates JSON structure and shows actionable errors
 - **Validation**: Check for errors before applying (referential integrity, missing requirements)
-- **Apply**: Hot-reload configuration without restarting the server
-- **Export**: Download your configuration as JSON
+- **Apply**: Hot-reload configuration without restarting the server (requires validation)
+- **Export**: Download your configuration as JSON file
+  - Prompts for filename with timestamped default (e.g., `flex-chat-config-2025-11-08T14-30-00.json`)
+  - Automatically adds `.json` extension if missing
+- **Copy to Clipboard**: Copy configuration JSON to clipboard for easy sharing/backup
+  - Modern browsers: uses `navigator.clipboard.writeText()`
+  - Legacy browsers: falls back to `document.execCommand('copy')`
 - **Cancel**: Discard unsaved changes and return to home
 - **Unsaved Changes Banner**: Visual indicator when you have unapplied changes
 
@@ -124,8 +133,8 @@ The Configuration Builder uses a tabbed interface with the following sections:
 | **RAG Services** | 📚 | Manage RAG services | Always |
 | **Embeddings** | 📦 | Configure embeddings | RAG services exist |
 | **Topic Detection** | 🎯 | Configure topic detection | LLM providers exist |
-| **Intent** | 🧐 | Configure intent detection | Coming soon |
-| **Handlers** | 🎮 | Build response handlers | Coming soon |
+| **Intent** | 🧐 | Configure intent detection | LLM providers exist |
+| **Handlers** | 🎮 | Build response handlers | LLM providers exist |
 | **Reasoning** | 💭 | Configure reasoning models | Coming soon |
 
 ### Adding an LLM Provider
@@ -182,6 +191,55 @@ The first LLM you add will automatically:
 4. Changes save automatically (no Save button)
 
 **Note**: Topic detection is automatically configured when you add your first LLM, but you can customize it here.
+
+### Configuring Intent Detection
+
+1. Navigate to **Intent** tab
+2. **Select Provider**: Choose which LLM for intent classification
+3. **Select Model**: Choose a chat-capable model (⚡ indicates fast models ideal for classification)
+4. **Add Intents**: Define intent name and description pairs
+   - Example: `cooking` → `Questions about cooking, recipes, food preparation`
+5. **Test Intents**: Use the modal to test classifications
+   - Select RAG collections to include in test (combines general intents with specific collections)
+   - See which intent matches your test query
+
+**Note**: The system supports hierarchical intent matching - RAG collection descriptions act as specific intents and naturally take priority over general configured intents.
+
+### Building Response Handlers
+
+**Response Handlers** determine which LLM and prompt to use for a query based on match criteria. Handlers are evaluated top-to-bottom, and the **first match wins**.
+
+1. Navigate to **Handlers** tab
+2. **View Existing Handlers**: See all handlers in execution order (numbered)
+3. **Add Handler**: Click "+ Add Handler"
+4. **Configure in Modal**:
+
+**Basic Tab**:
+- **LLM Provider**: Select from configured LLMs
+- **Model**: Choose model (filtered to chat-capable, shows badges: ⚡ fast, 🎨 vision, 🔧 tools, 📚 large context)
+- **Max Tokens**: Set response length limit
+
+**Match Tab** (optional - leave empty for catch-all):
+- **Service**: Match specific RAG service
+- **Collection**: Match exact collection name or contains substring
+- **Intent**: Match specific intent or regex pattern
+- **RAG Results**: Match based on RAG query results (match/partial/none/any)
+- **Reasoning**: Match when reasoning is enabled
+
+**Prompt Tab**:
+- **Prompt Template**: Write your system prompt
+- **Variables**: Click to insert `{{rag_context}}`, `{{reasoning}}`, `{{topic}}`, etc.
+
+**Handler Ordering**:
+- Use **↑/↓ arrows** to reorder handlers
+- **Catch-all handler** (no match criteria) should be last - shown with purple badge
+- Warnings appear if handlers are unreachable or catch-all isn't last
+
+**Example Handlers**:
+1. Handler #1: RAG service=`rag-wrapper` + collection contains `openshift` → Use Gemini Flash (fast, specific)
+2. Handler #2: Intent=`cooking` → Use GPT-4 (creative, detailed)
+3. Handler #3: RAG results=`none` → Use Claude (reasoning, general knowledge)
+4. Handler #4: (catch-all) → Use Ollama Llama3 (default)
 
 ### Validating and Applying Configuration
 

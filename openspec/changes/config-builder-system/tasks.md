@@ -429,12 +429,12 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 5.8.2 Cache models at ConfigBuilder level
 
 ### 5.11 Documentation
-- [ ] 5.11.1 Create `docs/CONFIGURATION_BUILDER.md` (comprehensive guide)
-- [ ] 5.11.2 Update `docs/CONFIGURATION.md` with UI workflow
-- [ ] 5.11.3 Update `README.md` getting started guide
-- [ ] 5.11.4 Add screenshots/GIFs to documentation
-- [ ] 5.11.5 Update `CHANGELOG.md` with config-builder-system feature summary
-- [ ] 5.11.6 Document all configuration options and their UI locations
+- [x] 5.11.1 Update `docs/CONFIGURATION_BUILDER.md` (comprehensive guide with import/export, handlers, intent)
+- [x] 5.11.2 Update `docs/CONFIGURATION.md` with UI workflow section
+- [x] 5.11.3 Update `README.md` getting started guide
+- [ ] 5.11.4 Add screenshots/GIFs to documentation (optional)
+- [x] 5.11.5 Update `CHANGELOG.md` with config-builder-system feature summary
+- [ ] 5.11.6 Document all configuration options and their UI locations (covered in 5.11.1)
 - [ ] 5.11.7 Create video walkthrough (optional)
 
 ## Testing & Quality Assurance

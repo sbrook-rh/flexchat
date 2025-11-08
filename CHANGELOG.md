@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Configuration Builder System** ✅ COMPLETE
+  - **Zero-Config Startup**: Start Flex Chat without any configuration file
+  - **Visual Configuration Management**: Complete UI for creating and managing configurations
+    - LLM Provider Management: Add/edit/remove providers with guided wizards
+    - RAG Service Management: Configure RAG services with connection testing
+    - Embeddings Configuration: Global defaults and per-service overrides
+    - Topic Detection Configuration: Select provider/model with testing UI
+    - Intent Detection Configuration: Define intents with modal-based tester
+    - Response Handler Builder: Visual builder with match criteria and prompt templates
+  - **Connection Testing**: Test providers before saving with real-time feedback
+  - **Model Discovery**: Automatically fetch available models from providers
+  - **Import/Export**: Load/save configurations with browser download or clipboard copy
+  - **Live Configuration**: Hot-reload without restarting server
+  - **Validation Gating**: Validate before applying changes
+  - **Chat UI Guards**: Prevent access to chat without working configuration
+  - **Enhanced Chat UX**: Auto-updating titles, topic management, message history controls
+  - **Documentation**: Comprehensive guides in `docs/CONFIGURATION_BUILDER.md`
+
 - **Configuration Viewer UI** 🆕 NEW FEATURE DOCUMENTED - Easy Win!
   - **Phase 1: Display Only** (read-only, high priority)
     - Backend endpoint: `GET /config/api` and `/config/api/:section`

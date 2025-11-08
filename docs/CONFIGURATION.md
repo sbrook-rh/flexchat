@@ -1,9 +1,42 @@
 # Configuration Guide
 
-**Version**: 2.0  
-**Last Updated**: October 19, 2025
+**Version**: 2.1  
+**Last Updated**: November 8, 2025
 
 This guide explains how to configure Flex Chat for your use case.
+
+---
+
+## Configuration Approaches
+
+Flex Chat supports two ways to create and manage configuration:
+
+### 1. 🎨 Configuration Builder UI (Recommended)
+
+**Visual, zero-config approach** - Create configurations through the web interface:
+
+- 🚀 **Zero-config startup** - Start without any configuration file
+- 🧙 **Guided wizards** - Step-by-step provider setup with connection testing
+- 🔍 **Model discovery** - Automatically fetch available models from providers
+- ✅ **Live validation** - Catch errors before applying
+- 🔄 **Hot-reload** - Apply changes without restarting
+- 📦 **Import/Export** - Load/save configurations as JSON files
+- 📋 **Clipboard support** - Copy configuration for easy sharing
+
+**See**: [Configuration Builder Guide](./CONFIGURATION_BUILDER.md) for complete UI documentation.
+
+### 2. 📝 JSON File Configuration (Traditional)
+
+**File-based approach** - Manually author JSON configuration files:
+
+- 📋 Precise control over all settings
+- 🔄 Version control friendly
+- 🤖 Automation and scripting support
+- 🎯 Environment variable interpolation
+
+**This document** covers the JSON schema, structure, and all available options.
+
+**💡 Tip**: Use the Configuration Builder UI to create your initial config, then export it as a starting point for manual editing.
 
 ---
 

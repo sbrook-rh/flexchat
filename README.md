@@ -25,12 +25,13 @@ A configuration-driven, AI-powered chat application with topic-aware RAG (Retrie
 5. **Response Handler Matching** - Find first matching response rule
 6. **Response Generation** - Generate final response using matched handler
 
-### 🔧 **Configuration-Driven Architecture**
-- All behavior controlled by JSON configuration
+### 🔧 **Flexible Configuration**
+- **Visual Configuration Builder** - Zero-config startup with guided wizards
+- **JSON Configuration** - File-based for automation and version control
 - Response handlers with flexible match criteria
-- Environment variable substitution
-- Multiple example configurations provided
-- Full documentation in [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
+- Environment variable substitution for secrets
+- Import/export configurations with clipboard support
+- Full documentation in [`docs/CONFIGURATION_BUILDER.md`](docs/CONFIGURATION_BUILDER.md) and [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
 
 ## Quick Start
 
@@ -58,6 +59,22 @@ pip install -r requirements.txt
 
 ### 2. Configure
 
+**Option A - Configuration Builder UI (Recommended):**
+
+No configuration file needed! Just start the application and use the visual Configuration Builder:
+
+```bash
+# Set your API key
+export OPENAI_API_KEY="your-key-here"
+
+# Start the app (jump to step 3)
+./start.sh
+```
+
+Then navigate to the Configuration Builder from the welcome screen to set up providers through the UI.
+
+**Option B - JSON Configuration File (Traditional):**
+
 ```bash
 # Copy an example configuration
 cp config/examples/01-chat-only.json config/config.json
@@ -68,7 +85,7 @@ export OPENAI_API_KEY="your-key-here"
 export FLEX_CHAT_CONFIG_FILE="01-chat-only.json"
 ```
 
-See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for full configuration guide.
+See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for JSON schema reference or [`docs/CONFIGURATION_BUILDER.md`](docs/CONFIGURATION_BUILDER.md) for UI guide.
 
 ### 3. Start Services
 
