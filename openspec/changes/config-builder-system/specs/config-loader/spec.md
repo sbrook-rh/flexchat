@@ -76,12 +76,6 @@ The system SHALL support updating configuration at runtime without requiring a s
 - **AND** dependent services can react to the change
 - **AND** logs the configuration update
 
-## REMOVED Requirements
-
-### Requirement: Configuration Persistence API
-**Reason**: Server-side file writing incompatible with containerized deployments (ConfigMaps, read-only volumes)  
-**Migration**: Use download/export pattern instead - user downloads config and deploys via their process
-
 ## ADDED Requirements
 
 ### Requirement: Configuration Export API
