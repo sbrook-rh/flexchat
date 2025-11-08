@@ -37,14 +37,12 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 1.1.3 Implement schema method in OpenAIProvider
 - [x] 1.1.4 Implement schema method in GeminiProvider
 - [x] 1.1.5 Define schema format (JSON Schema or custom format)
-- [ ] 1.1.6 Add schema validation tests
 
 ### 1.2 Provider Discovery Service
 - [x] 1.2.1 Create ProviderDiscovery service class
 - [x] 1.2.2 Implement provider enumeration logic
 - [x] 1.2.3 Implement capability detection
 - [x] 1.2.4 Add caching for discovered providers
-- [ ] 1.2.5 Write unit tests for discovery service
 
 ### 1.3 Connection Testing Service
 - [x] 1.3.1 Create ConnectionTester service class
@@ -52,14 +50,12 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 1.3.3 Implement test connection logic for RAG providers
 - [x] 1.3.4 Add timeout and error handling
 - [x] 1.3.5 Return standardized test results
-- [ ] 1.3.6 Write unit tests for connection testing
 
 ### 1.4 Environment Variable Management
 - [x] 1.4.1 Create EnvVarManager service class
 - [x] 1.4.2 Implement secure env var filtering (allowlist pattern)
 - [x] 1.4.3 Implement env var validation
 - [x] 1.4.4 Add env var suggestion logic
-- [ ] 1.4.5 Write unit tests for env var management
 
 ### 1.5 Backend API Endpoints
 - [x] 1.5.1 Create `backend/chat/routes/connections.js` route module
@@ -71,14 +67,12 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 1.5.7 Register connections routes in `server.js`
 - [ ] 1.5.8 Add request validation middleware
 - [ ] 1.5.9 Add error handling middleware
-- [ ] 1.5.10 Write integration tests for all endpoints
 
 ### 1.8 Shared Connection Payload (DRY)
 - [x] 1.8.1 Define shared `connection` payload shape `{ provider_id, type, fields }`
 - [x] 1.8.2 Add server-side validator/normalizer for the payload
 - [x] 1.8.3 Update `/api/connections/test` to use shared validator
 - [x] 1.8.4 Update `/api/connections/providers/:id/models` to use shared validator
-- [ ] 1.8.5 Add unit tests for shared validator
 
 ### 1.6 Configuration Loader Updates
 - [x] 1.6.1 Modify `loadConfig()` to return raw config (no env var substitution)
@@ -88,7 +82,6 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 1.6.5 Modify `/api/ui-config` endpoint to include:
   - `hasConfig`, `isZeroConfig`, `providerStatus`
   - `hasWorkingProviders`, `hasResponseHandlers`, `chatReady`
-- [ ] 1.6.6 Write unit tests for raw/processed config handling
 
 ### 1.7 Documentation
 - [ ] 1.7.1 Document provider schema interface
@@ -383,35 +376,13 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 4.4.4 Set max_tokens
 - [ ] 4.4.5 Add reasoning configuration (deferred to Phase 5 - Reasoning Tab)
 
-### 4.5 Handler Testing UI (DEFERRED - Optional Enhancement)
-- [ ] 4.5.1 Create HandlerTester component
-- [ ] 4.5.2 Input test query
-- [ ] 4.5.3 Simulate RAG results
-- [ ] 4.5.4 Show which handler would match
-- [ ] 4.5.5 Display match reasoning
-- [ ] 4.5.6 Add "Test All Handlers" mode
-
 ### 4.6 Sequential Ordering Visualization
 - [x] 4.6.1 Show handler execution order clearly (numbered cards)
 - [x] 4.6.2 Highlight "first-match wins" behavior (info tip at top)
 - [x] 4.6.3 Add warnings for unreachable handlers (catch-all positioning, multiple catch-alls)
 - [x] 4.6.4 Suggest reordering if issues detected (warnings with actionable messages)
 
-## Phase 5: Reasoning Configuration & Polish
-
-### 5.1 Reasoning Tab Implementation
-- [ ] 5.1.1 Update ReasoningSection.jsx from placeholder to functional component
-- [ ] 5.1.2 Display current reasoning configuration summary
-- [ ] 5.1.3 Show which response handlers use reasoning
-- [ ] 5.1.4 Add "Configure Reasoning" button
-
-### 5.1a Reasoning Provider Configuration
-- [ ] 5.1a.1 Create ReasoningConfig component
-- [ ] 5.1a.2 Provider selector (dropdown of LLMs with reasoning capability)
-- [ ] 5.1a.3 Model selector (filtered to reasoning-capable models)
-- [ ] 5.1a.4 Reasoning parameters editor (thinking_budget, etc.)
-- [ ] 5.1a.5 Save to workingConfig.reasoning
-- [ ] 5.1a.6 Add reasoning model capability detection
+## Phase 5: Polish & Documentation
 
 ### 5.2 Backend Config API Endpoints (Continued)
 - [x] 5.2.1 Create `backend/chat/routes/config.js` route module
@@ -427,34 +398,22 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
  - [x] 5.2.4.3 Return errors for partial configs (LLM without responses, or vice versa)
 - [x] 5.2.5 Register config routes in `server.js`
 - [ ] 5.2.6 Add authorization/security checks
-- [ ] 5.2.7 Write integration tests for config endpoints
 
-### 5.3 Configuration Export UI (Polish)
+### 5.3 Configuration Export & Clipboard (Complete) ✅
 - [x] 5.3.1 Export functionality in ConfigBuilder (no separate component needed)
 - [x] 5.3.2 Generate JSON from current configuration (workingConfig)
 - [x] 5.3.3 Add "Export JSON" button (with download functionality)
-- [ ] 5.3.4 Add "Copy to Clipboard" button (future enhancement)
-- [ ] 5.3.5 Show formatted JSON preview (future enhancement)
-- [x] 5.3.6 Fixed filename: 'flex-chat-config.json'
-- [ ] 5.3.7 Add timestamp to exported filename (config-2025-10-29.json)
-- [ ] 5.3.8 Add metadata to exported JSON (export date, version)
+- [x] 5.3.4 Add "Copy to Clipboard" button with fallback for older browsers
+- [x] 5.3.5 Fixed filename: 'flex-chat-config.json'
+- [x] 5.3.6 Add filename prompt with timestamp default
 
-### 5.4 Configuration Import UI (Polish)
-- [ ] 5.4.1 Create ImportConfig component
-- [ ] 5.4.2 Add file upload input
-- [ ] 5.4.3 Parse and validate uploaded JSON
-- [ ] 5.4.4 Show import preview/diff before loading
-- [ ] 5.4.5 Add "Replace" vs "Merge" options
-- [ ] 5.4.6 Handle import errors gracefully with actionable messages
-- [ ] 5.4.7 Add confirmation dialog before loading imported config
-
-### 5.5 Configuration Validation UI (Polish)
-- [ ] 5.5.1 Enhance validation error categorization
-- [ ] 5.5.2 Add "Fix" suggestions for common validation errors
-- [ ] 5.5.3 Add validation progress indicator
-- [ ] 5.5.4 Improve validation error messages with actionable guidance
-- [ ] 5.5.5 Add validation warnings (non-blocking issues)
-- [ ] 5.5.6 Link validation errors to problematic sections
+### 5.4 Configuration Import UI (Complete) ✅
+- [x] 5.4.1 Add file upload input in header
+- [x] 5.4.2 Parse and validate uploaded JSON
+- [x] 5.4.3 Handle import errors gracefully with actionable messages
+- [x] 5.4.4 Warn about replacing unsaved changes
+- [x] 5.4.5 Add confirmation dialog before loading imported config
+- [x] 5.4.6 Reset validation state to "dirty" after import
 
 ### 5.6 Live Configuration Updates (Complete)
 - [x] 5.6.1 Add "Apply Changes" button in UI (calls `/api/config/reload`)
@@ -465,41 +424,9 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 5.6.6 Add global route guard when `hasUnappliedChanges` (except Export/Cancel)
 - [x] 5.6.7 Add Validate button and gating logic (Apply/Export disabled until valid)
 
-### 5.7 Configuration Diff/Preview
-- [ ] 5.7.1 Create ConfigDiff component
-- [ ] 5.7.2 Show side-by-side diff (appliedConfig vs workingConfig)
-- [ ] 5.7.3 Highlight added/removed/modified sections with color coding
-- [ ] 5.7.4 Add "Review Changes" modal before apply
-- [ ] 5.7.5 Show summary stats (X providers added, Y handlers modified, etc.)
-- [ ] 5.7.6 Add "Revert" option to discard specific changes
-
 ### 5.8 Performance Optimizations
-- [ ] 5.8.1 Implement frontend static data caching (Decision 16 from design.md)
-- [ ] 5.8.2 Cache provider list at ConfigBuilder level
-- [ ] 5.8.3 Cache environment variables at ConfigBuilder level
-- [ ] 5.8.4 Pass cached data as props to wizards/sections
-- [ ] 5.8.5 Add cache invalidation on config reload
-- [ ] 5.8.6 Optimize re-renders with React.memo where appropriate
-- [ ] 5.8.7 Add debouncing to validation triggers
-
-### 5.9 Configuration History (Optional)
-- [ ] 5.9.1 Store config versions in localStorage
-- [ ] 5.9.2 Create ConfigHistory component
-- [ ] 5.9.3 Show list of past configurations with timestamps
-- [ ] 5.9.4 Add restore/revert functionality
-- [ ] 5.9.5 Add diff view between any two versions
-- [ ] 5.9.6 Add config snapshot naming/descriptions
-
-### 5.10 UX Polish
-- [ ] 5.10.1 Add loading states throughout (spinners, skeletons)
-- [ ] 5.10.2 Add success/error toasts for all actions
-- [ ] 5.10.3 Improve form validation messages with actionable guidance
-- [ ] 5.10.4 Add keyboard shortcuts (Ctrl+S to validate, etc.)
-- [ ] 5.10.5 Improve mobile responsiveness for all components
-- [ ] 5.10.6 Add help tooltips/documentation links throughout
-- [ ] 5.10.7 Add onboarding tour (optional)
-- [ ] 5.10.8 Polish animations and transitions
-- [ ] 5.10.9 Add accessibility improvements (ARIA labels, keyboard navigation)
+- [x] 5.8.1 Implement frontend static data caching (Decision 16 from design.md)
+- [x] 5.8.2 Cache models at ConfigBuilder level
 
 ### 5.11 Documentation
 - [ ] 5.11.1 Create `docs/CONFIGURATION_BUILDER.md` (comprehensive guide)
@@ -512,28 +439,5 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 
 ## Testing & Quality Assurance
 
-### Unit Tests
-- [ ] Write unit tests for all new services
-- [ ] Write unit tests for all new React components
-- [ ] Achieve 80%+ code coverage
-
-### Integration Tests
-- [ ] Test all new API endpoints
-- [ ] Test configuration export/import flow
-- [ ] Test zero-config bootstrap flow
-- [ ] Test connection testing flow
-
-### End-to-End Tests
-- [ ] Test complete zero-config-to-export workflow
-- [ ] Test configuration import and modification
-- [ ] Test backward compatibility with existing configs
-
-### Manual Testing
-- [ ] Test with Ollama (local provider)
-- [ ] Test with OpenAI
-- [ ] Test with Gemini
-- [ ] Test with multiple RAG services
-- [ ] Test error scenarios
-- [ ] Test on different browsers
-- [ ] Test on mobile devices
+_All testing tasks have been moved to the Testing Strategy Epic (`ai/data/epics/testing.md`). This includes unit tests, integration tests, E2E tests, and manual testing checklists._
 

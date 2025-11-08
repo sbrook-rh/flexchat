@@ -434,6 +434,83 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     URL.revokeObjectURL(url);
   };
   
+  // Phase 5.3: Copy configuration to clipboard
+  const handleCopyToClipboard = async () => {
+    if (validationState !== 'valid') {
+      alert('Please validate your configuration before copying.');
+      return;
+    }
+    
+    const jsonString = JSON.stringify(workingConfig, null, 2);
+    
+    try {
+      await navigator.clipboard.writeText(jsonString);
+      alert('Configuration copied to clipboard!');
+    } catch (err) {
+      // Fallback for older browsers
+      const textarea = document.createElement('textarea');
+      textarea.value = jsonString;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        alert('Configuration copied to clipboard!');
+      } catch (fallbackErr) {
+        alert('Failed to copy to clipboard. Please try Export instead.');
+      }
+      document.body.removeChild(textarea);
+    }
+  };
+  
+  // Phase 5.4: Import configuration from file
+  const handleImport = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedConfig = JSON.parse(e.target.result);
+        
+        // Basic validation
+        if (!importedConfig || typeof importedConfig !== 'object') {
+          alert('Invalid configuration file: must be a JSON object');
+          return;
+        }
+        
+        // Warn about replacing current config
+        if (hasUnsavedChanges) {
+          if (!window.confirm('You have unsaved changes. Importing will replace your current configuration. Continue?')) {
+            return;
+          }
+        } else {
+          if (!window.confirm('This will replace your current configuration. Continue?')) {
+            return;
+          }
+        }
+        
+        // Load the config
+        setWorkingConfig(importedConfig);
+        setValidationState('dirty'); // Needs validation
+        alert('Configuration imported successfully! Please validate before applying.');
+        
+      } catch (err) {
+        alert(`Failed to import configuration: ${err.message}\n\nPlease ensure the file is valid JSON.`);
+      }
+    };
+    
+    reader.onerror = () => {
+      alert('Failed to read file. Please try again.');
+    };
+    
+    reader.readAsText(file);
+    
+    // Reset input so same file can be imported again
+    event.target.value = '';
+  };
+  
   // Phase 2.7: Cancel and discard changes
   const handleCancel = () => {
     if (hasUnsavedChanges) {
@@ -547,15 +624,35 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
                 Manage your AI providers and system configuration
               </p>
             </div>
-            <button
-              onClick={() => navigate('/')}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              Back to Home
-            </button>
+            <div className="flex gap-3">
+              {/* Import Config Button */}
+              <label
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus-within:outline-none focus-within:ring-2 focus-within:ring-offset-2 focus-within:ring-blue-500 transition-colors cursor-pointer"
+                title="Import configuration from JSON file"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                Import
+                <input
+                  type="file"
+                  accept=".json,application/json"
+                  onChange={handleImport}
+                  className="hidden"
+                />
+              </label>
+              
+              {/* Back to Home Button */}
+              <button
+                onClick={() => navigate('/')}
+                className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Home
+              </button>
+            </div>
           </div>
         </div>
 
@@ -695,16 +792,30 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
                 )}
               </button>
 
+              {/* Copy to Clipboard Button */}
+              <button
+                onClick={handleCopyToClipboard}
+                disabled={validationState !== 'valid'}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Copy configuration JSON to clipboard"
+              >
+                <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                Copy
+              </button>
+
               {/* Export Button */}
               <button
                 onClick={handleExport}
                 disabled={validationState !== 'valid'}
                 className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Download configuration as JSON file"
               >
                 <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
-                Export JSON
+                Export
               </button>
 
               {/* Cancel Button */}

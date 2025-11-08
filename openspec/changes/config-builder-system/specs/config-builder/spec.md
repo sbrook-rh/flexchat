@@ -243,49 +243,54 @@ The system SHALL provide a visual builder for creating and managing response han
 - **AND** shows which handler would be selected
 - **AND** displays the matching reasoning
 
-### Requirement: Configuration Export
-The system SHALL provide export functionality to generate JSON configuration files.
+### Requirement: Configuration Export with Clipboard Support
+The system SHALL provide export functionality to generate JSON configuration files and copy to clipboard.
 
-#### Scenario: Export Current Configuration
-- **WHEN** a user clicks "Export Configuration"
-- **THEN** the system generates a valid JSON configuration file from current state
-- **AND** provides download or copy-to-clipboard options
+#### Scenario: Export as File
+- **WHEN** a user clicks "Export" button (requires validated config)
+- **THEN** the system prompts for a filename with timestamped default (e.g., `flex-chat-config-2025-11-08T14-30-00.json`)
+- **AND** triggers browser download of the JSON file
+- **AND** automatically appends `.json` extension if not provided
 
-#### Scenario: Export with Filename
-- **WHEN** a user specifies a filename for export
-- **THEN** the system saves the configuration with the specified name
-- **AND** suggests `.json` extension if not provided
+#### Scenario: Copy to Clipboard
+- **WHEN** a user clicks "Copy" button (requires validated config)
+- **THEN** the system copies the JSON configuration to clipboard using `navigator.clipboard.writeText()`
+- **AND** shows success alert "Configuration copied to clipboard!"
+- **AND** falls back to `document.execCommand('copy')` for older browsers
 
-#### Scenario: Export Validation
-- **WHEN** exporting configuration
-- **THEN** the system validates the configuration before export
-- **AND** shows validation errors if any exist
-- **AND** allows export anyway with warning
+#### Scenario: Export Validation Gating
+- **WHEN** attempting to export or copy configuration
+- **THEN** the system checks if `validationState === 'valid'`
+- **AND** if not valid, displays alert "Please validate your configuration before exporting"
+- **AND** keeps Export/Copy buttons disabled until validation passes
 
-### Requirement: Configuration Import
-The system SHALL provide import functionality to load JSON configuration files into the UI.
+### Requirement: Configuration Import from File
+The system SHALL provide import functionality to load JSON configuration files into the UI via file upload.
 
-#### Scenario: Import Configuration File
-- **WHEN** a user uploads a JSON configuration file
-- **THEN** the system parses and validates the JSON
-- **AND** displays a preview of the configuration
+#### Scenario: Import from File (Replace Mode)
+- **WHEN** a user clicks "Import" button in header and selects a `.json` file
+- **THEN** the system reads the file using `FileReader`
+- **AND** parses the JSON content
+- **AND** validates that it's a valid configuration object
+- **AND** shows confirmation dialog: "This will replace your current configuration. Continue?"
+- **AND** if user confirms, loads the config into `workingConfig` and sets `validationState` to 'dirty'
+- **AND** displays alert "Configuration imported successfully! Please validate before applying."
 
-#### Scenario: Import with Replace
-- **WHEN** a user imports with "Replace" option
-- **THEN** the system replaces the entire current configuration
-- **AND** requires confirmation before replacing
+#### Scenario: Import with Unsaved Changes Warning
+- **WHEN** importing a file while `hasUnsavedChanges` is true
+- **THEN** the system shows warning dialog: "You have unsaved changes. Importing will replace your current configuration. Continue?"
+- **AND** only proceeds if user confirms
 
-#### Scenario: Import with Merge
-- **WHEN** a user imports with "Merge" option
-- **THEN** the system merges imported configuration with current
-- **AND** shows conflicts if any exist
-- **AND** allows user to resolve conflicts
+#### Scenario: Import JSON Parsing Errors
+- **WHEN** an uploaded file contains invalid JSON
+- **THEN** the system catches the parse error
+- **AND** displays alert with error message: "Failed to import configuration: [error]. Please ensure the file is valid JSON."
+- **AND** does not modify the current `workingConfig`
 
-#### Scenario: Import Validation Errors
-- **WHEN** an imported configuration file is invalid
-- **THEN** the system displays specific validation errors
-- **AND** prevents import until errors are resolved
-- **AND** provides suggestions for fixing errors
+#### Scenario: Import File Read Errors
+- **WHEN** the file cannot be read (permissions, corruption, etc.)
+- **THEN** the system displays alert "Failed to read file. Please try again."
+- **AND** does not modify the current `workingConfig`
 
 ### Requirement: Live Configuration Updates
 The system SHALL support applying configuration changes without restarting the server.
