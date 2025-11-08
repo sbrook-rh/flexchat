@@ -184,26 +184,29 @@ This fundamentally shifts Flex Chat from a "config-file-first" to a "UI-first" s
 
 **Status**: Complete - All features implemented, tested, and documented
 
-### Phase 4: Response Handler Builder
+### Phase 4: Response Handler Builder ✅ COMPLETE
 **Goal**: Visual builder for response handlers with matching rules
 
 **Deliverables**:
-- Handlers tab implementation
-- Response handler list/add/edit/remove/reorder UI (drag-and-drop)
-- Match criteria builder (visual rule editor)
-  - Service/collection matching
-  - Intent matching (with regex support)
-  - RAG results matching
-  - Reasoning flag
-- Prompt template editor with variable autocomplete
-- LLM/model selection per handler
-- Handler testing UI (test match criteria)
-- Sequential ordering visualization (first-match wins)
-- Catch-all handler highlighting
+- ✅ Handlers tab implementation (functional HandlersSection)
+- ✅ Response handler list/add/edit/remove/reorder UI (up/down arrows - drag-and-drop deferred)
+- ✅ Match criteria builder (visual rule editor in HandlerModal)
+  - ✅ Service/collection matching (exact name or contains substring)
+  - ✅ Intent matching (dropdown selection with regex hint)
+  - ✅ RAG results matching (match/partial/none/any)
+  - ✅ Reasoning flag toggle
+- ✅ Prompt template editor with variable insertion (click to add {{variables}})
+- ✅ LLM/model selection per handler (dropdown with model discovery)
+- ✅ Sequential ordering visualization (numbered cards, first-match wins tip)
+- ✅ Catch-all handler highlighting (purple badge, positioning warnings)
+- ✅ Validation warnings (catch-all not last, multiple catch-alls)
+- ⏸️ Handler testing UI deferred (optional enhancement for Phase 5+)
 
 **Depends On**: Phase 3b (needs intents and embeddings available for matching)
 
-**Estimated Complexity**: Large (3-4 weeks)
+**Estimated Complexity**: Large (3-4 weeks) → **Actual: 1 session (simplified approach)**
+
+**Status**: Complete - Core features implemented with simplified UX (arrows vs drag-and-drop, plain textarea vs rich editor)
 
 ### Phase 5: Reasoning Configuration & Polish
 **Goal**: Complete all configuration sections and polish the entire builder

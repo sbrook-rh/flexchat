@@ -339,43 +339,51 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [x] 3d.4.6 Add hover-based resend button (↻) for last user message
 - [x] 3d.4.7 Implement resend logic (delete message, populate input field)
 
-## Phase 4: Response Handler Builder
+## Phase 4: Response Handler Builder ✅ COMPLETE
+
+**Enhancements added during implementation:**
+- Model filtering: Only show chat-capable models (exclude embedding/audio/image/video)
+- Model badges: ⚡ fast, 🎨 vision, 🔧 function-calling, 📚 large context
+- Alphabetical model sorting across all dropdowns
+- Export filename prompt for custom naming
+- Model metadata display (max tokens, capabilities)
+- Atomic state updates for collection matching to prevent UI bugs
 
 ### 4.1 Response Handler List UI
-- [ ] 4.1.1 Create ResponseHandlerList component
-- [ ] 4.1.2 Display all handlers in order
-- [ ] 4.1.3 Show match criteria summary per handler
-- [ ] 4.1.4 Add drag-and-drop reordering
-- [ ] 4.1.5 Add "Add Handler" button
-- [ ] 4.1.6 Add edit/delete/duplicate actions
-- [ ] 4.1.7 Highlight catch-all handler (no match criteria)
+- [x] 4.1.1 Create ResponseHandlerList component (integrated into HandlersSection)
+- [x] 4.1.2 Display all handlers in order
+- [x] 4.1.3 Show match criteria summary per handler
+- [x] 4.1.4 Add up/down arrows for reordering (drag-and-drop deferred as not essential)
+- [x] 4.1.5 Add "Add Handler" button
+- [x] 4.1.6 Add edit/delete/duplicate actions
+- [x] 4.1.7 Highlight catch-all handler (no match criteria)
 
 ### 4.2 Match Criteria Builder
-- [ ] 4.2.1 Create MatchCriteriaBuilder component
-- [ ] 4.2.2 Add service selector (dropdown of configured RAG services)
-- [ ] 4.2.3 Add collection matcher (exact/contains)
-- [ ] 4.2.4 Add intent selector (dropdown of configured intents)
-- [ ] 4.2.5 Add intent regex input
-- [ ] 4.2.6 Add RAG results selector (match/partial/none/any)
-- [ ] 4.2.7 Add reasoning toggle
-- [ ] 4.2.8 Show visual preview of match criteria
+- [x] 4.2.1 Create MatchCriteriaBuilder component (integrated into HandlerModal MatchTab)
+- [x] 4.2.2 Add service selector (dropdown of configured RAG services)
+- [x] 4.2.3 Add collection matcher (exact/contains)
+- [x] 4.2.4 Add intent selector (dropdown of configured intents)
+- [x] 4.2.5 Add intent regex input (text input with hint for regex patterns)
+- [x] 4.2.6 Add RAG results selector (match/partial/none/any)
+- [x] 4.2.7 Add reasoning toggle
+- [x] 4.2.8 Show visual preview of match criteria (displayed in HandlerCard)
 
 ### 4.3 Prompt Template Editor
-- [ ] 4.3.1 Create PromptEditor component
-- [ ] 4.3.2 Add multiline text input
-- [ ] 4.3.3 Add variable autocomplete ({{rag_context}}, {{reasoning}}, etc.)
-- [ ] 4.3.4 Show available variables as hints
-- [ ] 4.3.5 Add syntax highlighting for variables
-- [ ] 4.3.6 Add prompt templates library (optional)
+- [x] 4.3.1 Create PromptEditor component (integrated into HandlerModal PromptTab)
+- [x] 4.3.2 Add multiline text input
+- [x] 4.3.3 Add variable insertion (click to insert {{rag_context}}, {{reasoning}}, etc.)
+- [x] 4.3.4 Show available variables as hints
+- [ ] 4.3.5 Add syntax highlighting for variables (deferred - plain textarea is sufficient)
+- [ ] 4.3.6 Add prompt templates library (deferred - optional enhancement)
 
 ### 4.4 LLM/Model Selection
-- [ ] 4.4.1 Create LLMSelector component for response handlers
-- [ ] 4.4.2 Select provider from configured LLMs
-- [ ] 4.4.3 Select model from provider's available models
-- [ ] 4.4.4 Set max_tokens
-- [ ] 4.4.5 Add reasoning configuration (if enabled)
+- [x] 4.4.1 Create LLMSelector component for response handlers (integrated into HandlerModal BasicTab)
+- [x] 4.4.2 Select provider from configured LLMs
+- [x] 4.4.3 Select model from provider's available models
+- [x] 4.4.4 Set max_tokens
+- [ ] 4.4.5 Add reasoning configuration (deferred to Phase 5 - Reasoning Tab)
 
-### 4.5 Handler Testing UI
+### 4.5 Handler Testing UI (DEFERRED - Optional Enhancement)
 - [ ] 4.5.1 Create HandlerTester component
 - [ ] 4.5.2 Input test query
 - [ ] 4.5.3 Simulate RAG results
@@ -384,10 +392,10 @@ Fixed lightning bolt (⚡) detection using regex instead of hardcoded strings:
 - [ ] 4.5.6 Add "Test All Handlers" mode
 
 ### 4.6 Sequential Ordering Visualization
-- [ ] 4.6.1 Show handler execution order clearly
-- [ ] 4.6.2 Highlight "first-match wins" behavior
-- [ ] 4.6.3 Add warnings for unreachable handlers
-- [ ] 4.6.4 Suggest reordering if issues detected
+- [x] 4.6.1 Show handler execution order clearly (numbered cards)
+- [x] 4.6.2 Highlight "first-match wins" behavior (info tip at top)
+- [x] 4.6.3 Add warnings for unreachable handlers (catch-all positioning, multiple catch-alls)
+- [x] 4.6.4 Suggest reordering if issues detected (warnings with actionable messages)
 
 ## Phase 5: Reasoning Configuration & Polish
 

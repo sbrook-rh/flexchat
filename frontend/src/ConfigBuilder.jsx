@@ -68,9 +68,16 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       
       // API returns { provider, count, models } without a success field
       if (result.models && Array.isArray(result.models)) {
+        // Sort models alphabetically by name or id
+        const sortedModels = [...result.models].sort((a, b) => {
+          const aName = (a.name || a.id || '').toLowerCase();
+          const bName = (b.name || b.id || '').toLowerCase();
+          return aName.localeCompare(bName);
+        });
+        
         setModelsCache(prev => ({
           ...prev,
-          [providerId]: { loading: false, models: result.models, error: null }
+          [providerId]: { loading: false, models: sortedModels, error: null }
         }));
       } else if (result.error) {
         setModelsCache(prev => ({
@@ -397,12 +404,30 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       return;
     }
     
+    // Generate timestamp-based default name
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+    const defaultName = `flex-chat-config-${timestamp}.json`;
+    
+    // Prompt user for filename
+    const filename = window.prompt('Enter filename for export:', defaultName);
+    
+    // User cancelled
+    if (filename === null) {
+      return;
+    }
+    
+    // Use provided name or default if empty
+    const finalFilename = filename.trim() || defaultName;
+    
+    // Ensure .json extension
+    const filenameWithExt = finalFilename.endsWith('.json') ? finalFilename : `${finalFilename}.json`;
+    
     const jsonString = JSON.stringify(workingConfig, null, 2);
     const blob = new Blob([jsonString], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'flex-chat-config.json';
+    link.download = filenameWithExt;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -489,7 +514,18 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
           />
         );
       case 'handlers':
-        return <HandlersSection workingConfig={workingConfig} />;
+        return (
+          <HandlersSection
+            workingConfig={workingConfig}
+            onUpdate={(updatedConfig) => {
+              setWorkingConfig(updatedConfig);
+              setValidationState('dirty');
+            }}
+            modelsCache={modelsCache}
+            setModelsCache={setModelsCache}
+            fetchModelsForProvider={fetchModelsForProvider}
+          />
+        );
       case 'reasoning':
         return <ReasoningSection />;
       default:
