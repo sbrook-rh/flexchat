@@ -4,7 +4,7 @@
 TBD - created by archiving change add-chat-history. Update Purpose after archive.
 ## Requirements
 ### Requirement: Session Management (Phase 1)
-The system SHALL provide client-side session management using localStorage, allowing users to create, switch between, archive, and delete multiple chat conversations.
+The system SHALL provide client-side session management using localStorage, allowing users to create, switch between, archive, delete multiple chat conversations, and manage individual messages within active sessions.
 
 #### Scenario: Create New Session
 - **WHEN** a user clicks "New Chat" button
@@ -21,6 +21,23 @@ The system SHALL provide client-side session management using localStorage, allo
 #### Scenario: Delete Session
 - **WHEN** a user deletes a session after confirming the action
 - **THEN** the system permanently removes the session and its messages from localStorage and updates the UI
+
+#### Scenario: Delete Last Message
+- **WHEN** a user hovers over the last message in an active session
+- **THEN** a delete button (🗑️) appears in the top-right corner of the message
+- **AND WHEN** the user clicks the delete button and confirms the action
+- **THEN** the system removes the last message from the session, updates the session's topic to match the new last message's topic, and persists the change to localStorage
+
+#### Scenario: Resend Last User Message
+- **WHEN** a user hovers over the last message and it is a user message (not loading)
+- **THEN** a resend button (↻) appears alongside the delete button
+- **AND WHEN** the user clicks the resend button
+- **THEN** the system removes the message from history, updates the topic state, and populates the input field with the message text for editing before resending
+
+#### Scenario: Topic State Synchronization
+- **WHEN** the last message is deleted via the delete button
+- **THEN** the system updates the active session's topic to match the topic of the new last message (or clears it if no messages remain)
+- **AND** subsequent queries use the correct historical topic for context
 
 #### Scenario: Session Persistence
 - **WHEN** a user sends or receives messages in a session

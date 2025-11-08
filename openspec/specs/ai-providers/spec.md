@@ -3,33 +3,19 @@
 ## Purpose
 The AI Providers capability defines the standardized requirements for integrating AI providers into Flex Chat. This specification ensures consistent behavior, interface compliance, and proper integration when adding new AI providers (OpenAI, Gemini, Anthropic, etc.) to the system.
 ## Requirements
-
 ### Requirement: Base AI Provider Interface
-All AI providers SHALL implement a standardized interface that ensures consistent behavior across different AI services.
+All AI providers SHALL implement a standardized interface that ensures consistent behavior across different AI services, including configuration schema and testing capabilities.
 
-#### Scenario: Provider Initialization
-- **WHEN** a provider is instantiated with configuration
-- **THEN** it validates required configuration fields and initializes successfully
+#### Scenario: Provider Initialization with Schema
+- **WHEN** a provider is instantiated
+- **THEN** it exposes its configuration schema via `getConnectionSchema()`
+- **AND** validates provided configuration against the schema
+- **AND** initializes successfully if configuration is valid
 
-#### Scenario: Model Discovery
-- **WHEN** the system requests available models from any provider
-- **THEN** it returns a standardized list of models with type, capabilities, and metadata
-
-#### Scenario: Chat Completion
-- **WHEN** a chat request is made to any provider
-- **THEN** it generates responses using the specified model with consistent message format
-
-#### Scenario: Embedding Generation
-- **WHEN** embedding requests are made to any provider
-- **THEN** it generates embeddings using supported models with consistent output format
-
-#### Scenario: Health Check
-- **WHEN** the system checks provider health
-- **THEN** it returns standardized health status with timestamp and error details
-
-#### Scenario: Configuration Validation
-- **WHEN** provider configuration is validated
-- **THEN** it checks required fields and returns validation results with specific error messages
+#### Scenario: Provider Capabilities Declaration
+- **WHEN** querying a provider's capabilities
+- **THEN** it returns supported operations: `chat`, `embeddings`, `reasoning`, `streaming`, `function_calling`
+- **AND** allows UI to show/hide features based on capabilities
 
 ### Requirement: Provider Registry Integration
 All AI providers SHALL integrate with the provider registry system for discovery and management.
@@ -75,4 +61,34 @@ The system SHALL provide specific AI provider implementations that follow the ba
 #### Scenario: Provider Testing
 - **WHEN** a provider is implemented
 - **THEN** it includes comprehensive test scenarios covering all interface requirements
+
+### Requirement: Topic Detection with Structured Output
+The system SHALL provide topic detection that returns structured results with both topic summary and status, enabling better conversation flow management.
+
+#### Scenario: Topic Detection Returns Structured Result
+- **WHEN** `identifyTopic()` is called with user message, conversation history, and current topic
+- **THEN** it returns an object with `{ topic: string, status: string }` structure
+- **AND** the status indicates `new_topic` or `continuation`
+
+#### Scenario: First Message Always New Topic
+- **WHEN** topic detection is called with no current topic (empty string or null)
+- **THEN** the status is automatically set to `new_topic` regardless of LLM output
+- **AND** ensures consistent behavior for conversation starts
+
+#### Scenario: Improved Topic Prompt for Conciseness
+- **WHEN** the topic detection prompt is constructed
+- **THEN** it includes explicit examples of good summaries (short noun phrases like "InstructLab model tuning")
+- **AND** includes examples of bad summaries to avoid (verbose sentences like "Begin discussion about...")
+- **AND** requests JSON-only output with 3-8 word max for topic_summary
+
+#### Scenario: Robust JSON Parsing with Fallbacks
+- **WHEN** the LLM returns topic detection results
+- **THEN** the system attempts to extract and parse JSON from the response
+- **AND** if parsing fails, it falls back to using the raw content as the topic with status "continuation"
+- **AND** validates that the topic summary is not generic (not "none", "general", or "conversation")
+
+#### Scenario: Topic Detection Error Handling
+- **WHEN** topic detection fails due to provider error
+- **THEN** it returns `{ topic: userMessage, status: 'new_topic' }` as a safe fallback
+- **AND** logs the error for debugging without disrupting the chat flow
 

@@ -1,6 +1,6 @@
 # config-loader Specification Deltas
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Raw Configuration Storage
 The system SHALL store configuration with environment variable placeholders intact for security and portability.
@@ -25,8 +25,6 @@ The system SHALL store configuration with environment variable placeholders inta
 - **THEN** the system returns the raw configuration with placeholders intact
 - **AND** never exposes actual environment variable values to the UI
 
-## MODIFIED Requirements
-
 ### Requirement: Zero-Config Mode Support
 The system SHALL support starting with no configuration file and initializing with sensible defaults.
 
@@ -45,8 +43,6 @@ The system SHALL support starting with no configuration file and initializing wi
 - **WHEN** a user builds configuration in the UI and applies it
 - **THEN** the system transitions from zero-config to configured mode
 - **AND** applies normal validation rules
-
-## MODIFIED Requirements
 
 ### Requirement: Runtime Configuration Updates
 The system SHALL support updating configuration at runtime without requiring a server restart.
@@ -75,8 +71,6 @@ The system SHALL support updating configuration at runtime without requiring a s
 - **THEN** the system emits a configuration change event
 - **AND** dependent services can react to the change
 - **AND** logs the configuration update
-
-## ADDED Requirements
 
 ### Requirement: Configuration Export API
 The system SHALL provide APIs for exporting current configuration in various formats.
