@@ -68,5 +68,6 @@ frontend-old/
 Thumbs.db
 
 ai
+openplan
 .cursor
 backend/loaders/
