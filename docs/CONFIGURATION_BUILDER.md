@@ -72,12 +72,22 @@ If you have an existing `config.json`, the Configuration Builder will load it au
 
 ### Topic Detection Configuration
 
-**Configure conversation topic detection**:
+**Configure conversation topic detection** (Phase 1 of the 6-phase chat flow):
 
 - **Provider Selection**: Choose which LLM to use for topic detection
 - **Model Selection**: Select a chat-capable model (filtered automatically)
+- **Custom Prompts**: Write custom topic detection prompts with variable substitution
+  - Use `{{currentTopic}}`, `{{conversationContext}}`, `{{userMessage}}` placeholders
+  - Click placeholders to insert them at cursor position
+  - Load default prompt as a starting point
+- **Testing**: Test prompts against saved conversations to see topic evolution
+  - Select a conversation from your chat history
+  - Analyze how topics are detected through the entire conversation
+  - See topic changes, continuations, and raw model responses
 - **Auto-Configuration**: Automatically set up when adding your first LLM
 - **Fallback Logic**: Uses intent or first response handler if not explicitly configured
+
+**📖 For detailed documentation on topic detection customization, testing, and best practices, see [Topic Detection Guide](TOPIC_DETECTION.md)**
 
 **Smart Features**:
 - Only shows chat-capable models (excludes reasoning/audio/video/embedding)
@@ -484,6 +494,7 @@ The Configuration Builder uses the following APIs:
 
 ## See Also
 
+- [Topic Detection Guide](./TOPIC_DETECTION.md) - Customizing and testing topic detection prompts
 - [Configuration Schema](./CONFIGURATION.md) - JSON schema reference
 - [Architecture](./ARCHITECTURE.md) - System architecture overview
 - [Provider Comparison](./PROVIDER_COMPARISON.md) - LLM provider capabilities
