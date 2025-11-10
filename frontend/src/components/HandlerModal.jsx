@@ -293,7 +293,7 @@ function MatchTab({ formData, setFormData, workingConfig }) {
   
   const updateMatch = (key, value) => {
     const newMatch = { ...match };
-    if (value === '' || value === null || value === undefined) {
+    if (value === null || value === undefined) {
       delete newMatch[key];
     } else {
       newMatch[key] = value;
@@ -320,12 +320,17 @@ function MatchTab({ formData, setFormData, workingConfig }) {
           <input
             type="checkbox"
             id="match-service"
-            checked={!!match.service}
+            checked={match.service !== undefined}
             onChange={(e) => {
-              if (!e.target.checked) {
-                updateMatch('service', null);
-                updateMatch('collection', null);
-                updateMatch('collection_contains', null);
+              if (e.target.checked) {
+                updateMatch('service', '');
+              } else {
+                // Clear all service-related fields at once
+                const newMatch = { ...match };
+                delete newMatch.service;
+                delete newMatch.collection;
+                delete newMatch.collection_contains;
+                setFormData({ ...formData, match: Object.keys(newMatch).length > 0 ? newMatch : null });
               }
             }}
             className="mt-1"
@@ -419,9 +424,11 @@ function MatchTab({ formData, setFormData, workingConfig }) {
           <input
             type="checkbox"
             id="match-intent"
-            checked={!!match.intent}
+            checked={match.intent !== undefined}
             onChange={(e) => {
-              if (!e.target.checked) {
+              if (e.target.checked) {
+                updateMatch('intent', '');
+              } else {
                 updateMatch('intent', null);
               }
             }}
@@ -461,9 +468,11 @@ function MatchTab({ formData, setFormData, workingConfig }) {
           <input
             type="checkbox"
             id="match-rag-results"
-            checked={!!match.rag_results}
+            checked={match.rag_results !== undefined}
             onChange={(e) => {
-              if (!e.target.checked) {
+              if (e.target.checked) {
+                updateMatch('rag_results', '');
+              } else {
                 updateMatch('rag_results', null);
               }
             }}
