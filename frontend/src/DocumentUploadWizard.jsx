@@ -18,18 +18,30 @@ import React, { useState } from 'react';
  */
 function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection, collectionMetadata, onClose, onComplete }) {
   // Wizard state
-  const [wizardState, setWizardState] = useState({
-    currentStep: 1,
-    rawDocuments: null, // Parsed JSON array from uploaded file
-    fileName: null,
-    schema: {
-      text_fields: [],
-      id_field: null,
-      metadata_fields: []
-    },
-    transformedPreview: null,
-    uploading: false,
-    saveSchema: !collectionMetadata?.document_schema // Default true for new uploads, false for updates
+  const [wizardState, setWizardState] = useState(() => {
+    // Parse saved schema from metadata (stored as JSON string)
+    let savedSchema = null;
+    if (collectionMetadata?.document_schema) {
+      try {
+        savedSchema = JSON.parse(collectionMetadata.document_schema);
+      } catch (e) {
+        console.warn('Failed to parse document_schema:', e);
+      }
+    }
+    
+    return {
+      currentStep: 1,
+      rawDocuments: null, // Parsed JSON array from uploaded file
+      fileName: null,
+      schema: {
+        text_fields: savedSchema?.text_fields || [],
+        id_field: savedSchema?.id_field || null,
+        metadata_fields: savedSchema?.metadata_fields || []
+      },
+      transformedPreview: null,
+      uploading: false,
+      saveSchema: !savedSchema // Smart default: checked for new, unchecked for existing
+    };
   });
 
   // Check if wizard has any data (for close confirmation)

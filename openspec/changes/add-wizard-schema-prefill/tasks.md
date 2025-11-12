@@ -1,21 +1,21 @@
 # Implementation Tasks
 
 ## 1. Parse Schema on Initialization
-- [ ] 1.1 Modify `useState` initializer in DocumentUploadWizard.jsx
-- [ ] 1.2 Add JSON.parse logic for `collectionMetadata.document_schema`
-- [ ] 1.3 Add try/catch to handle malformed JSON (console.warn fallback)
-- [ ] 1.4 Initialize schema state with parsed values or empty defaults
-- [ ] 1.5 Set smart default for saveSchema: `!savedSchema`
+- [x] 1.1 Modify `useState` initializer in DocumentUploadWizard.jsx
+- [x] 1.2 Add JSON.parse logic for `collectionMetadata.document_schema`
+- [x] 1.3 Add try/catch to handle malformed JSON (console.warn fallback)
+- [x] 1.4 Initialize schema state with parsed values or empty defaults
+- [x] 1.5 Set smart default for saveSchema: `!savedSchema`
 
 ## 2. Pre-Check Field Radio Buttons
-- [ ] 2.1 Locate radio button rendering in FileUploadStep (Step 2)
-- [ ] 2.2 Add `checked` prop for text field radios using `wizardState.schema.text_fields.includes(field)`
-- [ ] 2.3 Add `checked` prop for metadata field radios using `wizardState.schema.metadata_fields.includes(field)`
-- [ ] 2.4 Add `checked` prop for id field radio using `wizardState.schema.id_field === field`
-- [ ] 2.5 Verify onChange handlers still allow user to override selections
+- [x] 2.1 Locate radio button rendering in FieldMappingStep (Step 2)
+- [x] 2.2 `checked` prop already uses `wizardState.schema.text_fields.includes(field)` (line 499)
+- [x] 2.3 `checked` prop already uses `wizardState.schema.metadata_fields.includes(field)` (line 515)
+- [x] 2.4 `checked` prop already uses `wizardState.schema.id_field === field` (line 507)
+- [x] 2.5 onChange handlers allow user override (toggleTextField, setIdField, toggleMetadataField)
 
 ## 3. Collections List Refresh
-- [ ] 3.1 Add `reloadConfig()` call to `handleWizardComplete()` in Collections.jsx
+- [x] 3.1 `reloadConfig()` call already present in `handleWizardComplete()` (line 399)
 
 ## 4. Testing & Validation
 - [ ] 4.1 Test Scenario 1: First upload (no schema) - all unchecked, checkbox checked
