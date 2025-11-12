@@ -30,25 +30,38 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - Involves iterative discovery or proving assumptions
 - Preparing features to be "ready for OpenSpec"
 
-**Quick commands** (slash commands for discovery):
+**Quick query commands** (data only, no context):
 - `/openplan-list` - See all items by phase
-- `/openplan-overview` - Validation dashboard
+- `/openplan-view` - Comprehensive dashboard (also: `/openplan-overview`)
 - `/openplan-status <id>` - Item details
 - `/openplan-sessions` - List active sessions
 - `/openplan-health` - System health
 
-**Workflow commands** (natural CLI):
-- `openplan idea` - Capture new ideas
-- `openplan discuss <id>` - Explore and validate
-- `openplan decompose <id>` - Break down epics (iterative)
-- `openplan sync <id>` - Check progress, recenter context
-- `openplan ready <id>` - Generate OpenSpec handoff prompt
+**Note**: The `openplan` CLI tool also supports `openplan context <id>` to show the context chain (task → feature → epic), but this is typically called from workflow commands rather than directly.
+
+**Workflow commands** (loads constitution + command instructions):
+- `/openplan-idea` - Capture new ideas
+- `/openplan-discuss <id>` - Explore and validate
+- `/openplan-decompose <id>` - Break down epics (iterative)
+- `/openplan-start <id>` - Begin work session
+- `/openplan-sync <id>` - Check progress, recenter context
+- `/openplan-ready <id>` - Generate OpenSpec handoff prompt
 
 **How it works:**
-- User types `openplan <command> [args]`
+
+*Workflow commands* (slash commands):
+- User types `/openplan-discuss <id>` in Cursor
+- Loads constitution + command file
+- Agent follows instructions
+
+*Query commands* (CLI tool):
+- User types `/openplan-list` or agent runs `openplan list` in terminal
+- Fast data access, no conversation
+
+*Alternative: Dispatcher rule*:
+- User types natural text: `openplan discuss <id>`
 - Dispatcher rule (.cursor/rules/openplan-commands.mdc) triggers
-- Loads `openplan/OPENPLAN.md` + `openplan/commands/<COMMAND>.md`
-- Follows references, executes with parsed arguments
+- Loads same files as slash commands
 
 **OpenPlan complements OpenSpec:**
 - OpenPlan = exploration, decomposition, validation (before specification)
