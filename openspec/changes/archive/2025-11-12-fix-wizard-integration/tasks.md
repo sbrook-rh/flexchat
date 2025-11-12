@@ -4,7 +4,7 @@
 - [x] 1.1 Modify `collectMetadata()` in `backend/chat/lib/document-transformer.js` to stringify arrays
 - [x] 1.2 Update test expectation in `backend/chat/__tests__/lib/document-transformer.test.js`
 - [x] 1.3 Run Jest tests to verify fix: `npm test document-transformer.test.js`
-- [ ] 1.4 Manual validation: Upload document with array metadata field
+- [x] 1.4 Manual validation: Upload document with array metadata field
 
 ## 2. Wizard Request Integration
 - [x] 2.1 Fix endpoint URL to `/api/collections/${collectionName}/documents` in DocumentUploadWizard.jsx
