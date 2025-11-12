@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import DocumentUploadWizard from './DocumentUploadWizard';
 
 function Collections({ uiConfig, reloadConfig }) {
   const [searchParams] = useSearchParams();
@@ -44,6 +45,10 @@ function Collections({ uiConfig, reloadConfig }) {
   const [resolvedConnection, setResolvedConnection] = useState(null);
   const [connectionError, setConnectionError] = useState(null);
   const [resolvingConnection, setResolvingConnection] = useState(false);
+
+  // Document Upload Wizard state
+  const [showUploadWizard, setShowUploadWizard] = useState(false);
+  const [wizardTargetCollection, setWizardTargetCollection] = useState(null);
 
   // Populate from uiConfig on mount
   useEffect(() => {
@@ -353,6 +358,21 @@ function Collections({ uiConfig, reloadConfig }) {
     setResolvedConnection(null);
     setConnectionError(null);
     setResolvingConnection(false);
+  };
+
+  const openUploadWizard = (collection) => {
+    setWizardTargetCollection(collection);
+    setShowUploadWizard(true);
+  };
+
+  const closeUploadWizard = () => {
+    setShowUploadWizard(false);
+    setWizardTargetCollection(null);
+  };
+
+  const handleWizardComplete = (result) => {
+    alert(`Successfully uploaded ${result.count} document(s)!`);
+    // Optionally refresh collections or show success message
   };
 
   const resolveCompatibleConnection = async (collection) => {
@@ -712,6 +732,12 @@ function Collections({ uiConfig, reloadConfig }) {
                         >
                           Upload Docs
                         </button>
+                        <button
+                          onClick={() => openUploadWizard(collection)}
+                          className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition"
+                        >
+                          Upload JSON
+                        </button>
                         {!(isPinned && collection.name === currentWrapperInfo?.collection) && (
                           <button
                             onClick={() => deleteCollection(collection.name)}
@@ -1067,6 +1093,16 @@ function Collections({ uiConfig, reloadConfig }) {
               </div>
             </form>
           </div>
+        )}
+
+        {/* Document Upload Wizard */}
+        {showUploadWizard && wizardTargetCollection && (
+          <DocumentUploadWizard
+            collectionName={wizardTargetCollection.name}
+            serviceName={wizardTargetCollection.service}
+            onClose={closeUploadWizard}
+            onComplete={handleWizardComplete}
+          />
         )}
       </div>
     </div>

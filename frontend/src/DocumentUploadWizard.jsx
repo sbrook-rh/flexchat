@@ -1,0 +1,632 @@
+import React, { useState } from 'react';
+
+/**
+ * DocumentUploadWizard - Multi-step modal for uploading documents to collections
+ * 
+ * Steps:
+ * 1. File Upload - Select and parse JSON file
+ * 2. Field Mapping - Configure schema (text_fields, id_field, metadata_fields)
+ * 3. Preview & Upload - Review transformed documents and confirm upload
+ * 
+ * Props:
+ * - collectionName: Target collection for upload
+ * - serviceName: RAG service name
+ * - onClose: Callback when wizard closes
+ * - onComplete: Callback when upload succeeds (receives result data)
+ */
+function DocumentUploadWizard({ collectionName, serviceName, onClose, onComplete }) {
+  // Wizard state
+  const [wizardState, setWizardState] = useState({
+    currentStep: 1,
+    rawDocuments: null, // Parsed JSON array from uploaded file
+    fileName: null,
+    schema: {
+      text_fields: [],
+      id_field: null,
+      metadata_fields: []
+    },
+    transformedPreview: null,
+    uploading: false
+  });
+
+  // Check if wizard has any data (for close confirmation)
+  const hasData = wizardState.rawDocuments !== null || 
+                  wizardState.schema.text_fields.length > 0;
+
+  // Update wizard state (passed to step components)
+  const updateWizardState = (updates) => {
+    setWizardState(prev => ({ ...prev, ...updates }));
+  };
+
+  // Validation: Can user advance to next step?
+  const canAdvance = () => {
+    switch (wizardState.currentStep) {
+      case 1:
+        // Step 1: Need file uploaded and parsed
+        return wizardState.rawDocuments && wizardState.rawDocuments.length > 0;
+      case 2:
+        // Step 2: Need at least one text field selected
+        return wizardState.schema.text_fields.length > 0;
+      case 3:
+        // Step 3: Preview step is always valid
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  // Navigation handlers
+  const handleNext = () => {
+    if (!canAdvance()) return;
+    
+    if (wizardState.currentStep < 3) {
+      updateWizardState({ currentStep: wizardState.currentStep + 1 });
+    }
+  };
+
+  const handleBack = () => {
+    if (wizardState.currentStep > 1) {
+      updateWizardState({ currentStep: wizardState.currentStep - 1 });
+    }
+  };
+
+  const handleClose = () => {
+    if (hasData) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Are you sure you want to close and discard your progress?'
+      );
+      if (!confirmed) return;
+    }
+    onClose();
+  };
+
+  const handleUpload = async () => {
+    if (wizardState.uploading) return;
+
+    updateWizardState({ uploading: true });
+
+    try {
+      const response = await fetch(`/api/collections/${serviceName}/${collectionName}/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          raw_documents: wizardState.rawDocuments,
+          schema: wizardState.schema,
+          save_schema: true
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Upload failed');
+      }
+
+      const result = await response.json();
+      onComplete(result);
+      onClose();
+    } catch (error) {
+      alert(`Upload failed: ${error.message}`);
+      updateWizardState({ uploading: false });
+    }
+  };
+
+  // Render current step
+  const renderStep = () => {
+    switch (wizardState.currentStep) {
+      case 1:
+        return (
+          <FileUploadStep
+            wizardState={wizardState}
+            onUpdate={updateWizardState}
+          />
+        );
+      case 2:
+        return (
+          <FieldMappingStep
+            wizardState={wizardState}
+            onUpdate={updateWizardState}
+          />
+        );
+      case 3:
+        return (
+          <PreviewUploadStep
+            wizardState={wizardState}
+            collectionName={collectionName}
+            serviceName={serviceName}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex-shrink-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Upload Documents</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {collectionName} • Step {wizardState.currentStep} of 3
+            </p>
+          </div>
+          <button
+            onClick={handleClose}
+            className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
+            aria-label="Close wizard"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {renderStep()}
+        </div>
+
+        {/* Footer */}
+        <div className="flex-shrink-0 bg-gray-50 border-t px-6 py-4 flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            {wizardState.currentStep === 1 && 'Upload a JSON file to begin'}
+            {wizardState.currentStep === 2 && 'Select fields to extract from your documents'}
+            {wizardState.currentStep === 3 && 'Review and confirm upload'}
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={handleClose}
+              className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            
+            {wizardState.currentStep > 1 && (
+              <button
+                onClick={handleBack}
+                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Back
+              </button>
+            )}
+            
+            {wizardState.currentStep < 3 ? (
+              <button
+                onClick={handleNext}
+                disabled={!canAdvance()}
+                className={`px-4 py-2 rounded transition-colors ${
+                  canAdvance()
+                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                onClick={handleUpload}
+                disabled={wizardState.uploading}
+                className={`px-4 py-2 rounded transition-colors ${
+                  wizardState.uploading
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {wizardState.uploading ? 'Uploading...' : 'Upload'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Step 1: File Upload
+ * User selects a JSON file, which is parsed and validated
+ */
+function FileUploadStep({ wizardState, onUpdate }) {
+  const [dragActive, setDragActive] = useState(false);
+  const [parseError, setParseError] = useState(null);
+
+  const handleFileRead = (fileContent, fileName) => {
+    try {
+      setParseError(null);
+      const parsed = JSON.parse(fileContent);
+      
+      // Validate: Must be an array
+      if (!Array.isArray(parsed)) {
+        throw new Error('File must contain a JSON array');
+      }
+      
+      if (parsed.length === 0) {
+        throw new Error('File contains no documents');
+      }
+
+      // Validate: All items must be objects
+      if (!parsed.every(item => typeof item === 'object' && item !== null)) {
+        throw new Error('All items in array must be JSON objects');
+      }
+
+      onUpdate({
+        rawDocuments: parsed,
+        fileName: fileName
+      });
+    } catch (error) {
+      setParseError(error.message);
+      onUpdate({
+        rawDocuments: null,
+        fileName: null
+      });
+    }
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => handleFileRead(e.target.result, file.name);
+    reader.readAsText(file);
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    setDragActive(false);
+
+    const file = event.dataTransfer.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => handleFileRead(e.target.result, file.name);
+    reader.readAsText(file);
+  };
+
+  const handleDragOver = (event) => {
+    event.preventDefault();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = () => {
+    setDragActive(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload JSON File</h3>
+        <p className="text-sm text-gray-600">
+          Select a JSON file containing an array of documents. Each document should be a JSON object
+          with the fields you want to index.
+        </p>
+      </div>
+
+      {/* File drop zone */}
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        className={`border-2 border-dashed rounded-lg p-12 text-center transition-colors ${
+          dragActive
+            ? 'border-blue-500 bg-blue-50'
+            : 'border-gray-300 hover:border-gray-400'
+        }`}
+      >
+        <div className="space-y-4">
+          <div className="text-5xl">📄</div>
+          <div>
+            <p className="text-gray-700 font-medium mb-2">
+              Drag and drop your JSON file here
+            </p>
+            <p className="text-sm text-gray-500 mb-4">or</p>
+            <label className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 cursor-pointer transition-colors">
+              Choose File
+              <input
+                type="file"
+                accept=".json,application/json"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* Parse error */}
+      {parseError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-800">
+            <strong>Error:</strong> {parseError}
+          </p>
+        </div>
+      )}
+
+      {/* Success message */}
+      {wizardState.rawDocuments && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-sm text-green-800">
+            <strong>✓ File loaded:</strong> {wizardState.fileName}
+          </p>
+          <p className="text-sm text-green-700 mt-1">
+            Found {wizardState.rawDocuments.length} document(s)
+          </p>
+        </div>
+      )}
+
+      {/* Format example */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <p className="text-sm font-semibold text-gray-700 mb-2">Expected format:</p>
+        <pre className="text-xs text-gray-600 overflow-x-auto">
+{`[
+  {
+    "title": "Document 1",
+    "content": "Text content...",
+    "author": "John Doe",
+    "date": "2024-01-01"
+  },
+  ...
+]`}
+        </pre>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Step 2: Field Mapping
+ * User configures schema: which fields are text, id, metadata
+ */
+function FieldMappingStep({ wizardState, onUpdate }) {
+  if (!wizardState.rawDocuments || wizardState.rawDocuments.length === 0) {
+    return (
+      <div className="text-center text-gray-500 py-12">
+        No documents available. Please go back and upload a file.
+      </div>
+    );
+  }
+
+  // Extract all unique field names from documents
+  const allFields = new Set();
+  wizardState.rawDocuments.forEach(doc => {
+    Object.keys(doc).forEach(key => allFields.add(key));
+  });
+  const fieldNames = Array.from(allFields).sort();
+
+  const { text_fields, id_field, metadata_fields } = wizardState.schema;
+
+  const toggleTextField = (field) => {
+    const newTextFields = text_fields.includes(field)
+      ? text_fields.filter(f => f !== field)
+      : [...text_fields, field];
+    
+    onUpdate({
+      schema: { ...wizardState.schema, text_fields: newTextFields }
+    });
+  };
+
+  const setIdField = (field) => {
+    onUpdate({
+      schema: { ...wizardState.schema, id_field: field === id_field ? null : field }
+    });
+  };
+
+  const toggleMetadataField = (field) => {
+    const newMetadataFields = metadata_fields.includes(field)
+      ? metadata_fields.filter(f => f !== field)
+      : [...metadata_fields, field];
+    
+    onUpdate({
+      schema: { ...wizardState.schema, metadata_fields: newMetadataFields }
+    });
+  };
+
+  // Sample values from first document
+  const sampleDoc = wizardState.rawDocuments[0];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Configure Field Mapping</h3>
+        <p className="text-sm text-gray-600">
+          Select which fields to extract from your documents. At least one text field is required.
+        </p>
+      </div>
+
+      {/* Field mapping table */}
+      <div className="border rounded-lg overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                Field Name
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">
+                Sample Value
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
+                Text Field
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
+                ID Field
+              </th>
+              <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase">
+                Metadata
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y">
+            {fieldNames.map(field => {
+              const sampleValue = sampleDoc[field];
+              const displayValue = typeof sampleValue === 'string'
+                ? sampleValue.substring(0, 50) + (sampleValue.length > 50 ? '...' : '')
+                : JSON.stringify(sampleValue).substring(0, 50);
+
+              return (
+                <tr key={field} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    {field}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600 font-mono">
+                    {displayValue}
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={text_fields.includes(field)}
+                      onChange={() => toggleTextField(field)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <input
+                      type="radio"
+                      checked={id_field === field}
+                      onChange={() => setIdField(field)}
+                      className="w-4 h-4 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={metadata_fields.includes(field)}
+                      onChange={() => toggleMetadataField(field)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Help text */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <ul className="text-sm text-blue-800 space-y-1">
+          <li><strong>Text Fields:</strong> Content to be indexed and searched (required)</li>
+          <li><strong>ID Field:</strong> Unique identifier for each document (optional)</li>
+          <li><strong>Metadata:</strong> Additional fields to store with each document (optional)</li>
+        </ul>
+      </div>
+
+      {/* Validation warning */}
+      {text_fields.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <p className="text-sm text-yellow-800">
+            <strong>⚠ Warning:</strong> You must select at least one text field to proceed.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Step 3: Preview & Upload
+ * User reviews transformed documents before uploading
+ */
+function PreviewUploadStep({ wizardState, collectionName, serviceName }) {
+  if (!wizardState.rawDocuments || wizardState.rawDocuments.length === 0) {
+    return (
+      <div className="text-center text-gray-500 py-12">
+        No documents available. Please go back and configure your upload.
+      </div>
+    );
+  }
+
+  // Simulate transformation for preview (first 3 documents)
+  const previewDocs = wizardState.rawDocuments.slice(0, 3).map((doc, idx) => {
+    const { text_fields, id_field, metadata_fields } = wizardState.schema;
+    
+    // Combine text fields
+    const textParts = text_fields.map(field => doc[field]).filter(Boolean);
+    const text = textParts.join('\n\n');
+    
+    // Extract ID
+    const id = id_field ? String(doc[id_field]) : `doc-${idx + 1}`;
+    
+    // Extract metadata
+    const metadata = {};
+    metadata_fields.forEach(field => {
+      if (doc[field] !== undefined) {
+        metadata[field] = doc[field];
+      }
+    });
+
+    return { id, text, metadata };
+  });
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">Preview & Upload</h3>
+        <p className="text-sm text-gray-600">
+          Review the transformed documents before uploading to <strong>{collectionName}</strong> in {serviceName}.
+        </p>
+      </div>
+
+      {/* Upload summary */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="grid grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-blue-700 font-semibold">Documents:</p>
+            <p className="text-blue-900">{wizardState.rawDocuments.length}</p>
+          </div>
+          <div>
+            <p className="text-blue-700 font-semibold">Text Fields:</p>
+            <p className="text-blue-900">{wizardState.schema.text_fields.join(', ')}</p>
+          </div>
+          <div>
+            <p className="text-blue-700 font-semibold">ID Field:</p>
+            <p className="text-blue-900">{wizardState.schema.id_field || 'Auto-generated'}</p>
+          </div>
+          <div>
+            <p className="text-blue-700 font-semibold">Metadata Fields:</p>
+            <p className="text-blue-900">
+              {wizardState.schema.metadata_fields.length > 0
+                ? wizardState.schema.metadata_fields.join(', ')
+                : 'None'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Preview samples */}
+      <div>
+        <h4 className="text-sm font-semibold text-gray-700 mb-3">
+          Preview (first {Math.min(3, wizardState.rawDocuments.length)} document{wizardState.rawDocuments.length !== 1 ? 's' : ''})
+        </h4>
+        <div className="space-y-4">
+          {previewDocs.map((doc, idx) => (
+            <div key={idx} className="border rounded-lg p-4 bg-gray-50">
+              <div className="text-xs font-semibold text-gray-600 mb-2">
+                Document {idx + 1}: {doc.id}
+              </div>
+              <div className="text-sm text-gray-800 mb-3 max-h-24 overflow-y-auto">
+                {doc.text.substring(0, 200)}
+                {doc.text.length > 200 && '...'}
+              </div>
+              {Object.keys(doc.metadata).length > 0 && (
+                <div className="text-xs text-gray-600">
+                  <strong>Metadata:</strong> {JSON.stringify(doc.metadata)}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Info */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <p className="text-sm text-gray-700">
+          Clicking <strong>Upload</strong> will send {wizardState.rawDocuments.length} document(s) to the backend for processing.
+          The schema will be saved to collection metadata for future uploads.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default DocumentUploadWizard;
+
