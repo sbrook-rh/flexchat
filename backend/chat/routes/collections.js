@@ -14,6 +14,23 @@ const { DEFAULT_TOPIC_PROMPT } = require('../lib/topic-detector');
 const { transformDocuments } = require('../lib/document-transformer');
 
 /**
+ * ChromaDB Metadata Constraints:
+ * 
+ * 1. Metadata values MUST be primitives: string, int, float, or boolean.
+ *    Complex types (objects, arrays) are NOT supported.
+ *    Solution: JSON.stringify complex values before storage, JSON.parse when reading.
+ * 
+ * 2. Special immutable keys (set at collection creation, cannot be updated):
+ *    - 'hnsw:space' - Distance metric (cosine, l2, ip)
+ *    Solution: Remove these keys before calling updateCollectionMetadata()
+ * 
+ * Examples:
+ * - document_schema: JSON.stringify(schema)  // Store
+ * - JSON.parse(metadata.document_schema)     // Read
+ * - const { 'hnsw:space': _, ...updatable } = metadata  // Remove immutable keys
+ */
+
+/**
  * Create collections router with dependency injection
  * @param {Function} getConfig - Getter for current config (always up-to-date)
  * @param {Function} getProviders - Getter for current providers (always up-to-date)
@@ -277,22 +294,35 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       // Schema persistence (non-fatal)
       if (transformed && save_schema && schema) {
         try {
-          const collection = await getCollection(service, name, ragProviders, rawConfig.rag_services);
+          const collection = await getCollection(service, name, ragProviders, processedConfig.rag_services);
           const currentMetadata = collection.metadata || {};
+          
+          // Parse existing schema if it exists (it's stored as JSON string)
+          const existingSchema = currentMetadata.document_schema 
+            ? JSON.parse(currentMetadata.document_schema)
+            : null;
+          
+          // ChromaDB metadata only accepts primitives (string, int, float, boolean)
+          // Must stringify the schema object before storage
+          const schemaWithTimestamps = {
+            ...schema,
+            created_at: existingSchema?.created_at || new Date().toISOString(),
+            last_used: new Date().toISOString()
+          };
+          
+          // Remove ChromaDB-specific keys that cannot be updated (immutable)
+          // hnsw:space is set at collection creation and cannot be changed
+          const { 'hnsw:space': _, ...updatableMetadata } = currentMetadata;
           
           await updateCollectionMetadata(
             service, 
             name, 
             {
-              ...currentMetadata,
-              schema: {
-                ...schema,
-                created_at: currentMetadata.schema?.created_at || new Date().toISOString(),
-                last_used: new Date().toISOString()
-              }
+              ...updatableMetadata,
+              document_schema: JSON.stringify(schemaWithTimestamps)  // Store as JSON string
             },
-            ragProviders,
-            rawConfig.rag_services
+            processedConfig.rag_services,
+            ragProviders
           );
           
           result.schema_saved = true;
