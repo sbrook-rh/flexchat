@@ -43,6 +43,7 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - `/openplan-idea` - Capture new ideas
 - `/openplan-discuss <id>` - Explore and validate
 - `/openplan-decompose <id>` - Break down epics (iterative)
+- `/openplan-validate <id>` - Deep validation audit (quality gate)
 - `/openplan-start <id>` - Begin work session
 - `/openplan-sync <id>` - Check progress, recenter context
 - `/openplan-ready <id>` - Generate OpenSpec handoff prompt
