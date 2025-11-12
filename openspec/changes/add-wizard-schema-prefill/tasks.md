@@ -18,12 +18,12 @@
 - [x] 3.1 `reloadConfig()` call already present in `handleWizardComplete()` (line 399)
 
 ## 4. Testing & Validation
-- [ ] 4.1 Test Scenario 1: First upload (no schema) - all unchecked, checkbox checked
-- [ ] 4.2 Test Scenario 2: Subsequent upload (schema exists) - fields pre-checked matching saved schema
-- [ ] 4.3 Test Scenario 3: Schema mismatch - partial pre-check, no errors
-- [ ] 4.4 Test Scenario 4: Malformed JSON - console.warn, wizard works with defaults
-- [ ] 4.5 Verify user can override pre-checked selections
-- [ ] 4.6 Verify collections list refreshes after upload
-- [ ] 4.7 Verify no console errors (except expected console.warn)
-- [ ] 4.8 Verify save schema checkbox shows smart default
+- [x] 4.1 Test Scenario 1: First upload (no schema) - all unchecked, checkbox checked
+- [x] 4.2 Test Scenario 2: Subsequent upload (schema exists) - fields pre-checked matching saved schema
+- [x] 4.3 Test Scenario 3: Schema mismatch - partial pre-check, no errors
+- [x] 4.4 Test Scenario 4: Malformed JSON - console.warn, wizard works with defaults
+- [x] 4.5 Verify user can override pre-checked selections
+- [x] 4.6 Verify collections list refreshes after upload
+- [x] 4.7 Verify no console errors (except expected console.warn)
+- [x] 4.8 Verify save schema checkbox shows smart default
 
