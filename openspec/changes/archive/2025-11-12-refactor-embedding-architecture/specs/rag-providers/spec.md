@@ -44,21 +44,4 @@ The RAG wrapper service SHALL store and retrieve collection metadata provided by
 - **WHEN** GET `/collections` is called
 - **THEN** it returns all collections with their metadata
 
-## REMOVED Requirements
-
-### Requirement: RAG Wrapper Embedding Generation
-**Reason**: Embedding generation moved to Node backend for architectural consistency and reusability.
-
-**Migration**: 
-- Node backend now generates embeddings before sending documents to RAG wrapper
-- RAG wrapper simplified to pure storage operations
-- Remove provider allowlist validation on create; treat embedding fields as metadata only
-- Plan to remove wrapper-side embedding configuration after query flow is moved (Phase 3)
-- Update deployment documentation to reflect new architecture
-
-#### Historical Scenario: Generate Embeddings in RAG Wrapper
-- (This scenario is removed - embedding generation now happens in Node backend)
-
-#### Historical Scenario: Configure Embedding Provider
-- (This scenario is removed - embedding configuration now managed in Node backend through LLM connections)
 
