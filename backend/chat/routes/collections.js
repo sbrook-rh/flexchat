@@ -4,12 +4,14 @@ const {
   listCollections, 
   createCollection, 
   deleteCollection, 
-  updateCollectionMetadata, 
+  updateCollectionMetadata,
+  getCollection,
   addDocuments 
 } = require('../lib/collection-manager');
 const { generateEmbeddings } = require('../lib/embedding-generator');
 const { getProcessedConfig } = require('../lib/config-loader');
 const { DEFAULT_TOPIC_PROMPT } = require('../lib/topic-detector');
+const { transformDocuments } = require('../lib/document-transformer');
 
 /**
  * Create collections router with dependency injection
@@ -179,18 +181,21 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
 
   /**
    * Add documents to a collection
+   * Supports both pre-formatted documents and raw documents with transformation
    * Requires service name to avoid ambiguity
    * POST /api/collections/:name/documents
    */
   router.post('/collections/:name/documents', async (req, res) => {
     try {
       const { name } = req.params;
-      const { documents, service, embedding_connection, embedding_model } = req.body;
+      const { documents, raw_documents, schema, save_schema, service, embedding_connection, embedding_model } = req.body;
       
-      if (!documents || !Array.isArray(documents)) {
-        return res.status(400).json({ error: 'Documents array is required' });
+      // Mutual exclusivity check
+      if (documents && raw_documents) {
+        return res.status(400).json({ error: 'Provide either documents or raw_documents, not both' });
       }
       
+      // Validate service and embedding parameters
       if (!service) {
         return res.status(400).json({ error: 'Service name is required' });
       }
@@ -199,16 +204,49 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
         return res.status(400).json({ error: 'embedding_connection is required' });
       }
       
-      const rawConfig = getConfig();
-      const processedConfig = getProcessedConfig(rawConfig);
-      
-      // Require embedding_model from UI
       if (!embedding_model) {
         return res.status(400).json({ error: 'embedding_model is required' });
       }
       
+      // Track transformation status
+      let transformed = false;
+      let finalDocuments;
+      
+      // New path: raw documents with transformation
+      if (raw_documents) {
+        if (!schema) {
+          return res.status(400).json({ error: 'schema is required when using raw_documents' });
+        }
+        
+        if (!Array.isArray(raw_documents)) {
+          return res.status(400).json({ error: 'raw_documents must be an array' });
+        }
+        
+        // Transform documents
+        try {
+          finalDocuments = transformDocuments(raw_documents, schema);
+          transformed = true;
+        } catch (transformError) {
+          return res.status(400).json({
+            error: 'Document transformation failed',
+            message: transformError.message
+          });
+        }
+      } 
+      // Existing path: pre-formatted documents
+      else {
+        if (!documents || !Array.isArray(documents)) {
+          return res.status(400).json({ error: 'Documents array is required' });
+        }
+        finalDocuments = documents;
+        transformed = false;
+      }
+      
+      const rawConfig = getConfig();
+      const processedConfig = getProcessedConfig(rawConfig);
+      
       // Generate embeddings in Node
-      const texts = documents
+      const texts = finalDocuments
         .map(d => (d && typeof d.text === 'string' ? d.text : ''))
         .filter(t => t && t.length > 0);
       
@@ -221,7 +259,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       // Attach embeddings to documents (skip empty-text docs)
       const documentsWithEmbeddings = [];
       let embIdx = 0;
-      for (const doc of documents) {
+      for (const doc of finalDocuments) {
         const text = doc && typeof doc.text === 'string' ? doc.text : '';
         if (!text) continue;
         documentsWithEmbeddings.push({
@@ -232,6 +270,39 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       
       const { ragProviders } = getProviders();
       const result = await addDocuments(service, name, documentsWithEmbeddings, rawConfig.rag_services, ragProviders);
+      
+      // Add transformation status to response
+      result.transformed = transformed;
+      
+      // Schema persistence (non-fatal)
+      if (transformed && save_schema && schema) {
+        try {
+          const collection = await getCollection(service, name, ragProviders, rawConfig.rag_services);
+          const currentMetadata = collection.metadata || {};
+          
+          await updateCollectionMetadata(
+            service, 
+            name, 
+            {
+              ...currentMetadata,
+              schema: {
+                ...schema,
+                created_at: currentMetadata.schema?.created_at || new Date().toISOString(),
+                last_used: new Date().toISOString()
+              }
+            },
+            ragProviders,
+            rawConfig.rag_services
+          );
+          
+          result.schema_saved = true;
+        } catch (schemaError) {
+          console.warn(`⚠️  Schema persistence failed for collection ${name}:`, schemaError.message);
+          result.schema_saved = false;
+          result.schema_warning = schemaError.message;
+        }
+      }
+      
       res.json(result);
     } catch (error) {
       console.error(`❌ Error adding documents to collection ${req.params.name}:`, error);
