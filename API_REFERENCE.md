@@ -414,3 +414,70 @@ interface CollectionMetadata {
 - **UI** resolves compatible embedding connections via model discovery
 - **RAG wrapper** is storage-only (validates pre-computed embeddings)
 - **Collections** lock embedding configuration at creation time
+
+## Backend Libraries
+
+### Document Transformer
+
+**Module**: `lib/document-transformer.js`  
+**Purpose**: Transform raw JSON documents to standardized RAG format `{id, text, metadata}[]`
+
+#### `transformDocuments(documents, schema)`
+
+Pure transformation function that converts raw JSON documents based on a configurable schema.
+
+**Parameters**:
+- `documents` (Array\<Object\>): Raw JSON documents to transform
+- `schema` (Object): Transformation schema with the following properties:
+  - `text_fields` (string[]): **Required**. Fields to concatenate into text
+  - `text_separator` (string): Optional. Separator between text fields (default: `"\n\n"`)
+  - `metadata_fields` (string[]): Optional. Fields to extract as metadata (default: `[]`)
+  - `metadata_static` (Object): Optional. Static metadata to apply to all documents (default: `{}`)
+  - `id_field` (string): Optional. Field to use as document ID (generates UUID if missing)
+
+**Returns**: Array\<Object\> - Transformed documents with `{id, text, metadata}` structure
+
+**Throws**: Error if schema is invalid or transformation fails
+
+**Example**:
+```javascript
+const { transformDocuments } = require('./lib/document-transformer');
+
+const documents = [
+  {
+    title: "Crispy Tofu Stir-Fry",
+    recipe: "Press tofu, cut into cubes...",
+    category: "dinner",
+    tags: ["vegan", "quick"]
+  }
+];
+
+const schema = {
+  text_fields: ["title", "recipe"],
+  text_separator: "\n\n",
+  metadata_fields: ["category", "tags"],
+  metadata_static: { source: "recipe_api", doc_type: "recipe" },
+  id_field: "title"
+};
+
+const transformed = transformDocuments(documents, schema);
+// Result:
+// [{
+//   id: "Crispy Tofu Stir-Fry",
+//   text: "Crispy Tofu Stir-Fry\n\nPress tofu, cut into cubes...",
+//   metadata: {
+//     source: "recipe_api",
+//     doc_type: "recipe",
+//     category: "dinner",
+//     tags: ["vegan", "quick"]
+//   }
+// }]
+```
+
+**Behavior**:
+- **Array fields**: Flattened to comma-separated strings in text, preserved as arrays in metadata
+- **Nested objects**: JSON stringified for both text and metadata
+- **Missing fields**: Skipped gracefully (throws error only if ALL text fields missing)
+- **Null/undefined/empty values**: Filtered out automatically
+- **ID generation**: Uses `crypto.randomUUID()` when `id_field` missing or field value absent
+- **Pure function**: No side effects, I/O operations, or external state dependencies
