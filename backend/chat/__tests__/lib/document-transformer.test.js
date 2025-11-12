@@ -65,7 +65,7 @@ describe('transformDocuments', () => {
       expect(result[0].text).toBe('flour, sugar, eggs');
     });
 
-    it('should preserve arrays in metadata', () => {
+    it('should stringify arrays in metadata for ChromaDB compatibility', () => {
       const documents = [
         { title: 'Recipe', tags: ['dessert', 'quick', 'easy'] }
       ];
@@ -76,7 +76,7 @@ describe('transformDocuments', () => {
       
       const result = transformDocuments(documents, schema);
       
-      expect(result[0].metadata.tags).toEqual(['dessert', 'quick', 'easy']);
+      expect(result[0].metadata.tags).toBe('["dessert","quick","easy"]');
     });
   });
 

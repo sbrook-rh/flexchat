@@ -117,9 +117,15 @@ function collectMetadata(doc, metadataFields, staticMetadata) {
   
   for (const field of metadataFields) {
     if (doc[field] !== undefined && doc[field] !== null) {
-      metadata[field] = typeof doc[field] === 'object' && !Array.isArray(doc[field])
-        ? JSON.stringify(doc[field])
-        : doc[field];
+      const value = doc[field];
+      
+      if (Array.isArray(value)) {
+        metadata[field] = JSON.stringify(value);
+      } else if (typeof value === 'object') {
+        metadata[field] = JSON.stringify(value);
+      } else {
+        metadata[field] = value;
+      }
     }
   }
   

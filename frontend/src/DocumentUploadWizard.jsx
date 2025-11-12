@@ -11,10 +11,12 @@ import React, { useState } from 'react';
  * Props:
  * - collectionName: Target collection for upload
  * - serviceName: RAG service name
+ * - resolvedConnection: Resolved embedding connection ID
+ * - collectionMetadata: Collection metadata (embedding model, etc.)
  * - onClose: Callback when wizard closes
  * - onComplete: Callback when upload succeeds (receives result data)
  */
-function DocumentUploadWizard({ collectionName, serviceName, onClose, onComplete }) {
+function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection, collectionMetadata, onClose, onComplete }) {
   // Wizard state
   const [wizardState, setWizardState] = useState({
     currentStep: 1,
@@ -26,7 +28,8 @@ function DocumentUploadWizard({ collectionName, serviceName, onClose, onComplete
       metadata_fields: []
     },
     transformedPreview: null,
-    uploading: false
+    uploading: false,
+    saveSchema: !collectionMetadata?.document_schema // Default true for new uploads, false for updates
   });
 
   // Check if wizard has any data (for close confirmation)
@@ -86,13 +89,19 @@ function DocumentUploadWizard({ collectionName, serviceName, onClose, onComplete
     updateWizardState({ uploading: true });
 
     try {
-      const response = await fetch(`/api/collections/${serviceName}/${collectionName}/upload`, {
+      const response = await fetch(`/api/collections/${collectionName}/documents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          // Wizard-specific (transformation):
           raw_documents: wizardState.rawDocuments,
           schema: wizardState.schema,
-          save_schema: true
+          save_schema: wizardState.saveSchema,
+          
+          // Standard (same as existing "Upload Docs"):
+          service: serviceName,
+          embedding_connection: resolvedConnection,
+          embedding_model: collectionMetadata?.embedding_model
         })
       });
 
@@ -133,6 +142,8 @@ function DocumentUploadWizard({ collectionName, serviceName, onClose, onComplete
             wizardState={wizardState}
             collectionName={collectionName}
             serviceName={serviceName}
+            collectionMetadata={collectionMetadata}
+            onUpdate={updateWizardState}
           />
         );
       default:
@@ -526,7 +537,7 @@ function FieldMappingStep({ wizardState, onUpdate }) {
  * Step 3: Preview & Upload
  * User reviews transformed documents before uploading
  */
-function PreviewUploadStep({ wizardState, collectionName, serviceName }) {
+function PreviewUploadStep({ wizardState, collectionName, serviceName, collectionMetadata, onUpdate }) {
   if (!wizardState.rawDocuments || wizardState.rawDocuments.length === 0) {
     return (
       <div className="text-center text-gray-500 py-12">
@@ -617,11 +628,27 @@ function PreviewUploadStep({ wizardState, collectionName, serviceName }) {
         </div>
       </div>
 
+      {/* Save schema checkbox */}
+      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={wizardState.saveSchema ?? !collectionMetadata?.document_schema}
+            onChange={(e) => onUpdate({ saveSchema: e.target.checked })}
+            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <span className="text-sm text-gray-700">
+            {collectionMetadata?.document_schema
+              ? 'Update existing schema'
+              : 'Save this configuration for future uploads'}
+          </span>
+        </label>
+      </div>
+
       {/* Info */}
       <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
         <p className="text-sm text-gray-700">
           Clicking <strong>Upload</strong> will send {wizardState.rawDocuments.length} document(s) to the backend for processing.
-          The schema will be saved to collection metadata for future uploads.
         </p>
       </div>
     </div>
