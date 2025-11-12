@@ -360,19 +360,43 @@ function Collections({ uiConfig, reloadConfig }) {
     setResolvingConnection(false);
   };
 
-  const openUploadWizard = (collection) => {
+  const openUploadWizard = async (collection) => {
+    setResolvingConnection(true);
     setWizardTargetCollection(collection);
-    setShowUploadWizard(true);
+    
+    try {
+      await resolveCompatibleConnection(collection);
+      
+      if (resolvedConnection || await checkResolvedConnection(collection)) {
+        setShowUploadWizard(true);
+      }
+    } catch (err) {
+      alert(`Cannot open wizard: ${err.message || 'Connection resolution failed'}`);
+      setWizardTargetCollection(null);
+    } finally {
+      setResolvingConnection(false);
+    }
+  };
+
+  const checkResolvedConnection = async (collection) => {
+    // Wait a bit for state to update
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(resolvedConnection !== null);
+      }, 100);
+    });
   };
 
   const closeUploadWizard = () => {
     setShowUploadWizard(false);
     setWizardTargetCollection(null);
+    setResolvedConnection(null);
   };
 
   const handleWizardComplete = (result) => {
     alert(`Successfully uploaded ${result.count} document(s)!`);
-    // Optionally refresh collections or show success message
+    closeUploadWizard();
+    reloadConfig(); // Refresh collections list
   };
 
   const resolveCompatibleConnection = async (collection) => {
@@ -1096,10 +1120,12 @@ function Collections({ uiConfig, reloadConfig }) {
         )}
 
         {/* Document Upload Wizard */}
-        {showUploadWizard && wizardTargetCollection && (
+        {showUploadWizard && wizardTargetCollection && resolvedConnection && (
           <DocumentUploadWizard
             collectionName={wizardTargetCollection.name}
             serviceName={wizardTargetCollection.service}
+            resolvedConnection={resolvedConnection}
+            collectionMetadata={wizardTargetCollection.metadata}
             onClose={closeUploadWizard}
             onComplete={handleWizardComplete}
           />

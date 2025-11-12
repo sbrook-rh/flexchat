@@ -33,7 +33,7 @@ The system SHALL optionally persist transformation schemas in collection metadat
 #### Scenario: Save schema when requested
 - **GIVEN** a request with `raw_documents`, `schema`, and `save_schema: true`
 - **WHEN** documents are successfully uploaded
-- **THEN** the schema is saved to collection metadata via `updateCollectionMetadata()`
+- **THEN** the schema is saved to `metadata.document_schema` field via `updateCollectionMetadata()`
 - **AND** the schema includes `created_at` timestamp (if new) and `last_used` timestamp
 - **AND** the response includes `schema_saved: true`
 
