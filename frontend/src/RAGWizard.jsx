@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 
 /**
+ * Generate a stable kebab-case ID from a description
+ */
+function generateServiceId(description) {
+  return description
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
  * RAGWizard - Step-by-step wizard for adding/editing RAG services
  * Decision 15: Separate wizard for RAG services (simpler, no model selection)
  */
@@ -9,7 +19,12 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
   const [selectedProvider, setSelectedProvider] = useState(editMode ? initialData?.provider : null);
   const [providerSchema, setProviderSchema] = useState(null);
   const [config, setConfig] = useState(editMode ? initialData?.config : {});
-  const [providerName, setProviderName] = useState(editMode ? initialData?.name : '');
+  
+  // Separate ID (stable) from description (user-editable)
+  const [serviceId, setServiceId] = useState(editMode ? initialData?.id : null);
+  const [description, setDescription] = useState(
+    editMode ? (initialData?.config?.description || initialData?.name) : ''
+  );
   
   // Connection testing state
   const [testStatus, setTestStatus] = useState(null); // null, 'testing', 'success', 'error'
@@ -78,7 +93,7 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
         });
       }
       case 3: return testStatus === 'success';
-      case 4: return providerName.trim() !== '';
+      case 4: return description.trim() !== '';
       default: return true;
     }
   };
@@ -123,8 +138,10 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
   
   // Save
   const handleSave = () => {
+    const finalServiceId = editMode ? serviceId : generateServiceId(description);
     onSave({
-      name: providerName,
+      id: finalServiceId,
+      name: description,
       type: 'rag',
       config: config
     });
@@ -330,20 +347,46 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
             <h2 className="text-xl font-semibold text-gray-900">Name Your RAG Service</h2>
             <p className="text-sm text-gray-600">Give this RAG service a memorable name.</p>
             
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Service Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={providerName}
-                onChange={(e) => setProviderName(e.target.value)}
-                placeholder="e.g., MyChroma, ProductionVectorDB"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                This name will be used to reference this service in response handlers.
-              </p>
+            <div className="mt-6 space-y-4">
+              {/* Show ID field in edit mode (read-only) */}
+              {editMode && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Service ID <span className="text-gray-500 text-xs">(cannot be changed)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={serviceId}
+                      disabled
+                      className="w-full px-4 py-2 bg-gray-50 text-gray-600 border border-gray-300 rounded-lg cursor-not-allowed"
+                    />
+                    <span className="absolute right-3 top-2.5 text-gray-400" title="Locked">🔒</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This ID is used by response handlers and cannot be changed after creation.
+                  </p>
+                </div>
+              )}
+              
+              {/* Description field (always editable) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="e.g., Red Hat Products, Customer Support Docs"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                {!editMode && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    A stable ID will be generated from this name (e.g., "Red Hat Products" → red-hat-products)
+                  </p>
+                )}
+              </div>
             </div>
             
             <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
@@ -353,9 +396,15 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
                   <dt>Provider:</dt>
                   <dd className="font-medium">{selectedProvider}</dd>
                 </div>
+                {!editMode && description && (
+                  <div className="flex justify-between">
+                    <dt>Generated ID:</dt>
+                    <dd className="font-medium font-mono text-xs">{generateServiceId(description)}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between">
-                  <dt>Name:</dt>
-                  <dd className="font-medium">{providerName || '(not set)'}</dd>
+                  <dt>Display Name:</dt>
+                  <dd className="font-medium">{description || '(not set)'}</dd>
                 </div>
               </dl>
             </div>

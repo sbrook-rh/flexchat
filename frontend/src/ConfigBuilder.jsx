@@ -157,9 +157,12 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     setShowLLMWizard(true);
   };
 
-  const handleEditRAGService = (name, config) => {
+  const handleEditRAGService = (serviceId, config) => {
+    // Extract description from config, fallback to serviceId for backward compatibility
+    const description = config.description || serviceId;
     setWizardEditData({
-      name,
+      id: serviceId,
+      name: description,
       config,
       provider: config.provider
     });
@@ -257,12 +260,25 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     
     // Add or update RAG service
     if (!newConfig.rag_services) newConfig.rag_services = {};
-    newConfig.rag_services[providerData.name] = providerData.config;
+    
+    const serviceId = providerData.id;
+    
+    // Check for duplicate IDs (only in create mode)
+    if (!wizardEditData && newConfig.rag_services[serviceId]) {
+      alert(`A service with ID "${serviceId}" already exists. Please choose a different name.`);
+      return;
+    }
+    
+    // Use ID as key, store description in config
+    newConfig.rag_services[serviceId] = {
+      ...providerData.config,
+      description: providerData.name
+    };
     
     setWorkingConfig(newConfig);
     setShowRAGWizard(false);
     setWizardEditData(null);
-    setValidationState('dirty'); // Mark as dirty
+    setValidationState('dirty');
   };
   
   const handleWizardCancel = () => {

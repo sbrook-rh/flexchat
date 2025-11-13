@@ -33,21 +33,28 @@ function RAGProviderList({
     );
   };
 
-  const RAGProviderCard = ({ name, config, onEdit, onDelete }) => (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg font-semibold text-gray-900">{name}</h3>
-            <span className="px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-700">
-              RAG
-            </span>
+  const RAGProviderCard = ({ serviceId, config, onEdit, onDelete }) => {
+    // Use description for display, fallback to ID for backward compatibility
+    const displayName = config.description || serviceId;
+    
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-semibold text-gray-900">{displayName}</h3>
+              <span className="px-2 py-0.5 text-xs font-medium rounded bg-purple-100 text-purple-700">
+                RAG
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">
+              ID: <span className="font-mono">{serviceId}</span>
+            </p>
+            <p className="text-sm text-gray-600 mb-2">
+              Provider: <span className="font-medium">{config.provider}</span>
+            </p>
+            {getStatusBadge(null)}
           </div>
-          <p className="text-sm text-gray-600 mb-2">
-            Provider: <span className="font-medium">{config.provider}</span>
-          </p>
-          {getStatusBadge(null)}
-        </div>
         
         {/* Edit/delete actions */}
         <div className="flex gap-2 ml-4">
@@ -62,7 +69,7 @@ function RAGProviderList({
           </button>
           <button
             onClick={() => {
-              if (window.confirm(`Delete RAG service "${name}"?`)) {
+              if (window.confirm(`Delete RAG service "${displayName}"?`)) {
                 onDelete();
               }
             }}
@@ -100,7 +107,8 @@ function RAGProviderList({
         </dl>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -124,13 +132,13 @@ function RAGProviderList({
 
       {ragProviders.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {ragProviders.map(([name, config]) => (
+          {ragProviders.map(([serviceId, config]) => (
             <RAGProviderCard
-              key={name}
-              name={name}
+              key={serviceId}
+              serviceId={serviceId}
               config={config}
-              onEdit={() => onEditRAGService(name, config)}
-              onDelete={() => onDeleteRAGService(name)}
+              onEdit={() => onEditRAGService(serviceId, config)}
+              onDelete={() => onDeleteRAGService(serviceId)}
             />
           ))}
         </div>

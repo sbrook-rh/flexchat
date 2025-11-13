@@ -107,6 +107,15 @@ function validateConfig(config) {
     });
   }
   
+  // Validate RAG service references in response handlers
+  if (config.responses && config.rag_services) {
+    config.responses.forEach((response, idx) => {
+      if (response.match?.service && !config.rag_services[response.match.service]) {
+        errors.push(`Response rule ${idx + 1} references undefined RAG service: "${response.match.service}"`);
+      }
+    });
+  }
+  
   // Validate RAG service embedding LLM references
   if (config.rag_services && config.llms) {
     Object.entries(config.rag_services).forEach(([serviceName, service]) => {
