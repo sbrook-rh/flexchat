@@ -11,10 +11,51 @@ function generateServiceId(description) {
 }
 
 /**
+ * Extract ports from localhost URLs in existing services
+ */
+function getUsedPorts(services) {
+  const ports = [];
+  if (!services || !Array.isArray(services)) return ports;
+  
+  services.forEach(service => {
+    const url = service.config?.url || '';
+    const match = url.match(/^https?:\/\/localhost:(\d+)/);
+    if (match) {
+      ports.push(parseInt(match[1], 10));
+    }
+  });
+  
+  return ports;
+}
+
+/**
+ * Find the next available sequential port starting from basePort
+ */
+function getNextAvailablePort(basePort, usedPorts) {
+  const sortedPorts = [...usedPorts].sort((a, b) => a - b);
+  
+  // If no ports in use, return base port
+  if (sortedPorts.length === 0) {
+    return basePort;
+  }
+  
+  // Check for gaps in the sequence
+  for (let i = 0; i < sortedPorts.length; i++) {
+    const expectedPort = basePort + i;
+    if (sortedPorts[i] !== expectedPort) {
+      return expectedPort; // Found a gap
+    }
+  }
+  
+  // No gaps, return the next port after the last one
+  return sortedPorts[sortedPorts.length - 1] + 1;
+}
+
+/**
  * RAGWizard - Step-by-step wizard for adding/editing RAG services
  * Decision 15: Separate wizard for RAG services (simpler, no model selection)
  */
-function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
+function RAGWizard({ onSave, onCancel, editMode = false, initialData = null, existingServices = [] }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedProvider, setSelectedProvider] = useState(editMode ? initialData?.provider : null);
   const [providerSchema, setProviderSchema] = useState(null);
@@ -60,9 +101,20 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
           setProviderSchema(schema);
           const defaults = {};
           schema.fields?.forEach(field => {
-            if (field.default && !config[field.name]) {
+            // In edit mode, preserve existing values
+            if (editMode && config[field.name]) {
+              return;
+            }
+            
+            // Apply smart port default for ChromaDB Wrapper URL field
+            if (field.name === 'url' && selectedProvider === 'chromadb-wrapper' && !editMode) {
+              const usedPorts = getUsedPorts(existingServices);
+              const nextPort = getNextAvailablePort(5006, usedPorts);
+              defaults[field.name] = `http://localhost:${nextPort}`;
+            } else if (field.default && !config[field.name]) {
               defaults[field.name] = field.default;
             }
+            
             if (field.name === 'provider') {
               defaults.provider = selectedProvider;
             }
@@ -71,7 +123,7 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
         })
         .catch(err => console.error('Failed to load schema:', err));
     }
-  }, [selectedProvider]);
+  }, [selectedProvider, existingServices, editMode]);
   
   // Auto-wrap env var with ${}
   const handleEnvVarBlur = (fieldName) => {
