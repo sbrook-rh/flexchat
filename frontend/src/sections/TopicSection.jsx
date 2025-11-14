@@ -272,7 +272,7 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fe
           </label>
           {llmProviders.length === 1 ? (
             <div className="px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm text-gray-700">
-              {validProvider}
+              {workingConfig?.llms?.[validProvider]?.description || validProvider}
             </div>
           ) : (
             <select
@@ -280,11 +280,15 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fe
               onChange={handleProviderChange}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              {llmProviders.map((provider) => (
-                <option key={provider} value={provider}>
-                  {provider}
-                </option>
-              ))}
+              {llmProviders.map((provider) => {
+                const config = workingConfig?.llms?.[provider];
+                const displayName = config?.description || provider;
+                return (
+                  <option key={provider} value={provider}>
+                    {displayName}
+                  </option>
+                );
+              })}
             </select>
           )}
         </div>
@@ -296,7 +300,7 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fe
               <span>⚠️</span>
               <span>
                 Provider '<strong>{currentProvider}</strong>' no longer exists. 
-                Auto-switched to '<strong>{validProvider}</strong>'. 
+                Auto-switched to '<strong>{workingConfig?.llms?.[validProvider]?.description || validProvider}</strong>'. 
                 Click Validate & Apply to save this change.
               </span>
             </div>
@@ -502,7 +506,7 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fe
         {/* Current Configuration */}
         {validProvider && currentModel && (
           <div className="text-sm text-gray-600">
-            Current: <span className="font-medium">{validProvider}</span> / <span className="font-medium">{currentModel}</span>
+            Current: <span className="font-medium">{workingConfig?.llms?.[validProvider]?.description || validProvider}</span> / <span className="font-medium">{currentModel}</span>
           </div>
         )}
       </div>
@@ -516,7 +520,7 @@ function TopicSection({ workingConfig, onUpdate, modelsCache, setModelsCache, fe
                 <div>
                   <h3 className="text-lg font-semibold">Test Topic Detection</h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    Using <span className="font-medium">{validProvider}</span> / <span className="font-medium">{currentModel}</span>
+                    Using <span className="font-medium">{workingConfig?.llms?.[validProvider]?.description || validProvider}</span> / <span className="font-medium">{currentModel}</span>
                     {workingConfig.topic?.prompt && (
                       <span className="ml-2 text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">
                         Custom Prompt

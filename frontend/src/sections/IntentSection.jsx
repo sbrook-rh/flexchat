@@ -305,11 +305,15 @@ function IntentSection({ workingConfig, onUpdate, modelsCache, setModelsCache, f
                   onChange={handleProviderChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  {llmProviders.map(provider => (
-                    <option key={provider} value={provider}>
-                      {provider}
-                    </option>
-                  ))}
+                  {llmProviders.map(provider => {
+                    const config = workingConfig?.llms?.[provider];
+                    const displayName = config?.description || provider;
+                    return (
+                      <option key={provider} value={provider}>
+                        {displayName}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -499,7 +503,7 @@ function IntentSection({ workingConfig, onUpdate, modelsCache, setModelsCache, f
                 <div>
                   <h3 className="text-lg font-semibold">Test Intent Classifier</h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    Using <span className="font-medium">{currentProvider}</span> / <span className="font-medium">{currentModel}</span>
+                    Using <span className="font-medium">{workingConfig?.llms?.[currentProvider]?.description || currentProvider}</span> / <span className="font-medium">{currentModel}</span>
                   </p>
                 </div>
                 <button

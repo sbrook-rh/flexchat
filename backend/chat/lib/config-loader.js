@@ -107,6 +107,24 @@ function validateConfig(config) {
     });
   }
   
+  // Validate no duplicate LLM provider IDs
+  // Note: JavaScript objects have unique keys by definition, but this validation
+  // provides helpful errors for manual config editing (e.g., JSON syntax errors)
+  if (config.llms) {
+    const llmIds = Object.keys(config.llms);
+    const seen = new Set();
+    const duplicates = [];
+    
+    llmIds.forEach(id => {
+      if (seen.has(id)) duplicates.push(id);
+      seen.add(id);
+    });
+    
+    if (duplicates.length > 0) {
+      errors.push(`Duplicate LLM provider IDs: ${duplicates.join(', ')}`);
+    }
+  }
+  
   // Validate RAG service references in response handlers
   if (config.responses && config.rag_services) {
     config.responses.forEach((response, idx) => {

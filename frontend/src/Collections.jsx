@@ -859,9 +859,12 @@ function Collections({ uiConfig, reloadConfig }) {
                   required
                 >
                   <option value="">Select connection...</option>
-                  {Object.keys(llms).map((id) => (
-                    <option key={id} value={id}>{id} ({llms[id].provider})</option>
-                  ))}
+                  {Object.keys(llms).map((id) => {
+                    const displayName = llms[id].description || id;
+                    return (
+                      <option key={id} value={id}>{displayName} ({llms[id].provider})</option>
+                    );
+                  })}
                 </select>
                 <div className="mt-3">
                   <label className="block text-sm font-medium text-gray-700 mb-1">

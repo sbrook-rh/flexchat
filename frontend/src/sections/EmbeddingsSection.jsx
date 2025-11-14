@@ -196,7 +196,7 @@ function GlobalEmbeddingConfig({
           </label>
           {llmProviders.length === 1 ? (
             <div className="px-3 py-2 bg-gray-100 border border-gray-300 rounded-lg text-gray-700">
-              {localProvider}
+              {workingConfig?.llms?.[localProvider]?.description || localProvider}
             </div>
           ) : (
             <select
@@ -205,9 +205,13 @@ function GlobalEmbeddingConfig({
               onBlur={handleProviderBlur}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              {llmProviders.map(provider => (
-                <option key={provider} value={provider}>{provider}</option>
-              ))}
+              {llmProviders.map(provider => {
+                const config = workingConfig?.llms?.[provider];
+                const displayName = config?.description || provider;
+                return (
+                  <option key={provider} value={provider}>{displayName}</option>
+                );
+              })}
             </select>
           )}
         </div>

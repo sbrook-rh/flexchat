@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
 
 /**
+ * Generate a stable kebab-case ID from a description
+ */
+function generateProviderId(description) {
+  return description
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
  * LLMWizard - Step-by-step wizard for adding/editing LLM providers
  * Decision 15: Separate wizard for LLM providers with model selection
  */
@@ -9,7 +19,12 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
   const [selectedProvider, setSelectedProvider] = useState(editMode ? initialData?.provider : null);
   const [providerSchema, setProviderSchema] = useState(null);
   const [config, setConfig] = useState(editMode ? initialData?.config : {});
-  const [providerName, setProviderName] = useState(editMode ? initialData?.name : '');
+  
+  // Separate ID (stable) from description (editable)
+  const [providerId, setProviderId] = useState(editMode ? initialData?.name : null);
+  const [description, setDescription] = useState(
+    editMode ? (initialData?.config?.description || initialData?.name) : ''
+  );
   
   // Connection testing state
   const [testStatus, setTestStatus] = useState(null); // null, 'testing', 'success', 'error'
@@ -88,7 +103,7 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
       }
       case 3: return testStatus === 'success';
       case 4: return selectedModel !== null;
-      case 5: return providerName.trim() !== '';
+      case 5: return description.trim() !== '';
       default: return true;
     }
   };
@@ -153,8 +168,10 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
   
   // Save
   const handleSave = () => {
+    const finalProviderId = editMode ? providerId : generateProviderId(description);
     onSave({
-      name: providerName,
+      id: finalProviderId,
+      name: description,
       type: 'llm',
       config: config,
       selectedModel: selectedModel,
@@ -415,20 +432,46 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
             <h2 className="text-xl font-semibold text-gray-900">Name Your Provider</h2>
             <p className="text-sm text-gray-600">Give this LLM provider a memorable name.</p>
             
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Provider Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={providerName}
-                onChange={(e) => setProviderName(e.target.value)}
-                placeholder="e.g., MyOpenAI, LocalOllama"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                This name will be used to reference this provider in response handlers.
-              </p>
+            <div className="mt-6 space-y-4">
+              {/* Show ID field in edit mode (read-only) */}
+              {editMode && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Provider ID <span className="text-gray-500 text-xs">(cannot be changed)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={providerId}
+                      disabled
+                      className="w-full px-4 py-2 bg-gray-50 text-gray-600 border border-gray-300 rounded-lg cursor-not-allowed"
+                    />
+                    <span className="absolute right-3 top-2.5 text-gray-400" title="Locked">🔒</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This ID is used by response handlers and configuration references and cannot be changed after creation.
+                  </p>
+                </div>
+              )}
+              
+              {/* Description field (always editable) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="e.g., My OpenAI, Local Ollama"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                {!editMode && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    A stable ID will be generated from this name (e.g., "My OpenAI" → my-openai)
+                  </p>
+                )}
+              </div>
             </div>
             
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -442,9 +485,15 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
                   <dt>Model:</dt>
                   <dd className="font-medium">{selectedModel || 'default'}</dd>
                 </div>
+                {!editMode && description && (
+                  <div className="flex justify-between">
+                    <dt>Generated ID:</dt>
+                    <dd className="font-medium font-mono text-xs">{generateProviderId(description)}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between">
-                  <dt>Name:</dt>
-                  <dd className="font-medium">{providerName || '(not set)'}</dd>
+                  <dt>Display Name:</dt>
+                  <dd className="font-medium">{description || '(not set)'}</dd>
                 </div>
               </dl>
             </div>
@@ -453,12 +502,13 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
             {(() => {
               // Find the default handler (the one without a "match" key)
               const defaultHandler = workingConfig?.responses?.find(r => !r.match);
-              return workingConfig?.responses?.length > 0 && selectedModel && defaultHandler &&
-               !(editMode && defaultHandler.llm === providerName && defaultHandler.model === selectedModel) && (
+              const finalProviderId = editMode ? providerId : (description ? generateProviderId(description) : null);
+              return workingConfig?.responses?.length > 0 && selectedModel && defaultHandler && finalProviderId &&
+               !(editMode && defaultHandler.llm === providerId && defaultHandler.model === selectedModel) && (
               <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                 <h3 className="text-sm font-medium text-amber-900 mb-2">Default Response Handler</h3>
                 <p className="text-sm text-amber-800 mb-3">
-                  {editMode && defaultHandler.llm === providerName ? (
+                  {editMode && defaultHandler.llm === providerId ? (
                     <>
                       Your default response handler currently uses:{' '}
                       <code className="bg-amber-100 px-2 py-0.5 rounded font-mono text-xs">
@@ -483,9 +533,9 @@ function LLMWizard({ onSave, onCancel, editMode = false, initialData = null, wor
                   />
                   <div className="flex-1">
                     <span className="text-sm font-medium text-gray-900">
-                      {editMode && defaultHandler.llm === providerName
+                      {editMode && defaultHandler.llm === providerId
                         ? `Update to use ${selectedModel}`
-                        : `Replace with ${providerName}/${selectedModel}`
+                        : `Replace with ${description}/${selectedModel}`
                       }
                     </span>
                     <p className="text-xs text-gray-500 mt-1">

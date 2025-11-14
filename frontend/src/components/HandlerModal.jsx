@@ -142,6 +142,7 @@ function HandlerModal({ handler, workingConfig, onSave, onCancel, modelsCache, s
               llmProviderKeys={llmProviderKeys}
               availableModels={availableModels}
               loadingModels={loadingModels}
+              workingConfig={workingConfig}
             />
           )}
           {activeTab === 'match' && (
@@ -198,7 +199,7 @@ const isSmallModel = (modelName) => {
 /**
  * BasicTab - LLM and Model selection
  */
-function BasicTab({ formData, setFormData, llmProviderKeys, availableModels, loadingModels }) {
+function BasicTab({ formData, setFormData, llmProviderKeys, availableModels, loadingModels, workingConfig }) {
   return (
     <div className="space-y-6">
       {/* LLM Provider */}
@@ -212,11 +213,15 @@ function BasicTab({ formData, setFormData, llmProviderKeys, availableModels, loa
           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Select LLM provider...</option>
-          {llmProviderKeys.map((key) => (
-            <option key={key} value={key}>
-              {key}
-            </option>
-          ))}
+          {llmProviderKeys.map((key) => {
+            const config = workingConfig?.llms?.[key];
+            const displayName = config?.description || key;
+            return (
+              <option key={key} value={key}>
+                {displayName}
+              </option>
+            );
+          })}
         </select>
       </div>
 
@@ -352,11 +357,15 @@ function MatchTab({ formData, setFormData, workingConfig }) {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
                   >
                     <option value="">Select service...</option>
-                    {ragServices.map((service) => (
-                      <option key={service} value={service}>
-                        {service}
-                      </option>
-                    ))}
+                    {ragServices.map((service) => {
+                      const config = workingConfig?.rag_services?.[service];
+                      const displayName = config?.description || service;
+                      return (
+                        <option key={service} value={service}>
+                          {displayName}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
