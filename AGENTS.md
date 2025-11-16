@@ -35,9 +35,18 @@ Keep this managed block so 'openspec update' can refresh the instructions.
 - `/openplan-view` - Comprehensive dashboard (also: `/openplan-overview`)
 - `/openplan-status <id>` - Item details
 - `/openplan-sessions` - List active sessions
-- `/openplan-health` - System health
+- `/openplan-health` - System health check (with auto-fix option)
 
-**Note**: The `openplan` CLI tool also supports `openplan context <id>` to show the context chain (task → feature → epic), but this is typically called from workflow commands rather than directly.
+**Experiment queries** (extract from structured markdown):
+- `openplan experiments list <id>` - List all experiments
+- `openplan experiments summary <id>` - Objectives and conclusions
+- `openplan experiments show <id> --experiment <N> [--section <name>]` - Extract sections
+  - Sections: `objective`, `findings`, `results`, `implications`, `next-steps`, `conclusions`
+- `openplan experiments priorities <id>` - HIGH/MEDIUM/LOW classifications
+- `openplan experiments next-steps <id>` - Aggregate action items
+- **Fast, cheap, deterministic** - No LLM parsing needed
+
+**Note**: The `openplan` CLI tool also supports `openplan context <id>` to show the context chain (task → feature → epic), and experiment queries for fast section extraction. These are typically called from workflow commands rather than directly.
 
 **Workflow commands** (loads constitution + command instructions):
 - `/openplan-idea` - Capture new ideas
