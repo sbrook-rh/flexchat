@@ -43,11 +43,17 @@ async function generateResponse(profile, responseRule, aiProviders, userMessage,
         if (!profile.documents || profile.documents.length === 0) {
           return '[No relevant documents found]';
         }
-        return profile.documents.map(doc => {
+        const formattedContext = profile.documents.map(doc => {
           const title = doc.metadata?.title || 'Untitled';
           const source = doc.collection ? ` (from ${doc.collection})` : '';
           return `### ${title}${source}\n\n${doc.text}`;
         }).join("\n\n---\n\n");
+        
+        console.log(`   🔧 RAG Context Assembly:`);
+        console.log(`      📄 Documents in context: ${profile.documents.length}`);
+        console.log(`      📏 Total context length: ${formattedContext.length} chars`);
+        
+        return formattedContext;
       }
       
       // Handle nested paths like "service.prompt"

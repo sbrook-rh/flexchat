@@ -158,6 +158,8 @@ async function collectRagResults(userMessage, topic, currentTopic, selectedColle
       };
       
       console.log(`   ✅ Result: ${resultType} (distance: ${minDistance.toFixed(4)})`);
+      console.log(`   📄 Documents retrieved: ${results.length} (top_k: 3)`);
+      console.log(`   📋 Document titles: ${results.map(r => r.metadata?.title || 'Untitled').join(', ')}`);
       
       // If this is a match, return immediately (query_mode: "first")
       if (resultType === 'match') {
