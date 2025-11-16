@@ -27,7 +27,7 @@
 - [x] 4.2 Test medium upload (2-5k docs - multiple batches)
 - [x] 4.3 Test large upload (10k docs - progress tracking)
 - [x] 4.4 Test cancellation (mid-upload, verify partial data)
-- [ ] 4.5 Test network error (verify error message shows batch number)
+- [x] 4.5 Test network error (shows batch number, smart retry implemented)
 - [x] 4.6 Test time estimation accuracy (11s per batch observed, animation smooth)
 
 ## 5. Documentation
