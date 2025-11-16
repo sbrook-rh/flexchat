@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import chromadb
 import os
@@ -8,6 +8,7 @@ from typing import List, Optional, Dict, Any
 import uuid
 import requests
 import argparse
+import json
 
 # Load environment variables
 load_dotenv()
@@ -330,6 +331,104 @@ def delete_documents(collection_name: str, ids: List[str]):
         }
     except Exception as e:
         print(f"❌ ERROR deleting documents from {collection_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Metadata query endpoint
+@app.get("/collections/{collection_name}/documents")
+def get_documents(
+    collection_name: str,
+    where: Optional[str] = None,
+    limit: int = Query(default=100, le=1000),
+    offset: int = Query(default=0, ge=0)
+):
+    """
+    Query documents by metadata filters (low-level ChromaDB pass-through).
+    
+    This is a primitive API that passes filters directly to ChromaDB.
+    For production use, consider building helper methods or extending the
+    provider class to convert simpler abstractions (e.g., hash with semantic
+    keys like "doc_type_in" or "chapter_id_contains") into ChromaDB syntax.
+    
+    Enables deterministic document retrieval based on metadata attributes,
+    useful for sibling gathering (fetching all documents with same section_id).
+    
+    Args:
+        collection_name: Name of the collection to query
+        where: JSON string with ChromaDB filter syntax (pass-through)
+        limit: Maximum documents to return (default 100, max 1000)
+        offset: Number of documents to skip (default 0)
+    
+    Returns:
+        {
+            "documents": [{"id": str, "text": str, "metadata": dict}, ...],
+            "count": int,
+            "total": int
+        }
+    
+    ChromaDB Filter Syntax (multiple conditions require explicit operators):
+        Simple equality:    ?where={"section_id":"intro"}
+        Explicit $and:      ?where={"$and":[{"product":"X"},{"doc_type":"paragraph"}]}
+        Logical $or:        ?where={"$or":[{"chapter":"1"},{"chapter":"3"}]}
+        List membership:    ?where={"doc_type":{"$in":["heading","paragraph"]}}
+        Not equal:          ?where={"status":{"$ne":"deprecated"}}
+    
+    Note: Implicit AND (multiple keys) is NOT supported by ChromaDB.
+    Filter validation and error messages come directly from ChromaDB.
+    
+    Recommended abstraction layer (implement in client/provider):
+        {"doc_type_in": ["heading", "paragraph"]} 
+          → {"doc_type": {"$in": ["heading", "paragraph"]}}
+        
+        {"chapter_id": "1", "doc_type": "paragraph"}
+          → {"$and": [{"chapter_id": "1"}, {"doc_type": "paragraph"}]}
+    """
+    try:
+        # Get collection
+        collection = chroma_client.get_collection(name=collection_name)
+        
+        # Parse where filter
+        where_filter = None
+        if where:
+            try:
+                where_filter = json.loads(where)
+            except json.JSONDecodeError as e:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid 'where' filter: must be valid JSON. {str(e)}"
+                )
+        
+        # Query ChromaDB using metadata-based get() method
+        results = collection.get(
+            where=where_filter,
+            limit=limit,
+            offset=offset,
+            include=["documents", "metadatas"]
+        )
+        
+        # Format response
+        documents = []
+        ids = results.get("ids", [])
+        texts = results.get("documents", [])
+        metadatas = results.get("metadatas", [])
+        
+        for i in range(len(ids)):
+            documents.append({
+                "id": ids[i],
+                "text": texts[i] if i < len(texts) else "",
+                "metadata": metadatas[i] if i < len(metadatas) else {}
+            })
+        
+        return {
+            "documents": documents,
+            "count": len(documents),
+            "total": len(documents)  # ChromaDB get() doesn't provide separate total
+        }
+        
+    except HTTPException:
+        raise  # Pass through HTTP exceptions
+    except Exception as e:
+        print(f"❌ ERROR querying documents from {collection_name}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
