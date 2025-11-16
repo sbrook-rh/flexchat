@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
 /**
  * DocumentUploadWizard - Multi-step modal for uploading documents to collections
  * 
  * Steps:
- * 1. File Upload - Select and parse JSON file
+ * 1. File Upload - Select and parse JSON/JSONL file
  * 2. Field Mapping - Configure schema (text_fields, id_field, metadata_fields)
  * 3. Preview & Upload - Review transformed documents and confirm upload
+ * 
+ * Features:
+ * - Batch upload: Splits large uploads (>1000 docs) into sequential batches
+ * - Progress tracking: Real-time progress bar with time estimates
+ * - Cancellation: Cancel button to abort in-progress uploads
+ * - Single-batch optimization: Small uploads (<1000 docs) use single request
  * 
  * Props:
  * - collectionName: Target collection for upload
@@ -17,6 +23,9 @@ import React, { useState } from 'react';
  * - onComplete: Callback when upload succeeds (receives result data)
  */
 function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection, collectionMetadata, onClose, onComplete }) {
+  // Cancellation ref (used to cancel upload between batches)
+  const cancelUploadRef = useRef(false);
+
   // Wizard state
   const [wizardState, setWizardState] = useState(() => {
     // Parse saved schema from metadata (stored as JSON string)
@@ -40,6 +49,8 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
       },
       transformedPreview: null,
       uploading: false,
+      uploadCancelled: false,
+      uploadProgress: null, // { current: 0, total: 0, percentage: 0, estimatedSeconds: 0 }
       saveSchema: !savedSchema // Smart default: checked for new, unchecked for existing
     };
   });
@@ -98,37 +109,164 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
   const handleUpload = async () => {
     if (wizardState.uploading) return;
 
-    updateWizardState({ uploading: true });
+    const BATCH_SIZE = 1000;
+    const totalDocs = wizardState.rawDocuments.length;
+    const batches = [];
+    
+    // Split documents into batches
+    for (let i = 0; i < totalDocs; i += BATCH_SIZE) {
+      batches.push(wizardState.rawDocuments.slice(i, i + BATCH_SIZE));
+    }
+
+    const totalBatches = batches.length;
+    const useBatching = totalBatches > 1;
+    const startTime = Date.now(); // Store start time locally
+
+    // Reset cancel flag
+    cancelUploadRef.current = false;
+
+    updateWizardState({
+      uploading: true,
+      uploadCancelled: false,
+      uploadProgress: useBatching ? {
+        current: 0,
+        total: totalBatches,
+        docsUploaded: 0,
+        totalDocs: totalDocs,
+        percentage: 0,
+        estimatedSeconds: null
+      } : null
+    });
+
+    let progressInterval = null;
 
     try {
-      const response = await fetch(`/api/collections/${collectionName}/documents`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          // Wizard-specific (transformation):
-          raw_documents: wizardState.rawDocuments,
-          schema: wizardState.schema,
-          save_schema: wizardState.saveSchema,
-          
-          // Standard (same as existing "Upload Docs"):
-          service: serviceName,
-          embedding_connection: resolvedConnection,
-          embedding_model: collectionMetadata?.embedding_model
-        })
-      });
+      let uploadedCount = 0;
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Upload failed');
+      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+        // Check for cancellation between batches using ref
+        if (cancelUploadRef.current) {
+          if (progressInterval) clearInterval(progressInterval);
+          updateWizardState({
+            uploading: false,
+            uploadProgress: null
+          });
+          alert(`Upload cancelled. ${uploadedCount.toLocaleString()} of ${totalDocs.toLocaleString()} documents uploaded.`);
+          return;
+        }
+
+        const batch = batches[batchIndex];
+        const isLastBatch = batchIndex === totalBatches - 1;
+
+        // Start micro-progress animation for this batch
+        if (useBatching) {
+          const currentBatch = batchIndex;
+          const nextBatch = batchIndex + 1;
+          const currentPercentage = Math.round((currentBatch / totalBatches) * 100);
+          const nextPercentage = Math.round((nextBatch / totalBatches) * 100);
+          
+          // Calculate average time per batch (after first batch)
+          const elapsed = (Date.now() - startTime) / 1000;
+          const avgTimePerBatch = batchIndex > 0 ? elapsed / batchIndex : 11; // Default to 11s for first batch
+          
+          // Animate progress gradually over estimated batch time
+          const animationDuration = avgTimePerBatch * 1000; // Convert to ms
+          const steps = Math.max(20, (nextPercentage - currentPercentage) * 2); // At least 20 steps
+          const increment = (nextPercentage - currentPercentage) / steps;
+          const intervalTime = animationDuration / steps;
+          
+          let animatedPercentage = currentPercentage;
+          
+          progressInterval = setInterval(() => {
+            animatedPercentage = Math.min(animatedPercentage + increment, nextPercentage - 0.5);
+            
+            const remaining = (totalBatches - batchIndex) * avgTimePerBatch - (Date.now() - startTime - elapsed * 1000) / 1000;
+            
+            updateWizardState({
+              uploadProgress: {
+                current: batchIndex + 1, // Display as 1-based (batch 1, 2, 3...)
+                total: totalBatches,
+                docsUploaded: uploadedCount,
+                totalDocs: totalDocs,
+                percentage: Math.round(animatedPercentage),
+                estimatedSeconds: Math.max(0, Math.ceil(remaining))
+              }
+            });
+          }, intervalTime);
+        }
+
+        const response = await fetch(`/api/collections/${collectionName}/documents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            // Wizard-specific (transformation):
+            raw_documents: batch,
+            schema: wizardState.schema,
+            save_schema: isLastBatch ? wizardState.saveSchema : false, // Only save schema on last batch
+            
+            // Standard (same as existing "Upload Docs"):
+            service: serviceName,
+            embedding_connection: resolvedConnection,
+            embedding_model: collectionMetadata?.embedding_model
+          })
+        });
+
+        // Clear animation interval once batch completes
+        if (progressInterval) {
+          clearInterval(progressInterval);
+          progressInterval = null;
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`Upload failed at batch ${batchIndex + 1} of ${totalBatches}: ${errorData.error || 'Unknown error'}`);
+        }
+
+        uploadedCount += batch.length;
+
+        // Update progress after each batch (jumps to actual completion)
+        if (useBatching) {
+          const currentBatch = batchIndex + 1;
+          const percentage = Math.round((currentBatch / totalBatches) * 100);
+          const elapsed = (Date.now() - startTime) / 1000;
+          const avgTimePerBatch = elapsed / currentBatch;
+          const remaining = (totalBatches - currentBatch) * avgTimePerBatch;
+
+          updateWizardState({
+            uploadProgress: {
+              current: currentBatch,
+              total: totalBatches,
+              docsUploaded: uploadedCount,
+              totalDocs: totalDocs,
+              percentage: percentage,
+              estimatedSeconds: Math.ceil(remaining)
+            }
+          });
+        }
       }
 
-      const result = await response.json();
+      // Clear interval if still running
+      if (progressInterval) clearInterval(progressInterval);
+
+      // Success - all batches uploaded
+      const result = { message: `Successfully uploaded ${uploadedCount} documents` };
       onComplete(result);
       onClose();
     } catch (error) {
+      // Clear interval on error
+      if (progressInterval) clearInterval(progressInterval);
+      
       alert(`Upload failed: ${error.message}`);
-      updateWizardState({ uploading: false });
+      updateWizardState({
+        uploading: false,
+        uploadProgress: null
+      });
     }
+  };
+
+  const handleCancelUpload = () => {
+    cancelUploadRef.current = true;
+    updateWizardState({ uploadCancelled: true });
   };
 
   // Render current step
@@ -193,18 +331,30 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
           <div className="text-sm text-gray-600">
             {wizardState.currentStep === 1 && 'Upload a JSON file to begin'}
             {wizardState.currentStep === 2 && 'Select fields to extract from your documents'}
-            {wizardState.currentStep === 3 && 'Review and confirm upload'}
+            {wizardState.currentStep === 3 && !wizardState.uploading && 'Review and confirm upload'}
+            {wizardState.currentStep === 3 && wizardState.uploading && 'Upload in progress...'}
           </div>
           
           <div className="flex gap-3">
-            <button
-              onClick={handleClose}
-              className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
-            >
-              Cancel
-            </button>
+            {!wizardState.uploading && (
+              <button
+                onClick={handleClose}
+                className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+            )}
             
-            {wizardState.currentStep > 1 && (
+            {wizardState.uploading && wizardState.uploadProgress && (
+              <button
+                onClick={handleCancelUpload}
+                className="px-4 py-2 border border-red-300 rounded text-red-700 hover:bg-red-50 transition-colors"
+              >
+                Cancel Upload
+              </button>
+            )}
+            
+            {wizardState.currentStep > 1 && !wizardState.uploading && (
               <button
                 onClick={handleBack}
                 className="px-4 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-50 transition-colors"
@@ -707,6 +857,39 @@ function PreviewUploadStep({ wizardState, collectionName, serviceName, collectio
           </div>
         </div>
       </div>
+
+      {/* Progress bar (shown during upload) */}
+      {wizardState.uploading && wizardState.uploadProgress && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-semibold text-blue-900">
+              Uploading batch {wizardState.uploadProgress.current} of {wizardState.uploadProgress.total}...
+            </span>
+            <span className="text-blue-700">
+              {wizardState.uploadProgress.percentage}%
+            </span>
+          </div>
+          
+          {/* Progress bar */}
+          <div className="w-full bg-blue-200 rounded-full h-3 overflow-hidden">
+            <div
+              className="bg-blue-600 h-full transition-all duration-300 ease-out"
+              style={{ width: `${wizardState.uploadProgress.percentage}%` }}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between text-xs text-blue-700">
+            <span>
+              {wizardState.uploadProgress.docsUploaded.toLocaleString()} of {wizardState.uploadProgress.totalDocs.toLocaleString()} documents
+            </span>
+            {wizardState.uploadProgress.estimatedSeconds !== null && (
+              <span>
+                ~{wizardState.uploadProgress.estimatedSeconds}s remaining
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Preview samples */}
       <div>
