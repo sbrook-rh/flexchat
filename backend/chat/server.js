@@ -14,7 +14,7 @@ const createConfigRouter = require('./routes/config');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
 
 // Enable CORS
 app.use((req, res, next) => {
