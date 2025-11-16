@@ -51,6 +51,7 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
       uploading: false,
       uploadCancelled: false,
       uploadProgress: null, // { current: 0, total: 0, percentage: 0, estimatedSeconds: 0 }
+      failedAtBatch: null, // Track which batch failed for smart retry
       saveSchema: !savedSchema // Smart default: checked for new, unchecked for existing
     };
   });
@@ -122,18 +123,23 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
     const useBatching = totalBatches > 1;
     const startTime = Date.now(); // Store start time locally
 
+    // Smart retry: Resume from failed batch if retrying
+    const startBatch = wizardState.failedAtBatch !== null ? wizardState.failedAtBatch : 0;
+    const uploadedCount = startBatch * BATCH_SIZE; // Docs already uploaded in previous attempts
+
     // Reset cancel flag
     cancelUploadRef.current = false;
 
     updateWizardState({
       uploading: true,
       uploadCancelled: false,
+      failedAtBatch: null, // Clear failure state on retry
       uploadProgress: useBatching ? {
-        current: 0,
+        current: startBatch,
         total: totalBatches,
-        docsUploaded: 0,
+        docsUploaded: uploadedCount,
         totalDocs: totalDocs,
-        percentage: 0,
+        percentage: Math.round((startBatch / totalBatches) * 100),
         estimatedSeconds: null
       } : null
     });
@@ -141,22 +147,23 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
     let progressInterval = null;
 
     try {
-      let uploadedCount = 0;
+      let currentUploadedCount = uploadedCount;
 
-      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
+      for (let batchIndex = startBatch; batchIndex < totalBatches; batchIndex++) {
         // Check for cancellation between batches using ref
         if (cancelUploadRef.current) {
           if (progressInterval) clearInterval(progressInterval);
           updateWizardState({
             uploading: false,
-            uploadProgress: null
+            uploadProgress: null,
+            failedAtBatch: batchIndex // Save position for potential retry
           });
-          alert(`Upload cancelled. ${uploadedCount.toLocaleString()} of ${totalDocs.toLocaleString()} documents uploaded.`);
+          alert(`Upload cancelled. ${currentUploadedCount.toLocaleString()} of ${totalDocs.toLocaleString()} documents uploaded.`);
           return;
         }
 
         const batch = batches[batchIndex];
-        const isLastBatch = batchIndex === totalBatches - 1;
+        const isFirstBatch = batchIndex === 0;
 
         // Start micro-progress animation for this batch
         if (useBatching) {
@@ -165,9 +172,10 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
           const currentPercentage = Math.round((currentBatch / totalBatches) * 100);
           const nextPercentage = Math.round((nextBatch / totalBatches) * 100);
           
-          // Calculate average time per batch (after first batch)
+          // Calculate average time per batch based on THIS attempt (not total index)
           const elapsed = (Date.now() - startTime) / 1000;
-          const avgTimePerBatch = batchIndex > 0 ? elapsed / batchIndex : 11; // Default to 11s for first batch
+          const batchesCompletedSoFar = batchIndex - startBatch;
+          const avgTimePerBatch = batchesCompletedSoFar > 0 ? elapsed / batchesCompletedSoFar : 11; // Default to 11s for first batch
           
           // Animate progress gradually over estimated batch time
           const animationDuration = avgTimePerBatch * 1000; // Convert to ms
@@ -186,7 +194,7 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
               uploadProgress: {
                 current: batchIndex + 1, // Display as 1-based (batch 1, 2, 3...)
                 total: totalBatches,
-                docsUploaded: uploadedCount,
+                docsUploaded: currentUploadedCount,
                 totalDocs: totalDocs,
                 percentage: Math.round(animatedPercentage),
                 estimatedSeconds: Math.max(0, Math.ceil(remaining))
@@ -202,7 +210,7 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
             // Wizard-specific (transformation):
             raw_documents: batch,
             schema: wizardState.schema,
-            save_schema: isLastBatch ? wizardState.saveSchema : false, // Only save schema on last batch
+            save_schema: isFirstBatch ? wizardState.saveSchema : false, // Save schema on FIRST batch
             
             // Standard (same as existing "Upload Docs"):
             service: serviceName,
@@ -218,25 +226,33 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
         }
 
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(`Upload failed at batch ${batchIndex + 1} of ${totalBatches}: ${errorData.error || 'Unknown error'}`);
+          let errorMessage = 'Unknown error';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } catch (e) {
+            // JSON parse failed - likely network error or server crash
+            errorMessage = `Network error (${response.status || 'connection failed'})`;
+          }
+          throw new Error(`Upload failed at batch ${batchIndex + 1} of ${totalBatches}: ${errorMessage}`);
         }
 
-        uploadedCount += batch.length;
+        currentUploadedCount += batch.length;
 
         // Update progress after each batch (jumps to actual completion)
         if (useBatching) {
           const currentBatch = batchIndex + 1;
           const percentage = Math.round((currentBatch / totalBatches) * 100);
           const elapsed = (Date.now() - startTime) / 1000;
-          const avgTimePerBatch = elapsed / currentBatch;
+          const batchesCompleted = currentBatch - startBatch;
+          const avgTimePerBatch = batchesCompleted > 0 ? elapsed / batchesCompleted : 11;
           const remaining = (totalBatches - currentBatch) * avgTimePerBatch;
 
           updateWizardState({
             uploadProgress: {
               current: currentBatch,
               total: totalBatches,
-              docsUploaded: uploadedCount,
+              docsUploaded: currentUploadedCount,
               totalDocs: totalDocs,
               percentage: percentage,
               estimatedSeconds: Math.ceil(remaining)
@@ -249,17 +265,25 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
       if (progressInterval) clearInterval(progressInterval);
 
       // Success - all batches uploaded
-      const result = { message: `Successfully uploaded ${uploadedCount} documents` };
+      const result = { 
+        count: currentUploadedCount,
+        message: `Successfully uploaded ${currentUploadedCount} documents` 
+      };
       onComplete(result);
       onClose();
     } catch (error) {
       // Clear interval on error
       if (progressInterval) clearInterval(progressInterval);
       
-      alert(`Upload failed: ${error.message}`);
+      // Store which batch failed for smart retry
+      const failedBatchMatch = error.message.match(/batch (\d+) of/);
+      const failedBatch = failedBatchMatch ? parseInt(failedBatchMatch[1]) - 1 : null;
+      
+      alert(`Upload failed: ${error.message}\n\nClick Upload to retry from batch ${failedBatch !== null ? failedBatch + 1 : 'beginning'}.`);
       updateWizardState({
         uploading: false,
-        uploadProgress: null
+        uploadProgress: null,
+        failedAtBatch: failedBatch
       });
     }
   };
@@ -385,7 +409,11 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
               >
-                {wizardState.uploading ? 'Uploading...' : 'Upload'}
+                {wizardState.uploading 
+                  ? 'Uploading...' 
+                  : wizardState.failedAtBatch !== null 
+                    ? `Retry from Batch ${wizardState.failedAtBatch + 1}`
+                    : 'Upload'}
               </button>
             )}
           </div>
