@@ -71,3 +71,4 @@ ai
 openplan
 .cursor
 backend/loaders/
+.bash_history
