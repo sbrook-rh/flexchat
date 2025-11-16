@@ -247,20 +247,75 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
 
 /**
  * Step 1: File Upload
- * User selects a JSON file, which is parsed and validated
+ * User selects a JSON file or JSONL file, which is parsed and validated
+ * Supports both JSON array (.json) and JSONL (.jsonl) formats
  */
 function FileUploadStep({ wizardState, onUpdate }) {
   const [dragActive, setDragActive] = useState(false);
   const [parseError, setParseError] = useState(null);
+  const [parseInfo, setParseInfo] = useState(null);
 
-  const handleFileRead = (fileContent, fileName) => {
+  const handleFileRead = (fileContent, fileName, fileSize) => {
     try {
       setParseError(null);
-      const parsed = JSON.parse(fileContent);
+      setParseInfo(null);
+
+      // File size validation
+      const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+      const WARNING_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+      if (fileSize > MAX_FILE_SIZE) {
+        setParseError(
+          `File too large (${(fileSize / 1024 / 1024).toFixed(1)}MB). ` +
+          `Maximum size is 50MB. Consider splitting your file or processing in batches.`
+        );
+        return;
+      }
+
+      if (fileSize > WARNING_FILE_SIZE) {
+        setParseInfo(
+          `⚠️ Large file detected (${(fileSize / 1024 / 1024).toFixed(1)}MB). ` +
+          `Parsing may take a few seconds.`
+        );
+      }
+
+      let parsed;
+      let skippedCount = 0;
+
+      // Format detection: JSONL vs JSON array
+      if (fileName.endsWith('.jsonl')) {
+        // Parse JSONL (newline-delimited)
+        const lines = fileContent.trim().split('\n');
+        
+        parsed = lines
+          .filter(line => {
+            const trimmed = line.trim();
+            if (!trimmed) {
+              skippedCount++;
+              return false;
+            }
+            return true;
+          })
+          .map((line, index) => {
+            try {
+              return JSON.parse(line);
+            } catch (e) {
+              throw new Error(`Parse error at line ${index + 1}: ${e.message}`);
+            }
+          });
+        
+        // Info message about skipped lines
+        if (skippedCount > 0) {
+          setParseInfo(`ℹ️ Skipped ${skippedCount} empty line${skippedCount > 1 ? 's' : ''}. Parsed ${parsed.length} document${parsed.length !== 1 ? 's' : ''}.`);
+        }
+      } else {
+        // Parse JSON array (existing behavior)
+        parsed = JSON.parse(fileContent);
+      }
       
       // Validate: Must be an array
       if (!Array.isArray(parsed)) {
-        throw new Error('File must contain a JSON array');
+        throw new Error('File must contain a JSON array or JSONL format');
       }
       
       if (parsed.length === 0) {
@@ -270,6 +325,27 @@ function FileUploadStep({ wizardState, onUpdate }) {
       // Validate: All items must be objects
       if (!parsed.every(item => typeof item === 'object' && item !== null)) {
         throw new Error('All items in array must be JSON objects');
+      }
+
+      // Document count limits
+      const MAX_DOCUMENTS = 10000;
+      const WARNING_DOCUMENTS = 2000;
+
+      if (parsed.length > MAX_DOCUMENTS) {
+        setParseError(
+          `File contains ${parsed.length.toLocaleString()} documents. ` +
+          `Maximum is ${MAX_DOCUMENTS.toLocaleString()} documents per upload. ` +
+          `For large datasets, consider using the batch upload API.`
+        );
+        return;
+      }
+
+      if (parsed.length > WARNING_DOCUMENTS) {
+        const estimatedMinutes = Math.ceil(parsed.length / 88 / 60); // Based on 88 docs/sec observed
+        setParseInfo(
+          `⚠️ Large upload: ${parsed.length.toLocaleString()} documents. ` +
+          `This may take ${estimatedMinutes}-${estimatedMinutes + 1} minutes to upload.`
+        );
       }
 
       onUpdate({
@@ -290,7 +366,7 @@ function FileUploadStep({ wizardState, onUpdate }) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => handleFileRead(e.target.result, file.name);
+    reader.onload = (e) => handleFileRead(e.target.result, file.name, file.size);
     reader.readAsText(file);
   };
 
@@ -302,7 +378,7 @@ function FileUploadStep({ wizardState, onUpdate }) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => handleFileRead(e.target.result, file.name);
+    reader.onload = (e) => handleFileRead(e.target.result, file.name, file.size);
     reader.readAsText(file);
   };
 
@@ -347,7 +423,7 @@ function FileUploadStep({ wizardState, onUpdate }) {
               Choose File
               <input
                 type="file"
-                accept=".json,application/json"
+                accept=".json,.jsonl,application/json"
                 onChange={handleFileSelect}
                 className="hidden"
               />
@@ -355,6 +431,15 @@ function FileUploadStep({ wizardState, onUpdate }) {
           </div>
         </div>
       </div>
+
+      {/* Parse info */}
+      {parseInfo && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800">
+            {parseInfo}
+          </p>
+        </div>
+      )}
 
       {/* Parse error */}
       {parseError && (
@@ -389,7 +474,9 @@ function FileUploadStep({ wizardState, onUpdate }) {
     "date": "2024-01-01"
   },
   ...
-]`}
+]
+
+JSONL (.jsonl) also supported - one JSON object per line.`}
         </pre>
       </div>
     </div>
@@ -481,9 +568,15 @@ function FieldMappingStep({ wizardState, onUpdate }) {
           <tbody className="divide-y">
             {fieldNames.map(field => {
               const sampleValue = sampleDoc[field];
-              const displayValue = typeof sampleValue === 'string'
-                ? sampleValue.substring(0, 50) + (sampleValue.length > 50 ? '...' : '')
-                : JSON.stringify(sampleValue).substring(0, 50);
+              let displayValue;
+              if (typeof sampleValue === 'string') {
+                displayValue = sampleValue.substring(0, 50) + (sampleValue.length > 50 ? '...' : '');
+              } else {
+                const jsonStr = JSON.stringify(sampleValue);
+                displayValue = jsonStr !== undefined 
+                  ? jsonStr.substring(0, 50) + (jsonStr.length > 50 ? '...' : '')
+                  : '(undefined)';
+              }
 
               return (
                 <tr key={field} className="hover:bg-gray-50">
