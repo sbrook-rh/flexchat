@@ -1,6 +1,6 @@
 # document-upload-ui Spec Deltas
 
-## MODIFIED Requirements
+## ADDED Requirements
 
 ### Requirement: Multi-Format File Parsing
 The system SHALL parse both JSON array (.json) and JSONL (.jsonl) file formats with file size validation and clear error reporting.
