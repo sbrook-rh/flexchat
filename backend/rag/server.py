@@ -200,24 +200,42 @@ def create_collection(request: CreateCollectionRequest):
 
 
 @app.put("/collections/{name}/metadata")
-def update_collection_metadata(name: str, request: UpdateCollectionMetadataRequest):
-    """Update collection metadata"""
+def update_collection_metadata(
+    name: str, 
+    request: UpdateCollectionMetadataRequest,
+    merge: bool = Query(default=False, description="Merge with existing metadata (default: false for backward compatibility)")
+):
+    """
+    Update collection metadata.
+    
+    Args:
+        name: Collection name
+        request: Metadata update request
+        merge: If True, merge with existing metadata; if False, replace all metadata (default)
+    
+    The merge parameter allows partial updates without wiping other fields.
+    Default is False to maintain backward compatibility with existing clients.
+    """
     try:
         collection = chroma_client.get_collection(name=name)
         
-        # Get existing metadata and merge with updates
-        # existing_metadata = collection.metadata or {}
-        # updated_metadata = {**existing_metadata, **request.metadata}
-        updated_metadata = request.metadata
+        if merge:
+            # Merge mode: preserve existing fields, update/add new ones
+            existing_metadata = collection.metadata or {}
+            updated_metadata = {**existing_metadata, **request.metadata}
+        else:
+            # Replace mode (default): full replacement (current behavior)
+            updated_metadata = request.metadata
         
         # Use ChromaDB's modify method to update metadata
         collection.modify(metadata=updated_metadata)
         
-        print(f"✅ Updated metadata for collection: {name}")
+        print(f"✅ Updated metadata for collection: {name} (merge={merge})")
         return {
             "status": "updated",
             "name": name,
-            "metadata": updated_metadata
+            "metadata": updated_metadata,
+            "merge": merge
         }
     except HTTPException:
         raise
@@ -429,6 +447,70 @@ def get_documents(
         raise  # Pass through HTTP exceptions
     except Exception as e:
         print(f"❌ ERROR querying documents from {collection_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Metadata field values endpoint  
+@app.get("/collections/{collection_name}/metadata-values")
+def get_metadata_values(
+    collection_name: str,
+    field: str = Query(..., description="Metadata field name")
+):
+    """
+    Get unique values for a metadata field across all documents in a collection.
+    
+    Used to populate categorical filter dropdowns in UI. Returns actual values
+    from document metadata, not manually configured lists.
+    
+    Args:
+        collection_name: Name of the collection to query
+        field: Metadata field name to get values for
+    
+    Returns:
+        {
+            "field": str,
+            "values": list[str],  # Unique values, sorted alphabetically
+            "count": int           # Number of unique values
+        }
+    
+    Example:
+        GET /collections/fancy-desserts/metadata-values?field=region
+        → {"field": "region", "values": ["British Classics", "French Pastries"], "count": 2}
+    """
+    try:
+        # Get collection
+        collection = chroma_client.get_collection(name=collection_name)
+        
+        # Query all documents (no filter) to get metadata
+        results = collection.get(
+            include=["metadatas"],
+            limit=None  # Get all documents
+        )
+        
+        # Extract unique values for the specified field
+        values_set = set()
+        metadatas = results.get("metadatas", [])
+        
+        for metadata in metadatas:
+            if metadata and field in metadata:
+                value = metadata[field]
+                # Convert to string to ensure consistency
+                if value is not None:
+                    values_set.add(str(value))
+        
+        # Sort values alphabetically for consistent display
+        unique_values = sorted(list(values_set))
+        
+        return {
+            "field": field,
+            "values": unique_values,
+            "count": len(unique_values)
+        }
+        
+    except HTTPException:
+        raise  # Pass through HTTP exceptions
+    except Exception as e:
+        print(f"❌ ERROR getting metadata values for {collection_name}.{field}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
