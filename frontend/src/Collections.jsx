@@ -36,12 +36,7 @@ function Collections({ uiConfig, reloadConfig }) {
     partial_threshold: 0.5
   });
   
-  // Upload form (modal)
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [uploadTargetCollection, setUploadTargetCollection] = useState(null);
-  const [uploadText, setUploadText] = useState('');
-  const [uploadFiles, setUploadFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
+  // Connection resolution state (shared by Document Upload Wizard)
   const [resolvedConnection, setResolvedConnection] = useState(null);
   const [connectionError, setConnectionError] = useState(null);
   const [resolvingConnection, setResolvingConnection] = useState(false);
@@ -49,6 +44,15 @@ function Collections({ uiConfig, reloadConfig }) {
   // Document Upload Wizard state
   const [showUploadWizard, setShowUploadWizard] = useState(false);
   const [wizardTargetCollection, setWizardTargetCollection] = useState(null);
+
+  // Profile Modal state
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileTargetCollection, setProfileTargetCollection] = useState(null);
+  const [profileForm, setProfileForm] = useState({
+    categorical_filtering: {
+      fields: {}
+    }
+  });
 
   // Populate from uiConfig on mount
   useEffect(() => {
@@ -337,28 +341,6 @@ function Collections({ uiConfig, reloadConfig }) {
     }
   };
 
-  const openUploadModal = async (collection) => {
-    setUploadTargetCollection(collection);
-    setShowUploadModal(true);
-    setUploadText('');
-    setUploadFiles([]);
-    setResolvedConnection(null);
-    setConnectionError(null);
-    setResolvingConnection(true);
-
-    // Try to resolve a compatible connection
-    await resolveCompatibleConnection(collection);
-  };
-
-  const closeUploadModal = () => {
-    setShowUploadModal(false);
-    setUploadTargetCollection(null);
-    setUploadText('');
-    setUploadFiles([]);
-    setResolvedConnection(null);
-    setConnectionError(null);
-    setResolvingConnection(false);
-  };
 
   const openUploadWizard = async (collection) => {
     setResolvingConnection(true);
@@ -397,6 +379,210 @@ function Collections({ uiConfig, reloadConfig }) {
     alert(`Successfully uploaded ${result.count} document(s)!`);
     closeUploadWizard();
     reloadConfig(); // Refresh collections list
+  };
+
+  // Profile Modal utilities
+  const shouldShowProfileButton = (collection) => {
+    try {
+      // Parse document_schema if it's stringified
+      const docSchema = collection.metadata?.document_schema;
+      if (!docSchema) return false;
+      
+      const schema = typeof docSchema === 'string' ? JSON.parse(docSchema) : docSchema;
+      
+      // Check if metadata_fields exists and has values
+      return schema.metadata_fields && Array.isArray(schema.metadata_fields) && schema.metadata_fields.length > 0;
+    } catch (err) {
+      console.error('Error checking profile button visibility:', err);
+      return false;
+    }
+  };
+
+  // Profile Modal functions
+  const openProfileModal = async (collection) => {
+    setProfileTargetCollection(collection);
+    
+    // Parse existing query_profile if it exists
+    try {
+      if (collection.metadata?.query_profile) {
+        const existingProfile = typeof collection.metadata.query_profile === 'string'
+          ? JSON.parse(collection.metadata.query_profile)
+          : collection.metadata.query_profile;
+        
+        // Convert stored format to internal UI format
+        // Auto-fetch current values from documents for each field
+        const uiFields = {};
+        const fetchPromises = [];
+        
+        for (const [fieldName, fieldConfig] of Object.entries(existingProfile.categorical_filtering?.fields || {})) {
+          // Start with saved selection, will update with fetched values
+          uiFields[fieldName] = {
+            type: fieldConfig.type,
+            values: [],  // Will be populated by fetch
+            selectedValues: fieldConfig.values || [],  // User's saved selection
+            default: fieldConfig.default,
+            loading: true  // Show loading state
+          };
+          
+          // Fetch current values from documents
+          const fetchPromise = fetch(
+            `/api/collections/${collection.name}/metadata-values?field=${encodeURIComponent(fieldName)}&service=${collection.service}`
+          )
+            .then(res => res.json())
+            .then(data => {
+              uiFields[fieldName].values = data.values;
+              uiFields[fieldName].loading = false;
+            })
+            .catch(err => {
+              console.error(`Error fetching values for ${fieldName}:`, err);
+              uiFields[fieldName].values = uiFields[fieldName].selectedValues;  // Fallback to saved values
+              uiFields[fieldName].loading = false;
+            });
+          
+          fetchPromises.push(fetchPromise);
+        }
+        
+        // Set initial form state with loading indicators
+        setProfileForm({
+          categorical_filtering: {
+            fields: uiFields
+          }
+        });
+        
+        // Wait for all fetches to complete, then update form
+        await Promise.all(fetchPromises);
+        setProfileForm({
+          categorical_filtering: {
+            fields: { ...uiFields }  // Trigger re-render with fetched values
+          }
+        });
+      } else {
+        // Reset to empty form
+        setProfileForm({
+          categorical_filtering: {
+            fields: {}
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Error parsing query_profile:', err);
+      alert('Warning: Could not parse existing query profile. Starting with empty form.');
+      setProfileForm({
+        categorical_filtering: {
+          fields: {}
+        }
+      });
+    }
+    
+    setShowProfileModal(true);
+  };
+
+  const closeProfileModal = () => {
+    setShowProfileModal(false);
+    setProfileTargetCollection(null);
+    setProfileForm({
+      categorical_filtering: {
+        fields: {}
+      }
+    });
+  };
+
+  const validateProfile = () => {
+    const errors = [];
+    const fields = profileForm.categorical_filtering.fields;
+
+    // Parse document_schema if stringified
+    let schemaFields = [];
+    try {
+      const docSchema = profileTargetCollection?.metadata?.document_schema;
+      if (docSchema) {
+        const schema = typeof docSchema === 'string' ? JSON.parse(docSchema) : docSchema;
+        schemaFields = schema.metadata_fields || [];
+      }
+    } catch (err) {
+      console.error('Error parsing document_schema:', err);
+    }
+
+    // Validate each field
+    for (const [fieldName, fieldConfig] of Object.entries(fields)) {
+      // Check if values are selected
+      if (!fieldConfig.selectedValues || fieldConfig.selectedValues.length === 0) {
+        errors.push(`Field "${fieldName}": No values selected. Please select at least one value or remove the field.`);
+      }
+
+      // Check if default value is in selected values
+      if (fieldConfig.default && fieldConfig.selectedValues && !fieldConfig.selectedValues.includes(fieldConfig.default)) {
+        errors.push(`Field "${fieldName}": Default value "${fieldConfig.default}" must be one of the selected values.`);
+      }
+
+      // Validate field name exists in schema
+      if (!schemaFields.includes(fieldName)) {
+        errors.push(`Field "${fieldName}": Not found in document schema metadata_fields.`);
+      }
+    }
+
+    return errors;
+  };
+
+  const saveProfile = async () => {
+    if (!profileTargetCollection) {
+      alert('No collection selected');
+      return;
+    }
+
+    // Validate before saving
+    const validationErrors = validateProfile();
+    if (validationErrors.length > 0) {
+      alert('Validation errors:\n\n' + validationErrors.join('\n'));
+      return;
+    }
+
+    try {
+      // Clean up the form data: replace selectedValues with values
+      const cleanedFields = {};
+      for (const [fieldName, fieldConfig] of Object.entries(profileForm.categorical_filtering.fields)) {
+        cleanedFields[fieldName] = {
+          type: fieldConfig.type,
+          values: fieldConfig.selectedValues || []  // Use selectedValues as the final values
+        };
+        // Only include default if it's set
+        if (fieldConfig.default) {
+          cleanedFields[fieldName].default = fieldConfig.default;
+        }
+      }
+
+      const cleanedProfile = {
+        categorical_filtering: {
+          fields: cleanedFields
+        }
+      };
+
+      // Stringify the profile for ChromaDB storage
+      const profileJson = JSON.stringify(cleanedProfile);
+      
+      const response = await fetch(`/api/collections/${profileTargetCollection.name}/metadata`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service: profileTargetCollection.service,
+          metadata: {
+            query_profile: profileJson
+          },
+          merge: true  // Preserve other metadata fields
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to save profile');
+      }
+
+      alert(`✅ Query profile saved for "${profileTargetCollection.metadata?.display_name || profileTargetCollection.name}"`);
+      closeProfileModal();
+      reloadConfig(); // Refresh collections list
+    } catch (err) {
+      alert('Error saving profile: ' + err.message);
+    }
   };
 
   const resolveCompatibleConnection = async (collection) => {
@@ -459,153 +645,6 @@ function Collections({ uiConfig, reloadConfig }) {
       setConnectionError(`Error resolving connection: ${err.message}`);
       setResolvingConnection(false);
     }
-  };
-
-  const uploadDocuments = async (e) => {
-    e.preventDefault();
-    
-    if (!uploadTargetCollection) {
-      alert('No collection selected');
-      return;
-    }
-
-    if (!resolvedConnection) {
-      alert('No compatible embedding connection found. Please check the error message.');
-      return;
-    }
-    
-    const documents = [];
-    
-    // Process text input
-    if (uploadText.trim()) {
-      documents.push({
-        text: uploadText.trim(),
-        metadata: {
-          source: 'text_input',
-          uploaded_at: new Date().toISOString()
-        }
-      });
-    }
-    
-    // Process files
-    if (uploadFiles.length > 0) {
-      for (const file of uploadFiles) {
-        try {
-          const text = await file.text();
-          
-          // If it's a JSON file, try to parse it
-          if (file.name.endsWith('.json')) {
-            try {
-              const jsonData = JSON.parse(text);
-              
-              // If it's an array, treat each element as a separate document
-              if (Array.isArray(jsonData)) {
-                for (const item of jsonData) {
-                  // Extract text based on common fields
-                  let docText = '';
-                  if (item.text) {
-                    docText = item.text;
-                  } else if (item.content) {
-                    docText = item.content;
-                  } else {
-                    // If no text/content field, stringify the whole object
-                    docText = JSON.stringify(item);
-                  }
-                  
-                  // Include title if available
-                  if (item.title) {
-                    docText = `${item.title}\n\n${docText}`;
-                  }
-                  
-                  documents.push({
-                    text: docText,
-                    metadata: {
-                      source: 'file',
-                      filename: file.name,
-                      title: item.title || 'Untitled',
-                      uploaded_at: new Date().toISOString()
-                    }
-                  });
-                }
-                console.log(`Parsed ${jsonData.length} documents from ${file.name}`);
-              } else {
-                // Single JSON object - treat as one document
-                documents.push({
-                  text: jsonData.text || jsonData.content || JSON.stringify(jsonData),
-                  metadata: {
-                    source: 'file',
-                    filename: file.name,
-                    uploaded_at: new Date().toISOString()
-                  }
-                });
-              }
-            } catch (error) {
-              // If JSON parsing fails, treat as plain text
-              console.warn(`Could not parse ${file.name} as JSON, treating as text`, error);
-              documents.push({
-                text: text,
-                metadata: {
-                  source: 'file',
-                  filename: file.name,
-                  uploaded_at: new Date().toISOString()
-                }
-              });
-            }
-          } else {
-            // Non-JSON files: treat entire content as one document
-            documents.push({
-              text: text,
-              metadata: {
-                source: 'file',
-                filename: file.name,
-                uploaded_at: new Date().toISOString()
-              }
-            });
-          }
-        } catch (err) {
-          console.error(`Error reading file ${file.name}:`, err);
-        }
-      }
-    }
-    
-    if (documents.length === 0) {
-      alert('Please provide text or files to upload');
-      return;
-    }
-    
-    try {
-      setUploading(true);
-      const response = await fetch(`/api/collections/${uploadTargetCollection.name}/documents`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          documents,
-          service: uploadTargetCollection.service,
-          embedding_connection: resolvedConnection,
-          embedding_model: uploadTargetCollection.metadata?.embedding_model
-        })
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to upload documents');
-      }
-      
-      const result = await response.json();
-      alert(`Successfully uploaded ${result.count} document(s) to "${uploadTargetCollection.metadata?.display_name || uploadTargetCollection.name}"`);
-      
-      // Close modal and reload
-      closeUploadModal();
-      reloadConfig();
-    } catch (err) {
-      alert('Error uploading documents: ' + err.message);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleFileChange = (e) => {
-    setUploadFiles(Array.from(e.target.files));
   };
 
   // Filter collections if wrapper is specified
@@ -751,17 +790,19 @@ function Collections({ uiConfig, reloadConfig }) {
                           Edit
                         </button>
                         <button
-                          onClick={() => openUploadModal(collection)}
-                          className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
-                        >
-                          Upload Docs
-                        </button>
-                        <button
                           onClick={() => openUploadWizard(collection)}
                           className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition"
                         >
                           Upload JSON
                         </button>
+                        {shouldShowProfileButton(collection) && (
+                          <button
+                            onClick={() => openProfileModal(collection)}
+                            className="px-3 py-1 text-sm bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition"
+                          >
+                            Search Settings
+                          </button>
+                        )}
                         {!(isPinned && collection.name === currentWrapperInfo?.collection) && (
                           <button
                             onClick={() => deleteCollection(collection.name)}
@@ -1046,82 +1087,6 @@ function Collections({ uiConfig, reloadConfig }) {
           </div>
         )}
 
-        {/* Upload Documents Modal */}
-        {showUploadModal && uploadTargetCollection && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
-            <form onSubmit={uploadDocuments} className="bg-white rounded-lg shadow w-full max-w-2xl p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  Upload Documents to "{uploadTargetCollection.metadata?.display_name || uploadTargetCollection.name}"
-                </h2>
-                <button type="button" onClick={closeUploadModal} className="text-gray-500 hover:text-gray-800">✕</button>
-              </div>
-
-              {/* Connection Resolution Status */}
-              {resolvingConnection ? (
-                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                  <p className="text-sm text-gray-600">🔍 Resolving compatible embedding connection...</p>
-                </div>
-              ) : connectionError ? (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                  <p className="text-sm text-red-800"><strong>⚠️ Connection Error:</strong></p>
-                  <p className="text-sm text-red-700 mt-1">{connectionError}</p>
-                </div>
-              ) : resolvedConnection ? (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                  <p className="text-sm text-green-800">
-                    <strong>✓ Embedding Connection:</strong> {resolvedConnection}
-                  </p>
-                  <p className="text-xs text-green-700 mt-1">
-                    Using model: {uploadTargetCollection.metadata?.embedding_provider}/{uploadTargetCollection.metadata?.embedding_model}
-                  </p>
-                </div>
-              ) : null}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Upload Files
-                </label>
-                <input
-                  type="file"
-                  multiple
-                  accept=".txt,.md,.json"
-                  onChange={handleFileChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Supported: .txt, .md, .json
-                  {uploadFiles.length > 0 && ` (${uploadFiles.length} file(s) selected)`}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Or Paste Text
-                </label>
-                <textarea
-                  value={uploadText}
-                  onChange={(e) => setUploadText(e.target.value)}
-                  placeholder="Paste document text here..."
-                  rows={8}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={closeUploadModal} className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancel</button>
-                <button
-                  type="submit"
-                  disabled={uploading || !resolvedConnection || resolvingConnection}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {uploading ? 'Uploading...' : resolvingConnection ? 'Resolving...' : 'Upload Documents'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
         {/* Document Upload Wizard */}
         {showUploadWizard && wizardTargetCollection && resolvedConnection && (
           <DocumentUploadWizard
@@ -1133,6 +1098,223 @@ function Collections({ uiConfig, reloadConfig }) {
             onComplete={handleWizardComplete}
           />
         )}
+
+        {/* Query Profile Modal */}
+        {showProfileModal && profileTargetCollection && (() => {
+          // Parse document_schema to get available metadata fields
+          let availableFields = [];
+          try {
+            const docSchema = profileTargetCollection.metadata?.document_schema;
+            if (docSchema) {
+              const schema = typeof docSchema === 'string' ? JSON.parse(docSchema) : docSchema;
+              availableFields = schema.metadata_fields || [];
+            }
+          } catch (err) {
+            console.error('Error parsing document_schema in modal:', err);
+          }
+
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+              <div className="bg-white rounded-lg shadow-lg w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    🔍 Search Settings: "{profileTargetCollection.metadata?.display_name || profileTargetCollection.name}"
+                  </h2>
+                  <button type="button" onClick={closeProfileModal} className="text-gray-500 hover:text-gray-800">✕</button>
+                </div>
+
+                <p className="text-sm text-gray-600">
+                  Configure categorical filtering for searches. Select metadata fields and specify which values should be included.
+                </p>
+
+              {/* Categorical Filtering Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-gray-900">Categorical Filters</h3>
+                
+                {Object.keys(profileForm.categorical_filtering.fields).map(fieldName => (
+                  <div key={fieldName} className="border border-gray-300 rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-gray-900">{fieldName}</h4>
+                      <button
+                        onClick={() => {
+                          const newFields = { ...profileForm.categorical_filtering.fields };
+                          delete newFields[fieldName];
+                          setProfileForm({
+                            ...profileForm,
+                            categorical_filtering: {
+                              ...profileForm.categorical_filtering,
+                              fields: newFields
+                            }
+                          });
+                        }}
+                        className="text-red-600 hover:text-red-800 text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Values</label>
+                      <div className="flex gap-2 mb-2">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const response = await fetch(
+                                `/api/collections/${profileTargetCollection.name}/metadata-values?field=${encodeURIComponent(fieldName)}&service=${profileTargetCollection.service}`
+                              );
+                              if (!response.ok) throw new Error('Failed to fetch values');
+                              const data = await response.json();
+                              
+                              // Update the field with fetched values
+                              setProfileForm({
+                                ...profileForm,
+                                categorical_filtering: {
+                                  ...profileForm.categorical_filtering,
+                                  fields: {
+                                    ...profileForm.categorical_filtering.fields,
+                                    [fieldName]: {
+                                      ...profileForm.categorical_filtering.fields[fieldName],
+                                      values: data.values
+                                    }
+                                  }
+                                }
+                              });
+                            } catch (err) {
+                              alert('Error fetching values: ' + err.message);
+                            }
+                          }}
+                          className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                        >
+                          Fetch from Documents
+                        </button>
+                      </div>
+
+                      {profileForm.categorical_filtering.fields[fieldName].loading ? (
+                        <p className="text-sm text-gray-500 italic">Loading available values...</p>
+                      ) : profileForm.categorical_filtering.fields[fieldName].values?.length > 0 ? (
+                        <div className="space-y-2">
+                          {profileForm.categorical_filtering.fields[fieldName].values.map((value, idx) => (
+                            <label key={idx} className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={profileForm.categorical_filtering.fields[fieldName].selectedValues?.includes(value) || false}
+                                onChange={(e) => {
+                                  const currentSelected = profileForm.categorical_filtering.fields[fieldName].selectedValues || [];
+                                  const newSelected = e.target.checked
+                                    ? [...currentSelected, value]
+                                    : currentSelected.filter(v => v !== value);
+                                  
+                                  setProfileForm({
+                                    ...profileForm,
+                                    categorical_filtering: {
+                                      ...profileForm.categorical_filtering,
+                                      fields: {
+                                        ...profileForm.categorical_filtering.fields,
+                                        [fieldName]: {
+                                          ...profileForm.categorical_filtering.fields[fieldName],
+                                          selectedValues: newSelected
+                                        }
+                                      }
+                                    }
+                                  });
+                                }}
+                                className="rounded"
+                              />
+                              <span className="text-sm text-gray-700">{value}</span>
+                            </label>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-gray-500 italic">Click "Fetch from Documents" to load available values</p>
+                      )}
+                    </div>
+
+                    {profileForm.categorical_filtering.fields[fieldName].selectedValues?.length > 0 && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Default Value (optional)</label>
+                        <select
+                          value={profileForm.categorical_filtering.fields[fieldName].default || ''}
+                          onChange={(e) => {
+                            setProfileForm({
+                              ...profileForm,
+                              categorical_filtering: {
+                                ...profileForm.categorical_filtering,
+                                fields: {
+                                  ...profileForm.categorical_filtering.fields,
+                                  [fieldName]: {
+                                    ...profileForm.categorical_filtering.fields[fieldName],
+                                    default: e.target.value || undefined
+                                  }
+                                }
+                              }
+                            });
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        >
+                          <option value="">None</option>
+                          {profileForm.categorical_filtering.fields[fieldName].selectedValues.map(value => (
+                            <option key={value} value={value}>{value}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                ))}
+
+                {/* Add New Field */}
+                <div className="border border-dashed border-gray-300 rounded-lg p-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Add Categorical Filter</label>
+                  <select
+                    onChange={(e) => {
+                      if (e.target.value) {
+                        setProfileForm({
+                          ...profileForm,
+                          categorical_filtering: {
+                            ...profileForm.categorical_filtering,
+                            fields: {
+                              ...profileForm.categorical_filtering.fields,
+                              [e.target.value]: {
+                                type: 'exact_match',
+                                values: [],
+                                selectedValues: []
+                              }
+                            }
+                          }
+                        });
+                        e.target.value = '';
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    value=""
+                  >
+                    <option value="">Select a field...</option>
+                    {availableFields
+                      .filter(field => !profileForm.categorical_filtering.fields[field])
+                      .map(field => (
+                        <option key={field} value={field}>{field}</option>
+                      ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <button
+                  onClick={closeProfileModal}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveProfile}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  Save Profile
+                </button>
+              </div>
+            </div>
+          </div>
+          );
+        })()}
       </div>
     </div>
   );
