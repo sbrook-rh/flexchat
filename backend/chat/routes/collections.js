@@ -351,7 +351,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
   router.put('/collections/:name/metadata', async (req, res) => {
     try {
       const { name } = req.params;
-      const { metadata, service } = req.body;
+      const { metadata, service, merge = false } = req.body;
       
       if (!metadata || typeof metadata !== 'object') {
         return res.status(400).json({ error: 'Metadata object is required' });
@@ -363,12 +363,54 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       
       const config = getConfig();
       const { ragProviders } = getProviders();
-      const result = await updateCollectionMetadata(service, name, metadata, config.rag_services, ragProviders);
+      const result = await updateCollectionMetadata(service, name, metadata, config.rag_services, ragProviders, merge);
       res.json(result);
     } catch (error) {
       console.error(`❌ Error updating metadata for collection ${req.params.name}:`, error);
       res.status(500).json({ 
         error: 'Failed to update metadata',
+        message: error.message 
+      });
+    }
+  });
+
+  /**
+   * Get unique metadata values for a field
+   * GET /api/collections/:name/metadata-values?field=...&service=...
+   */
+  router.get('/collections/:name/metadata-values', async (req, res) => {
+    try {
+      const { name } = req.params;
+      const { field, service } = req.query;
+      
+      if (!field) {
+        return res.status(400).json({ error: 'Field parameter is required' });
+      }
+      
+      if (!service) {
+        return res.status(400).json({ error: 'Service name is required (query parameter)' });
+      }
+      
+      const config = getConfig();
+      const { ragProviders } = getProviders();
+      
+      // Get the provider
+      const provider = ragProviders[service];
+      if (!provider) {
+        return res.status(404).json({ error: `Service "${service}" not found` });
+      }
+      
+      // Call the provider's metadata-values endpoint if it exists
+      if (typeof provider.getMetadataValues === 'function') {
+        const result = await provider.getMetadataValues(name, field);
+        res.json(result);
+      } else {
+        return res.status(501).json({ error: 'Metadata values not supported by this provider' });
+      }
+    } catch (error) {
+      console.error(`❌ Error getting metadata values for ${req.params.name}:`, error);
+      res.status(500).json({ 
+        error: 'Failed to get metadata values',
         message: error.message 
       });
     }

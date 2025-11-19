@@ -440,14 +440,14 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
    * @param {Object} metadata - Metadata to update
    * @returns {Promise<Object>} Updated collection info
    */
-  async updateCollectionMetadata(collectionName, metadata) {
+  async updateCollectionMetadata(collectionName, metadata, merge = false) {
     if (!collectionName) {
       throw new Error('Collection name is required');
     }
     
     try {
       const response = await axios.put(
-        `${this.baseUrl}/collections/${collectionName}/metadata`,
+        `${this.baseUrl}/collections/${collectionName}/metadata?merge=${merge}`,
         { metadata },
         {
           timeout: 10000,
@@ -462,6 +462,41 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
       return response.data;
     } catch (error) {
       console.error(`Error updating collection metadata for ${collectionName}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get unique metadata values for a field
+   * @param {string} collectionName - Collection name
+   * @param {string} field - Metadata field name
+   * @returns {Promise<Object>} {field, values, count}
+   */
+  async getMetadataValues(collectionName, field) {
+    if (!collectionName) {
+      throw new Error('Collection name is required');
+    }
+    if (!field) {
+      throw new Error('Field name is required');
+    }
+    
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/collections/${collectionName}/metadata-values`,
+        {
+          params: { field },
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.customHeaders,
+            ...(this.auth ? this.getAuthHeader() : {})
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Error getting metadata values for ${collectionName}.${field}:`, error.message);
       throw error;
     }
   }

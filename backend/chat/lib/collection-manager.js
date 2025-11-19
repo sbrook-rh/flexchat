@@ -147,7 +147,7 @@ async function deleteCollection(serviceName, collectionName, ragServices, ragPro
  * @param {Object} ragProviders - Initialized RAG provider instances
  * @returns {Promise<Object>} Updated collection info
  */
-async function updateCollectionMetadata(serviceName, collectionName, metadata, ragServices, ragProviders) {
+async function updateCollectionMetadata(serviceName, collectionName, metadata, ragServices, ragProviders, merge = false) {
   // Validate service exists and is a wrapper
   const serviceConfig = ragServices[serviceName];
   if (!serviceConfig) {
@@ -164,7 +164,7 @@ async function updateCollectionMetadata(serviceName, collectionName, metadata, r
   }
   
   // Update metadata via provider
-  return await provider.updateCollectionMetadata(collectionName, metadata);
+  return await provider.updateCollectionMetadata(collectionName, metadata, merge);
 }
 
 /**
