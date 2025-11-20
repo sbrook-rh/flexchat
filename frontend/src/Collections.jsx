@@ -31,6 +31,7 @@ function Collections({ uiConfig, reloadConfig }) {
   // Edit collection form
   const [editingCollection, setEditingCollection] = useState(null);
   const [editForm, setEditForm] = useState({
+    display_name: '',
     description: '',
     match_threshold: 0.3,
     partial_threshold: 0.5
@@ -270,6 +271,7 @@ function Collections({ uiConfig, reloadConfig }) {
           service: currentWrapper,
           metadata: {
             ...preservedMetadata,  // Preserve all existing metadata except hnsw:space
+            display_name: editForm.display_name,
             description: editForm.description,
             match_threshold: parseFloat(editForm.match_threshold),
             partial_threshold: parseFloat(editForm.partial_threshold),
@@ -283,11 +285,12 @@ function Collections({ uiConfig, reloadConfig }) {
         throw new Error(error.error || 'Failed to update collection');
       }
       
-      alert(`Collection "${editingCollection}" updated successfully!`);
+      alert(`Collection "${editForm.display_name}" updated successfully!`);
       
       // Reset edit form
       setEditingCollection(null);
       setEditForm({
+        display_name: '',
         description: '',
         match_threshold: 0.3,
         partial_threshold: 0.5
@@ -303,6 +306,7 @@ function Collections({ uiConfig, reloadConfig }) {
   const startEditing = (collection) => {
     setEditingCollection(collection.name);
     setEditForm({
+      display_name: collection.metadata?.display_name || collection.name, // Fallback to collection name for backward compat
       description: collection.metadata?.description || '',
       threshold: collection.metadata?.threshold || 0.3,
       partial_threshold: collection.metadata?.partial_threshold || 0.5
@@ -314,6 +318,7 @@ function Collections({ uiConfig, reloadConfig }) {
   const cancelEditing = () => {
     setEditingCollection(null);
     setEditForm({
+      display_name: '',
       description: '',
       match_threshold: 0.3,
       partial_threshold: 0.5
@@ -978,21 +983,23 @@ function Collections({ uiConfig, reloadConfig }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
             <form onSubmit={updateCollection} className="bg-white rounded-lg shadow w-full max-w-2xl p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold text-gray-900">Edit Collection: {editingCollection}</h2>
+                <h2 className="text-xl font-semibold text-gray-900">Edit Collection: {editForm.display_name}</h2>
                 <button type="button" onClick={cancelEditing} className="text-gray-500 hover:text-gray-800">✕</button>
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Collection Name
+                  Display Name
                 </label>
                 <input
                   type="text"
-                  value={editingCollection}
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                  value={editForm.display_name}
+                  onChange={(e) => setEditForm({ ...editForm, display_name: e.target.value })}
+                  placeholder="e.g., Red Hat OpenShift AI"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
                 />
-                <p className="text-xs text-gray-500 mt-1">Collection name cannot be changed</p>
+                <p className="text-xs text-gray-500 mt-1">Human-readable name shown in UI (collection ID: {editingCollection})</p>
               </div>
 
               <div>
