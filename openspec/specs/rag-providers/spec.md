@@ -183,3 +183,123 @@ The RAG service SHALL provide an endpoint for querying documents by metadata fil
 - **AND** documents can be sorted by `doc_type` to reconstruct original section structure
 - **AND** enables presenting complete context instead of isolated fragments
 
+### Requirement: Metadata Field Values Endpoint
+The RAG service SHALL provide an endpoint to retrieve unique values for metadata fields across all documents in a collection, enabling UI components to build categorical filter dropdowns.
+
+#### Scenario: Get unique values for metadata field
+- **GIVEN** a collection with documents containing metadata field "region" with values ["British Classics", "Asian & Middle Eastern Sweets", "British Classics", "French Pastries"]
+- **WHEN** client requests `GET /collections/{name}/metadata-values?field=region`
+- **THEN** the endpoint returns `{field: "region", values: ["British Classics", "Asian & Middle Eastern Sweets", "French Pastries"], count: 3}`
+- **AND** duplicate values are deduplicated
+
+#### Scenario: Get values for field with no documents
+- **GIVEN** a collection with documents where no document has the requested metadata field
+- **WHEN** client requests `GET /collections/{name}/metadata-values?field=nonexistent`
+- **THEN** the endpoint returns `{field: "nonexistent", values: [], count: 0}`
+- **AND** HTTP status is 200 (not an error)
+
+#### Scenario: Collection not found
+- **GIVEN** the requested collection does not exist
+- **WHEN** client requests `GET /collections/nonexistent/metadata-values?field=region`
+- **THEN** the endpoint returns HTTP 404
+- **AND** error message: "Collection 'nonexistent' does not exist."
+
+#### Scenario: Missing field parameter
+- **GIVEN** a request to metadata-values endpoint
+- **WHEN** the `field` query parameter is not provided
+- **THEN** the endpoint returns HTTP 400
+- **AND** error message indicates field parameter is required
+
+#### Scenario: Values returned in consistent order
+- **GIVEN** multiple calls to metadata-values for the same field
+- **WHEN** documents haven't changed between calls
+- **THEN** values array returns in same order (sorted alphabetically)
+- **AND** UI can display consistent dropdowns
+
+### Requirement: Collection Metadata Merge Mode
+The RAG service SHALL support a merge mode for collection metadata updates, allowing partial updates without replacing all metadata fields.
+
+#### Scenario: Merge mode preserves existing metadata
+- **GIVEN** a collection with metadata `{"description": "Test", "match_threshold": 0.5, "custom_field": "value"}`
+- **WHEN** client sends `PUT /collections/{name}/metadata?merge=true` with metadata `{"new_field": "new"}`
+- **THEN** the collection metadata becomes `{"description": "Test", "match_threshold": 0.5, "custom_field": "value", "new_field": "new"}`
+- **AND** all existing fields are preserved
+
+#### Scenario: Replace mode overwrites metadata (default)
+- **GIVEN** a collection with metadata `{"description": "Test", "match_threshold": 0.5, "custom_field": "value"}`
+- **WHEN** client sends `PUT /collections/{name}/metadata` (no merge parameter) with metadata `{"new_field": "new"}`
+- **THEN** the collection metadata becomes `{"new_field": "new"}`
+- **AND** existing fields are discarded (current behavior)
+
+#### Scenario: Explicit replace mode
+- **GIVEN** a collection with existing metadata
+- **WHEN** client sends `PUT /collections/{name}/metadata?merge=false` with metadata `{"new_field": "new"}`
+- **THEN** the collection metadata is fully replaced
+- **AND** behavior matches default (merge=false is default)
+
+### Requirement: Empty Collection Endpoint
+The system SHALL provide an API endpoint to delete all documents from a collection while preserving the collection and its metadata.
+
+#### Scenario: Empty collection with documents
+- **GIVEN** a collection "test-collection" exists with 100 documents
+- **WHEN** client sends `DELETE /collections/test-collection/documents/all`
+- **THEN** endpoint returns 200 status
+- **AND** response body contains:
+  ```json
+  {
+    "status": "emptied",
+    "collection": "test-collection",
+    "count_deleted": 100
+  }
+  ```
+- **AND** collection still exists
+- **AND** collection metadata is preserved
+- **AND** collection now contains 0 documents
+
+#### Scenario: Empty already-empty collection
+- **GIVEN** a collection "test-collection" exists with 0 documents
+- **WHEN** client sends `DELETE /collections/test-collection/documents/all`
+- **THEN** endpoint returns 200 status
+- **AND** response body contains:
+  ```json
+  {
+    "status": "emptied",
+    "collection": "test-collection",
+    "count_deleted": 0
+  }
+  ```
+
+#### Scenario: Empty non-existent collection
+- **GIVEN** collection "missing-collection" does not exist
+- **WHEN** client sends `DELETE /collections/missing-collection/documents/all`
+- **THEN** endpoint returns 404 status
+- **AND** error message indicates collection not found
+
+#### Scenario: Empty large collection
+- **GIVEN** a collection "large-collection" with 50,000 documents
+- **WHEN** client sends `DELETE /collections/large-collection/documents/all`
+- **THEN** endpoint successfully deletes all 50,000 documents
+- **AND** returns `count_deleted: 50000`
+- **AND** operation completes within reasonable time (< 30 seconds)
+
+#### Scenario: Empty operation is transactional
+- **GIVEN** a collection exists
+- **WHEN** empty operation encounters an error during deletion
+- **THEN** either all documents are deleted or none are deleted
+- **AND** partial deletion does not leave collection in inconsistent state
+
+#### Scenario: Metadata preserved after empty
+- **GIVEN** a collection with metadata `{display_name: "Test", description: "Docs", query_profile: {...}}`
+- **WHEN** collection is emptied
+- **THEN** all metadata fields remain unchanged
+- **AND** collection can be queried for metadata
+- **AND** subsequent document uploads use existing metadata
+
+#### Scenario: Empty through Node.js middleware
+- **GIVEN** a collection exists in RAG service
+- **WHEN** client sends `DELETE /api/collections/test-collection/documents/all?service=chroma_wrapper`
+- **THEN** Node.js routes request to correct RAG provider
+- **AND** RAG provider calls RAG service empty endpoint
+- **AND** response is returned to client
+- **AND** response format matches RAG service response
+
