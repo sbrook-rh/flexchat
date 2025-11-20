@@ -352,6 +352,41 @@ def delete_documents(collection_name: str, ids: List[str]):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.delete("/collections/{collection_name}/documents/all")
+def empty_collection(collection_name: str):
+    """
+    Empty a collection by deleting all documents.
+    Preserves collection metadata and settings.
+    """
+    try:
+        collection = chroma_client.get_collection(name=collection_name)
+        
+        # Get all document IDs
+        results = collection.get(limit=None, include=["documents"])
+        all_ids = results.get("ids", [])
+        count_deleted = len(all_ids)
+        
+        # Delete all documents if any exist
+        if count_deleted > 0:
+            collection.delete(ids=all_ids)
+            print(f"🗑️ Emptied collection {collection_name} - deleted {count_deleted} documents")
+        else:
+            print(f"ℹ️ Collection {collection_name} was already empty")
+        
+        return {
+            "status": "emptied",
+            "collection": collection_name,
+            "count_deleted": count_deleted
+        }
+    except ValueError as e:
+        # Collection not found
+        print(f"❌ Collection not found: {collection_name}")
+        raise HTTPException(status_code=404, detail=f"Collection '{collection_name}' not found")
+    except Exception as e:
+        print(f"❌ ERROR emptying collection {collection_name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Metadata query endpoint
 @app.get("/collections/{collection_name}/documents")
 def get_documents(

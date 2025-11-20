@@ -417,6 +417,39 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
   });
 
   /**
+   * Empty a collection (delete all documents)
+   * Preserves collection metadata and settings
+   * DELETE /api/collections/:name/documents/all
+   */
+  router.delete('/collections/:name/documents/all', async (req, res) => {
+    try {
+      const { name } = req.params;
+      const { service } = req.query;
+      
+      if (!service) {
+        return res.status(400).json({ error: 'Service name is required (query parameter)' });
+      }
+      
+      const { ragProviders } = getProviders();
+      
+      // Get the provider
+      const provider = ragProviders[service];
+      if (!provider) {
+        return res.status(404).json({ error: `Service "${service}" not found` });
+      }
+      
+      const result = await provider.emptyCollection(name);
+      res.json(result);
+    } catch (error) {
+      console.error(`❌ Error emptying collection ${req.params.name}:`, error);
+      res.status(500).json({ 
+        error: 'Failed to empty collection',
+        message: error.message 
+      });
+    }
+  });
+
+  /**
    * Delete a collection
    * Requires service name to avoid ambiguity
    * DELETE /api/collections/:name

@@ -435,6 +435,37 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
   }
 
   /**
+   * Empty a collection by deleting all documents
+   * Preserves collection metadata and settings
+   * @param {string} collectionName - Collection name
+   * @returns {Promise<Object>} Empty result with count_deleted
+   */
+  async emptyCollection(collectionName) {
+    if (!collectionName) {
+      throw new Error('Collection name is required');
+    }
+    
+    try {
+      const response = await axios.delete(
+        `${this.baseUrl}/collections/${collectionName}/documents/all`,
+        {
+          timeout: 30000,
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.customHeaders,
+            ...(this.auth ? this.getAuthHeader() : {})
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Error emptying collection ${collectionName}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Update collection metadata
    * @param {string} collectionName - Collection name
    * @param {Object} metadata - Metadata to update

@@ -34,8 +34,11 @@ function Collections({ uiConfig, reloadConfig }) {
     display_name: '',
     description: '',
     match_threshold: 0.3,
-    partial_threshold: 0.5
+    partial_threshold: 0.5,
+    embedding_connection: '',
+    embedding_model: ''
   });
+  const [editEmbeddingModels, setEditEmbeddingModels] = useState([]);
   
   // Connection resolution state (shared by Document Upload Wizard)
   const [resolvedConnection, setResolvedConnection] = useState(null);
@@ -100,6 +103,34 @@ function Collections({ uiConfig, reloadConfig }) {
     } catch (e) {
       console.error('Failed to fetch models:', e);
       setEmbeddingModels([]);
+    }
+  };
+
+  // Fetch embedding-capable models for edit form
+  const fetchEmbeddingModelsForEdit = async (connectionId) => {
+    const conn = llms[connectionId];
+    if (!conn) {
+      setEditEmbeddingModels([]);
+      return;
+    }
+    try {
+      const res = await fetch('/api/connections/llm/discovery/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: conn.provider,
+          config: conn
+        })
+      });
+      const data = await res.json();
+      const models = Array.isArray(data.models) ? data.models : [];
+      const embeddingOnly = models.filter(m =>
+        m.type === 'embedding' || (m.capabilities || []).includes('embedding')
+      );
+      setEditEmbeddingModels(embeddingOnly);
+    } catch (e) {
+      console.error('Failed to fetch models for edit:', e);
+      setEditEmbeddingModels([]);
     }
   };
 
@@ -256,27 +287,50 @@ function Collections({ uiConfig, reloadConfig }) {
       return;
     }
     
+    // Validate display name
+    if (!editForm.display_name || editForm.display_name.trim() === '') {
+      alert('Display name is required');
+      return;
+    }
+    
     try {
       // Get existing collection metadata to preserve embedding fields
       const existingCollection = collections.find(c => c.name === editingCollection);
       const existingMetadata = existingCollection?.metadata || {};
       
+      // If collection is empty and embedding fields are set, validate them
+      if (existingCollection?.count === 0 && (editForm.embedding_connection || editForm.embedding_model)) {
+        if (!editForm.embedding_connection || !editForm.embedding_model) {
+          alert('Both embedding connection and model must be selected to re-model the collection');
+          return;
+        }
+      }
+      
       // Remove hnsw:space - ChromaDB doesn't allow changing it after creation
       const { 'hnsw:space': _, ...preservedMetadata } = existingMetadata;
+      
+      // Build metadata update
+      const metadataUpdate = {
+        ...preservedMetadata,
+        display_name: editForm.display_name,
+        description: editForm.description,
+        match_threshold: parseFloat(editForm.match_threshold),
+        partial_threshold: parseFloat(editForm.partial_threshold),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Include embedding fields if collection is empty and they're set
+      if (existingCollection?.count === 0 && editForm.embedding_connection && editForm.embedding_model) {
+        metadataUpdate.embedding_connection = editForm.embedding_connection;
+        metadataUpdate.embedding_model = editForm.embedding_model;
+      }
       
       const response = await fetch(`/api/collections/${editingCollection}/metadata`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           service: currentWrapper,
-          metadata: {
-            ...preservedMetadata,  // Preserve all existing metadata except hnsw:space
-            display_name: editForm.display_name,
-            description: editForm.description,
-            match_threshold: parseFloat(editForm.match_threshold),
-            partial_threshold: parseFloat(editForm.partial_threshold),
-            updated_at: new Date().toISOString()
-          }
+          metadata: metadataUpdate
         })
       });
       
@@ -293,8 +347,11 @@ function Collections({ uiConfig, reloadConfig }) {
         display_name: '',
         description: '',
         match_threshold: 0.3,
-        partial_threshold: 0.5
+        partial_threshold: 0.5,
+        embedding_connection: '',
+        embedding_model: ''
       });
+      setEditEmbeddingModels([]);
       
       // Reload UI config to update all pages
       reloadConfig();
@@ -306,12 +363,20 @@ function Collections({ uiConfig, reloadConfig }) {
   const startEditing = (collection) => {
     setEditingCollection(collection.name);
     setEditForm({
-      display_name: collection.metadata?.display_name || collection.name, // Fallback to collection name for backward compat
+      display_name: collection.metadata?.display_name || collection.name,
       description: collection.metadata?.description || '',
-      threshold: collection.metadata?.threshold || 0.3,
-      partial_threshold: collection.metadata?.partial_threshold || 0.5
+      match_threshold: collection.metadata?.match_threshold || 0.3,
+      partial_threshold: collection.metadata?.partial_threshold || 0.5,
+      embedding_connection: collection.metadata?.embedding_connection || '',
+      embedding_model: collection.metadata?.embedding_model || ''
     });
-    setShowCreateForm(false); // Close create form if open
+    
+    // Load embedding models for the current connection if editing an empty collection
+    if (collection.count === 0 && collection.metadata?.embedding_connection) {
+      fetchEmbeddingModelsForEdit(collection.metadata.embedding_connection);
+    }
+    
+    setShowCreateForm(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -321,8 +386,11 @@ function Collections({ uiConfig, reloadConfig }) {
       display_name: '',
       description: '',
       match_threshold: 0.3,
-      partial_threshold: 0.5
+      partial_threshold: 0.5,
+      embedding_connection: '',
+      embedding_model: ''
     });
+    setEditEmbeddingModels([]);
   };
 
   const deleteCollection = async (collectionName) => {
@@ -346,6 +414,33 @@ function Collections({ uiConfig, reloadConfig }) {
     }
   };
 
+  const emptyCollection = async (collection) => {
+    const displayName = collection.metadata?.display_name || collection.name;
+    const count = collection.count || 0;
+    
+    const message = `Empty collection '${displayName}'?\n\nThis will delete all ${count} document(s).\nThe collection settings and metadata will be preserved.\n\nThis action cannot be undone.`;
+    
+    if (!window.confirm(message)) {
+      return;
+    }
+    
+    try {
+      const response = await fetch(`/api/collections/${collection.name}/documents/all?service=${currentWrapper}`, {
+        method: 'DELETE'
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to empty collection');
+      }
+      
+      const result = await response.json();
+      alert(`Emptied '${displayName}' - deleted ${result.count_deleted} documents`);
+      reloadConfig();
+    } catch (err) {
+      alert('Error emptying collection: ' + err.message);
+    }
+  };
 
   const openUploadWizard = async (collection) => {
     setResolvingConnection(true);
@@ -808,6 +903,14 @@ function Collections({ uiConfig, reloadConfig }) {
                             Search Settings
                           </button>
                         )}
+                        {collection.count > 0 && (
+                          <button
+                            onClick={() => emptyCollection(collection)}
+                            className="px-3 py-1 text-sm bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition"
+                          >
+                            Empty
+                          </button>
+                        )}
                         {!(isPinned && collection.name === currentWrapperInfo?.collection) && (
                           <button
                             onClick={() => deleteCollection(collection.name)}
@@ -1016,35 +1119,93 @@ function Collections({ uiConfig, reloadConfig }) {
                 <p className="text-xs text-gray-500 mt-1">Used by the AI to decide if this collection should be consulted</p>
               </div>
 
-              {/* Advanced: Embedding (read-only) */}
+              {/* Advanced: Embedding - conditional re-model section */}
               {(() => {
-                const meta = (collections.find(c => c.name === editingCollection) || {}).metadata || {};
-                return (
-                  <div className="border border-gray-200 rounded-lg p-4">
-                    <div className="mb-2">
-                      <h3 className="text-sm font-semibold text-gray-900">Embedding</h3>
-                      <p className="text-xs text-gray-600">Embedding settings are fixed for this collection.</p>
+                const currentCollection = collections.find(c => c.name === editingCollection);
+                const meta = (currentCollection || {}).metadata || {};
+                const isEmptyCollection = (currentCollection?.count || 0) === 0;
+                
+                if (isEmptyCollection) {
+                  // Re-model: Editable embedding fields for empty collections
+                  return (
+                    <div className="border border-amber-200 rounded-lg p-4 bg-amber-50">
+                      <div className="mb-2">
+                        <h3 className="text-sm font-semibold text-gray-900">Embedding (Re-model)</h3>
+                        <p className="text-xs text-amber-700">
+                          Collection is empty. You can change the embedding model before uploading documents.
+                        </p>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Embedding Connection *
+                          </label>
+                          <select
+                            value={editForm.embedding_connection || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEditForm({ ...editForm, embedding_connection: val, embedding_model: '' });
+                              if (val) fetchEmbeddingModelsForEdit(val);
+                            }}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          >
+                            <option value="">Select connection...</option>
+                            {Object.keys(llms).map((id) => {
+                              const displayName = llms[id].description || id;
+                              return (
+                                <option key={id} value={id}>{displayName} ({llms[id].provider})</option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Embedding Model *
+                          </label>
+                          <select
+                            value={editForm.embedding_model || ''}
+                            onChange={(e) => setEditForm({ ...editForm, embedding_model: e.target.value })}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            disabled={!editForm.embedding_connection}
+                          >
+                            <option value="">Select a model...</option>
+                            {editEmbeddingModels.map(m => (
+                              <option key={m.id} value={m.id}>{m.name || m.id}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Provider</label>
-                        <input type="text" value={meta.embedding_provider || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
+                  );
+                } else {
+                  // Read-only: Embedding settings for non-empty collections
+                  return (
+                    <div className="border border-gray-200 rounded-lg p-4">
+                      <div className="mb-2">
+                        <h3 className="text-sm font-semibold text-gray-900">Embedding</h3>
+                        <p className="text-xs text-gray-600">Embedding settings are fixed for this collection.</p>
                       </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Model</label>
-                        <input type="text" value={meta.embedding_model || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Dimensions</label>
-                        <input type="text" value={meta.embedding_dimensions ?? '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-600 mb-1">Connection ID</label>
-                        <input type="text" value={meta.embedding_connection_id || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Provider</label>
+                          <input type="text" value={meta.embedding_provider || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Model</label>
+                          <input type="text" value={meta.embedding_model || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Dimensions</label>
+                          <input type="text" value={meta.embedding_dimensions ?? '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-600 mb-1">Connection ID</label>
+                          <input type="text" value={meta.embedding_connection_id || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
+                  );
+                }
               })()}
 
               <div className="grid grid-cols-2 gap-4">
