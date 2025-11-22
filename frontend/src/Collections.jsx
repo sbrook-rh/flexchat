@@ -976,66 +976,99 @@ function Collections({ uiConfig, reloadConfig }) {
                           )}
                         </div>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex gap-1">
+                        {/* Edit */}
                         <button
                           onClick={() => startEditing(collection)}
-                          className="px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition"
+                          title="Edit collection"
                         >
-                          Edit
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
                         </button>
+                        
+                        {/* Upload */}
                         <button
                           onClick={() => openUploadWizard(collection)}
-                          className="px-3 py-1 text-sm bg-purple-100 text-purple-700 rounded hover:bg-purple-200 transition"
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-full transition"
+                          title="Upload documents"
                         >
-                          Upload JSON
+                          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                          </svg>
                         </button>
+                        
+                        {/* Test / Calibrate */}
                         {shouldShowTestButton(collection) ? (
                           <button
                             onClick={() => openTestModal(collection)}
-                            className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-full transition"
                             title="Test queries and view distances"
                           >
-                            Test / Calibrate
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                            </svg>
                           </button>
                         ) : collection.count === 0 ? (
                           <button
                             disabled
-                            className="px-3 py-1 text-sm bg-gray-100 text-gray-400 rounded cursor-not-allowed"
+                            className="p-2 text-gray-400 cursor-not-allowed rounded-full"
                             title="Upload documents first"
                           >
-                            Test / Calibrate
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                            </svg>
                           </button>
                         ) : !collection.metadata?.embedding_connection ? (
                           <button
                             disabled
-                            className="px-3 py-1 text-sm bg-gray-100 text-gray-400 rounded cursor-not-allowed"
+                            className="p-2 text-gray-400 cursor-not-allowed rounded-full"
                             title="No embedding connection available"
                           >
-                            Test / Calibrate
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                            </svg>
                           </button>
                         ) : null}
+                        
+                        {/* Search Settings */}
                         {shouldShowProfileButton(collection) && (
                           <button
                             onClick={() => openProfileModal(collection)}
-                            className="px-3 py-1 text-sm bg-amber-100 text-amber-700 rounded hover:bg-amber-200 transition"
+                            className="p-2 text-amber-600 hover:bg-amber-50 rounded-full transition"
+                            title="Configure search settings"
                           >
-                            Search Settings
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
                           </button>
                         )}
+                        
+                        {/* Empty */}
                         {collection.count > 0 && (
                           <button
                             onClick={() => emptyCollection(collection)}
-                            className="px-3 py-1 text-sm bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition"
+                            className="p-2 text-orange-600 hover:bg-orange-50 rounded-full transition"
+                            title="Remove all documents (keep collection)"
                           >
-                            Empty
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
                           </button>
                         )}
+                        
+                        {/* Delete */}
                         {!(isPinned && collection.name === currentWrapperInfo?.collection) && (
                           <button
                             onClick={() => deleteCollection(collection.name)}
-                            className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition"
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-full transition"
+                            title="Delete collection permanently"
                           >
-                            Delete
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                           </button>
                         )}
                       </div>
