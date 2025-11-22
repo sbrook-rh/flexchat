@@ -31,6 +31,76 @@ const { transformDocuments } = require('../lib/document-transformer');
  */
 
 /**
+ * Fetch available embedding models for a provider
+ * Filters to embedding-capable models only
+ * @param {Object} provider - AI provider instance
+ * @param {string} providerName - Provider name for logging
+ * @returns {Array} Array of embedding models, or empty array on error
+ */
+async function fetchProviderEmbeddingModels(provider, providerName) {
+  try {
+    if (typeof provider.listModels !== 'function') {
+      return [];
+    }
+    
+    const models = await provider.listModels();
+    return models.filter(m => m.canEmbed && m.canEmbed());
+  } catch (error) {
+    console.warn(`⚠️  Failed to fetch models for provider '${providerName}':`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Resolve current LLM connection for a collection's embedding model
+ * Matches on provider type AND verifies model availability
+ * @param {Object} collection - Collection with metadata
+ * @param {Object} llmConnections - Current LLM connections from config
+ * @param {Object} providerModels - Cached models by provider type
+ * @returns {string|null} Resolved connection ID or null
+ */
+async function resolveEmbeddingConnection(collection, llmConnections, providerModels) {
+  const metadata = collection.metadata || {};
+  const { embedding_connection_id, embedding_provider, embedding_model } = metadata;
+  
+  if (!embedding_provider || !embedding_model) {
+    return null;
+  }
+  
+  // Strategy 1: Try exact ID match first (config unchanged)
+  if (embedding_connection_id && llmConnections[embedding_connection_id]) {
+    const conn = llmConnections[embedding_connection_id];
+    
+    if (conn.provider === embedding_provider) {
+      const models = providerModels[embedding_provider] || [];
+      const hasModel = models.some(m => 
+        m.id === embedding_model || m.name === embedding_model
+      );
+      
+      if (hasModel) {
+        return embedding_connection_id;
+      }
+    }
+  }
+  
+  // Strategy 2: Find any connection with matching provider that has the model
+  for (const [connId, conn] of Object.entries(llmConnections)) {
+    if (conn.provider === embedding_provider) {
+      const models = providerModels[embedding_provider] || [];
+      const hasModel = models.some(m => 
+        m.id === embedding_model || m.name === embedding_model
+      );
+      
+      if (hasModel) {
+        return connId;
+      }
+    }
+  }
+  
+  return null;
+}
+
+/**
  * Create collections router with dependency injection
  * @param {Function} getConfig - Getter for current config (always up-to-date)
  * @param {Function} getProviders - Getter for current providers (always up-to-date)
@@ -64,16 +134,56 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
    * GET /api/ui-config
    * 
    * Phase 1.6.5: Extended with provider status tracking
+   * Collection Testing: Extended with embedding connection resolution
    */
   router.get('/ui-config', async (req, res) => {
     try {
       // Get current state via getters (always up-to-date after hot-reload)
       const config = getConfig();
-      const { ragProviders } = getProviders();
+      const { ragProviders, aiProviders } = getProviders();
       const providerStatus = getProviderStatus();
       
       // Get collections and wrappers
       const collectionsData = await listCollections(config.rag_services, ragProviders);
+      
+      // Fetch available models per provider type (cached per provider, not per connection)
+      const providerModels = {};
+      const seenProviders = new Set();
+      
+      for (const [connId, connConfig] of Object.entries(config.llms || {})) {
+        const providerName = connConfig.provider;
+        
+        if (seenProviders.has(providerName)) {
+          continue;
+        }
+        seenProviders.add(providerName);
+        
+        const provider = aiProviders[connId];
+        if (provider) {
+          providerModels[providerName] = await fetchProviderEmbeddingModels(provider, providerName);
+        } else {
+          providerModels[providerName] = [];
+        }
+      }
+      
+      // Resolve embedding connections for all collections
+      const collectionsWithResolvedEmbeddings = await Promise.all(
+        collectionsData.collections.map(async (collection) => {
+          const resolvedConnection = await resolveEmbeddingConnection(
+            collection,
+            config.llms || {},
+            providerModels
+          );
+          
+          return {
+            ...collection,
+            metadata: {
+              ...collection.metadata,
+              embedding_connection: resolvedConnection
+            }
+          };
+        })
+      );
       
       // TODO: Build model selection config
       // For now, return empty structure
@@ -107,7 +217,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       
       res.json({
         // Existing fields
-        collections: collectionsData.collections,
+        collections: collectionsWithResolvedEmbeddings,
         wrappers: collectionsData.wrappers,
         modelSelection,
         llms: config.llms || {},  // Add LLM connections for embedding resolution
@@ -471,6 +581,85 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       console.error(`❌ Error deleting collection ${req.params.name}:`, error);
       res.status(500).json({ 
         error: 'Failed to delete collection',
+        message: error.message 
+      });
+    }
+  });
+
+  /**
+   * Test query against a collection
+   * Returns raw results with distances for debugging
+   * POST /api/collections/:name/test-query
+   */
+  router.post('/collections/:name/test-query', async (req, res) => {
+    try {
+      const { name } = req.params;
+      const { query, top_k = 10, service, embedding_connection, embedding_model } = req.body;
+      
+      // Validation
+      if (!query) {
+        return res.status(400).json({ error: 'Query text is required' });
+      }
+      
+      if (!service) {
+        return res.status(400).json({ error: 'Service name is required' });
+      }
+      
+      if (!embedding_connection) {
+        return res.status(400).json({ 
+          error: 'embedding_connection is required',
+          hint: 'Collection may not have embeddings configured yet'
+        });
+      }
+      
+      if (!embedding_model) {
+        return res.status(400).json({ error: 'embedding_model is required' });
+      }
+      
+      const config = getConfig();
+      const { ragProviders } = getProviders();
+      
+      // Get provider
+      const provider = ragProviders[service];
+      if (!provider) {
+        return res.status(404).json({ error: `Service "${service}" not found` });
+      }
+      
+      // Generate embedding for query
+      const processedConfig = getProcessedConfig(config);
+      const startTime = Date.now();
+      
+      const queryEmbedding = await generateEmbeddings(
+        [query],
+        embedding_connection,
+        processedConfig,
+        embedding_model
+      );
+      
+      // Query collection via provider
+      // Note: Pass query text and options with pre-computed embedding
+      const results = await provider.query(query, {
+        collection: name,
+        top_k: top_k,
+        query_embedding: queryEmbedding[0]
+      });
+      
+      const endTime = Date.now();
+      
+      // Return results with metadata
+      res.json({
+        query,
+        collection: name,
+        service,
+        results: results.results || results,
+        embedding_model: embedding_model,
+        embedding_dimensions: queryEmbedding[0].length,
+        execution_time_ms: endTime - startTime
+      });
+    } catch (error) {
+      console.error(`❌ Error testing query for ${req.params.name}:`, error);
+      res.status(500).json({ 
+        error: 'Failed to test query',
         message: error.message 
       });
     }

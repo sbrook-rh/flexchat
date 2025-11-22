@@ -260,6 +260,46 @@ curl -X POST http://localhost:5006/query \
 }
 ```
 
+#### GET /api/ui-config
+**Purpose**: Get complete UI configuration including collections with resolved embedding connections
+**Response**:
+```json
+{
+  "collections": [
+    {
+      "name": "collection-id",
+      "service": "ServiceName",
+      "count": 42,
+      "metadata": {
+        "embedding_provider": "ollama",
+        "embedding_model": "all-minilm:latest",
+        "embedding_connection_id": "my-ollama",  // Historical connection ID
+        "embedding_connection": "prod-ollama",   // ✨ Resolved current connection ID
+        ...
+      }
+    }
+  ],
+  "wrappers": [...],
+  "llms": { ... },
+  "providerStatus": { ... },
+  "chatReady": true,
+  ...
+}
+```
+
+**Embedding Connection Resolution**:
+The `embedding_connection` field is automatically resolved from the historical `embedding_connection_id`:
+- **Strategy 1**: Tries exact ID match with provider/model verification
+- **Strategy 2**: Finds any connection with matching provider + model  
+- Returns `null` if no compatible connection found (model unavailable)
+- Handles config changes gracefully (connection renamed/removed)
+- Caches embedding model fetching per provider type (not per connection) for performance
+
+**Use Cases**:
+- Test / Calibrate feature needs resolved connection for query testing
+- Frontend can check if collection is testable via `metadata.embedding_connection !== null`
+- Disabled test button shows helpful tooltip when connection is unavailable
+
 #### POST /api/collections/:name/documents
 **Purpose**: Upload documents to a collection (embeddings generated automatically)
 **Request Body**:
@@ -293,6 +333,63 @@ curl -X POST http://localhost:5006/query \
 - Backend generates embeddings using specified connection and model
 - Must match collection's embedding configuration
 - RAG wrapper validates pre-computed embeddings
+
+#### POST /api/collections/:name/test-query
+**Purpose**: Test a query against a collection and view raw results with distances
+**Request Body**:
+```json
+{
+  "query": "bare metal installation",
+  "top_k": 10,                          // Optional: default 10
+  "service": "ServiceName",             // Required
+  "embedding_connection": "ollama-local", // Required (from collection metadata)
+  "embedding_model": "all-minilm:latest"  // Required (from collection metadata)
+}
+```
+
+**Response**:
+```json
+{
+  "query": "bare metal installation",
+  "collection": "ocp-with-all-minillm",
+  "service": "red-hat-product-documentation",
+  "results": [
+    {
+      "rank": 1,
+      "distance": 0.296,
+      "metadata": {
+        "chapter_id": "chapter_2",
+        "chapter_title": "Installing OpenShift",
+        "section_heading": "2.5.1. Installation parameters"
+      },
+      "content": "Available installation configuration parameters..."
+    },
+    {
+      "rank": 2,
+      "distance": 0.412,
+      "metadata": {
+        "chapter_id": "chapter_1"
+      },
+      "content": "OpenShift requires..."
+    }
+  ],
+  "embedding_model": "all-minilm:latest",
+  "embedding_dimensions": 384,
+  "execution_time_ms": 156
+}
+```
+
+**Notes**:
+- Uses collection's original embedding model for query embedding
+- Returns raw distances (lower is better match)
+- Execution time includes embedding generation and query
+- Embedding connection must be resolved via `/api/ui-config` endpoint first
+- Distance interpretation: < 0.3 (excellent), 0.3-0.5 (good), > 0.5 (poor match)
+
+**Error Responses**:
+- `400`: Missing required parameters (query, service, embedding_connection, embedding_model)
+- `404`: Service not found
+- `500`: Embedding generation or query execution failed
 
 #### PUT /api/collections/:name/metadata
 **Purpose**: Update collection metadata (**full replacement**)

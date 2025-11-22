@@ -595,8 +595,8 @@ def query_db(request: QueryRequest):
             include=["metadatas", "distances", "documents"]
         )
 
-        # Debugging: Print raw ChromaDB response
-        print(f"📊 Raw ChromaDB Response: {results}")
+        # Raw ChromaDB response available for debugging if needed
+        # print(f"📊 Raw ChromaDB Response: {results}")
 
         # Ensure results exist
         if not results or "metadatas" not in results or not results["metadatas"]:

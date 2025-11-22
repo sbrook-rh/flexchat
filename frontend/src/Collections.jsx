@@ -58,6 +58,16 @@ function Collections({ uiConfig, reloadConfig }) {
     }
   });
 
+  // Test Modal state
+  const [showTestModal, setShowTestModal] = useState(false);
+  const [testTargetCollection, setTestTargetCollection] = useState(null);
+  const [testQuery, setTestQuery] = useState('');
+  const [testTopK, setTestTopK] = useState(10);
+  const [testResults, setTestResults] = useState(null);
+  const [testLoading, setTestLoading] = useState(false);
+  const [testError, setTestError] = useState(null);
+  const [expandedResults, setExpandedResults] = useState(new Set());
+
   // Populate from uiConfig on mount
   useEffect(() => {
     if (uiConfig) {
@@ -442,6 +452,79 @@ function Collections({ uiConfig, reloadConfig }) {
     }
   };
 
+  // Test Modal handlers
+  const shouldShowTestButton = (collection) => {
+    return collection.count > 0 && collection.metadata?.embedding_connection;
+  };
+
+  const openTestModal = (collection) => {
+    setTestTargetCollection(collection);
+    setShowTestModal(true);
+    setTestQuery('');
+    setTestResults(null);
+    setTestError(null);
+    setExpandedResults(new Set());
+  };
+
+  const closeTestModal = () => {
+    setShowTestModal(false);
+    setTestTargetCollection(null);
+    setTestQuery('');
+    setTestResults(null);
+    setTestError(null);
+    setTestLoading(false);
+    setExpandedResults(new Set());
+  };
+
+  const submitTestQuery = async (e) => {
+    e.preventDefault();
+    
+    if (!testQuery.trim()) {
+      setTestError('Query text is required');
+      return;
+    }
+    
+    setTestLoading(true);
+    setTestError(null);
+    setTestResults(null);
+    
+    try {
+      const response = await fetch(`/api/collections/${testTargetCollection.name}/test-query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: testQuery,
+          top_k: testTopK,
+          service: testTargetCollection.service,
+          embedding_connection: testTargetCollection.metadata.embedding_connection,
+          embedding_model: testTargetCollection.metadata.embedding_model
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to test query');
+      }
+      
+      const results = await response.json();
+      setTestResults(results);
+    } catch (err) {
+      setTestError(err.message);
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
+  const toggleResultExpansion = (index) => {
+    const newExpanded = new Set(expandedResults);
+    if (newExpanded.has(index)) {
+      newExpanded.delete(index);
+    } else {
+      newExpanded.add(index);
+    }
+    setExpandedResults(newExpanded);
+  };
+
   const openUploadWizard = async (collection) => {
     setResolvingConnection(true);
     setWizardTargetCollection(collection);
@@ -478,7 +561,18 @@ function Collections({ uiConfig, reloadConfig }) {
   const handleWizardComplete = (result) => {
     alert(`Successfully uploaded ${result.count} document(s)!`);
     closeUploadWizard();
-    reloadConfig(); // Refresh collections list
+    
+    // Immediately update local state to reflect new document count
+    // This ensures Test button becomes active without waiting for full reload
+    setCollections(prevCollections => 
+      prevCollections.map(c => 
+        c.name === wizardTargetCollection.name && c.service === wizardTargetCollection.service
+          ? { ...c, count: (c.count || 0) + result.count }
+          : c
+      )
+    );
+    
+    reloadConfig(); // Refresh full UI config (will update again with server truth)
   };
 
   // Profile Modal utilities
@@ -895,6 +989,31 @@ function Collections({ uiConfig, reloadConfig }) {
                         >
                           Upload JSON
                         </button>
+                        {shouldShowTestButton(collection) ? (
+                          <button
+                            onClick={() => openTestModal(collection)}
+                            className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded hover:bg-green-200 transition"
+                            title="Test queries and view distances"
+                          >
+                            Test / Calibrate
+                          </button>
+                        ) : collection.count === 0 ? (
+                          <button
+                            disabled
+                            className="px-3 py-1 text-sm bg-gray-100 text-gray-400 rounded cursor-not-allowed"
+                            title="Upload documents first"
+                          >
+                            Test / Calibrate
+                          </button>
+                        ) : !collection.metadata?.embedding_connection ? (
+                          <button
+                            disabled
+                            className="px-3 py-1 text-sm bg-gray-100 text-gray-400 rounded cursor-not-allowed"
+                            title="No embedding connection available"
+                          >
+                            Test / Calibrate
+                          </button>
+                        ) : null}
                         {shouldShowProfileButton(collection) && (
                           <button
                             onClick={() => openProfileModal(collection)}
@@ -1483,6 +1602,161 @@ function Collections({ uiConfig, reloadConfig }) {
           </div>
           );
         })()}
+
+        {/* Test Modal */}
+        {showTestModal && testTargetCollection && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-5xl max-h-[90vh] overflow-y-auto p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  🧪 Test Collection: "{testTargetCollection.metadata?.display_name || testTargetCollection.name}"
+                </h2>
+                <button 
+                  type="button" 
+                  onClick={closeTestModal} 
+                  className="text-gray-500 hover:text-gray-800"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={submitTestQuery} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Test Query
+                  </label>
+                  <textarea
+                    value={testQuery}
+                    onChange={(e) => setTestQuery(e.target.value)}
+                    placeholder="Enter a test query to search this collection..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    rows={3}
+                    disabled={testLoading}
+                  />
+                </div>
+
+                <div className="flex gap-4 items-end">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Top K Results
+                    </label>
+                    <input
+                      type="number"
+                      value={testTopK}
+                      onChange={(e) => setTestTopK(Math.max(1, Math.min(100, parseInt(e.target.value) || 10)))}
+                      min={1}
+                      max={100}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={testLoading}
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={testLoading || !testQuery.trim()}
+                    className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  >
+                    {testLoading ? 'Testing...' : 'Test Query'}
+                  </button>
+                </div>
+              </form>
+
+              {testError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-800">
+                    <strong>Error:</strong> {testError}
+                  </p>
+                </div>
+              )}
+
+              {testResults && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="text-sm text-gray-700">
+                      <strong>Results:</strong> {testResults.results?.length || 0} documents
+                      {testResults.embedding_dimensions && (
+                        <span className="ml-4">
+                          <strong>Dimensions:</strong> {testResults.embedding_dimensions}
+                        </span>
+                      )}
+                      {testResults.execution_time_ms && (
+                        <span className="ml-4">
+                          <strong>Time:</strong> {testResults.execution_time_ms}ms
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {testResults.results?.length > 0 ? (
+                    <div className="border border-gray-200 rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-gray-100">
+                          <tr>
+                            <th className="px-3 py-2 text-left font-medium text-gray-700">Rank</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-700">Distance</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-700 w-2/5">Content</th>
+                            <th className="px-3 py-2 text-left font-medium text-gray-700">Metadata</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {testResults.results.map((result, idx) => {
+                            const isExpanded = expandedResults.has(idx);
+                            const content = result.content || result.text || '';
+                            const truncatedContent = content.length > 200 ? content.substring(0, 200) + '...' : content;
+
+                            return (
+                              <tr key={idx} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 text-gray-900">{result.rank || idx + 1}</td>
+                                <td className="px-3 py-2">
+                                  <span className={`font-mono ${
+                                    result.distance < 0.3 ? 'text-green-700' :
+                                    result.distance < 0.5 ? 'text-yellow-700' :
+                                    'text-red-700'
+                                  }`}>
+                                    {result.distance?.toFixed(3)}
+                                  </span>
+                                </td>
+                                <td className="px-3 py-2 text-gray-700">
+                                  <div className="space-y-1">
+                                    <p className={isExpanded ? '' : 'truncate'}>
+                                      {isExpanded ? content : truncatedContent}
+                                    </p>
+                                    {content.length > 200 && (
+                                      <button
+                                        onClick={() => toggleResultExpansion(idx)}
+                                        className="text-xs text-blue-600 hover:text-blue-800"
+                                      >
+                                        {isExpanded ? 'Show less' : 'Show more'}
+                                      </button>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2 text-gray-600 text-xs">
+                                  {result.metadata && Object.keys(result.metadata).length > 0 ? (
+                                    <pre className="font-mono max-w-xs overflow-x-auto">
+                                      {JSON.stringify(result.metadata, null, 2)}
+                                    </pre>
+                                  ) : (
+                                    <span className="text-gray-400 italic">No metadata</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-gray-500">
+                      <p className="mb-2">No results found for this query</p>
+                      <p className="text-sm">Try a different query or check the collection contents</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
