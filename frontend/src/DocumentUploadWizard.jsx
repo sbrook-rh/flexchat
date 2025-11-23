@@ -110,7 +110,7 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
   const handleUpload = async () => {
     if (wizardState.uploading) return;
 
-    const BATCH_SIZE = 1000;
+    const BATCH_SIZE = 50;
     const totalDocs = wizardState.rawDocuments.length;
     const batches = [];
     
