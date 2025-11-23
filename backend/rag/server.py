@@ -50,6 +50,7 @@ class QueryRequest(BaseModel):
     top_k: int = 3
     collection: Optional[str] = None  # Allow dynamic collection selection
     query_embedding: List[float]  # Pre-computed embedding vector
+    where: Optional[Dict[str, Any]] = None  # Metadata filter (ChromaDB syntax)
 
 class CreateCollectionRequest(BaseModel):
     name: str
@@ -589,11 +590,19 @@ def query_db(request: QueryRequest):
         collection_metadata = collection.metadata or {}
 
         # Search ChromaDB with distances and documents included
-        results = collection.query(
-            query_embeddings=[query_embedding],
-            n_results=request.top_k,
-            include=["metadatas", "distances", "documents"]
-        )
+        # Optional metadata filtering via 'where' parameter
+        query_params = {
+            "query_embeddings": [query_embedding],
+            "n_results": request.top_k,
+            "include": ["metadatas", "distances", "documents"]
+        }
+        
+        # Add metadata filter if provided
+        if request.where:
+            query_params["where"] = request.where
+            print(f"   🔍 Applying metadata filter: {request.where}")
+        
+        results = collection.query(**query_params)
 
         # Raw ChromaDB response available for debugging if needed
         # print(f"📊 Raw ChromaDB Response: {results}")
