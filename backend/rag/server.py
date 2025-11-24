@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 import chromadb
 import os
+import sys
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
@@ -13,12 +14,64 @@ import json
 # Load environment variables
 load_dotenv()
 
+# ============================================================================
+# Curated Cross-Encoder Models
+# ============================================================================
+RECOMMENDED_MODELS = {
+    "fast": {
+        "name": "cross-encoder/ms-marco-MiniLM-L-6-v2",
+        "size": "90MB",
+        "latency": "~100ms (10 docs, CPU)",
+        "accuracy": "Good",
+        "use_case": "Development/Testing"
+    },
+    "recommended": {
+        "name": "BAAI/bge-reranker-base",
+        "size": "300MB",
+        "latency": "~200ms (10 docs, CPU)",
+        "accuracy": "Excellent",
+        "use_case": "Production (recommended)"
+    },
+    "high-accuracy": {
+        "name": "BAAI/bge-reranker-large",
+        "size": "1.3GB",
+        "latency": "~500ms (10 docs, CPU)",
+        "accuracy": "Best",
+        "use_case": "High-accuracy requirements"
+    }
+}
+
+# Check for --list-reranker-models before other argument processing
+if '--list-reranker-models' in sys.argv:
+    print("\n📋 Available Cross-Encoder Reranking Models:\n")
+    print("=" * 80)
+    
+    for tier, info in RECOMMENDED_MODELS.items():
+        print(f"\n{info['use_case']}:")
+        print(f"  Model: {info['name']}")
+        print(f"  Size: {info['size']}  |  Latency: {info['latency']}  |  Accuracy: {info['accuracy']}")
+    
+    print("\n" + "=" * 80)
+    print("\nℹ️  Note: Any HuggingFace cross-encoder model can be used.")
+    print("🔗 Browse models: https://huggingface.co/models?pipeline_tag=text-classification&search=cross-encoder")
+    print("\nUsage:")
+    print("  python server.py --cross-encoder BAAI/bge-reranker-base")
+    print("  python server.py --cross-encoder-path /path/to/local/model")
+    print()
+    exit(0)
+
 # Parse command-line arguments
 parser = argparse.ArgumentParser(description='ChromaDB Wrapper Service')
 parser.add_argument('--chroma-path', type=str, default='./chroma_db',
                     help='Path to ChromaDB storage directory (default: ./chroma_db)')
 parser.add_argument('--port', type=int, default=5006,
                     help='Server port (default: 5006)')
+parser.add_argument('--cross-encoder', type=str, default=None,
+                    help='Cross-encoder model name from HuggingFace (e.g., BAAI/bge-reranker-base, cross-encoder/ms-marco-MiniLM-L-6-v2)')
+parser.add_argument('--cross-encoder-path', type=str, default=None,
+                    help='Local path to cross-encoder model (overrides --cross-encoder)')
+parser.add_argument('--list-reranker-models', action='store_true',
+                    help='List available reranker models and exit')
 args = parser.parse_args()
 
 # ============================================================================
@@ -44,6 +97,45 @@ print(f"🔄 Connecting to ChromaDB at {args.chroma_path}...")
 chroma_client = chromadb.PersistentClient(path=args.chroma_path)
 print("✅ ChromaDB initialized.")
 
+# ============================================================================
+# Cross-Encoder Model Loading
+# ============================================================================
+# Global variables for cross-encoder
+cross_encoder_model = None
+cross_encoder_model_name = None
+
+# Support environment variables as fallback
+CROSS_ENCODER_MODEL = os.getenv('CROSS_ENCODER_MODEL', args.cross_encoder)
+CROSS_ENCODER_PATH = os.getenv('CROSS_ENCODER_PATH', args.cross_encoder_path)
+
+# Load cross-encoder if specified
+if CROSS_ENCODER_PATH:
+    from sentence_transformers import CrossEncoder
+    print(f"🔄 Loading cross-encoder from path: {CROSS_ENCODER_PATH}")
+    try:
+        cross_encoder_model = CrossEncoder(CROSS_ENCODER_PATH)
+        cross_encoder_model_name = CROSS_ENCODER_PATH
+        print(f"✅ Cross-encoder loaded from {CROSS_ENCODER_PATH}")
+    except Exception as e:
+        print(f"❌ FATAL: Failed to load cross-encoder from {CROSS_ENCODER_PATH}: {e}")
+        exit(1)
+
+elif CROSS_ENCODER_MODEL:
+    from sentence_transformers import CrossEncoder
+    print(f"🔄 Loading cross-encoder model: {CROSS_ENCODER_MODEL}")
+    try:
+        cross_encoder_model = CrossEncoder(CROSS_ENCODER_MODEL)
+        cross_encoder_model_name = CROSS_ENCODER_MODEL
+        print(f"✅ Cross-encoder loaded: {CROSS_ENCODER_MODEL}")
+    except Exception as e:
+        print(f"❌ FATAL: Failed to load cross-encoder {CROSS_ENCODER_MODEL}: {e}")
+        exit(1)
+
+else:
+    print("ℹ️  Cross-encoder not enabled")
+    print("   💡 Enable with: python server.py --cross-encoder BAAI/bge-reranker-base")
+    print("   💡 See options: python server.py --list-reranker-models")
+
 # Pydantic models
 class QueryRequest(BaseModel):
     query: str
@@ -66,6 +158,11 @@ class AddDocumentsRequest(BaseModel):
 class UpdateCollectionMetadataRequest(BaseModel):
     metadata: Dict[str, Any]
 
+class RerankRequest(BaseModel):
+    query: str
+    documents: List[Dict[str, str]]  # Each: {id: str, text: str}
+    top_k: Optional[int] = None
+
 
 # Health check endpoint
 @app.get("/")
@@ -83,10 +180,19 @@ async def health_check():
     """Health check endpoint"""
     try:
         collections = chroma_client.list_collections()
-        return {
+        response = {
             "status": "healthy",
             "collections_count": len(collections)
         }
+        
+        # Add cross-encoder status if loaded
+        if cross_encoder_model:
+            response["cross_encoder"] = {
+                "model": cross_encoder_model_name,
+                "status": "loaded"
+            }
+        
+        return response
     except Exception as e:
         return {
             "status": "unhealthy",
@@ -634,6 +740,52 @@ def query_db(request: QueryRequest):
         raise
     except Exception as e:
         print(f"❌ ERROR: Failed to process query '{request.query}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# Rerank endpoint
+@app.post("/rerank")
+def rerank_documents(request: RerankRequest):
+    """
+    Rerank documents using cross-encoder model.
+    
+    Requires cross-encoder to be loaded at startup.
+    Returns documents scored and reordered by relevance.
+    """
+    if not cross_encoder_model:
+        raise HTTPException(
+            status_code=503,
+            detail="Cross-encoder not loaded. Start server with --cross-encoder flag."
+        )
+    
+    try:
+        # Prepare query-document pairs
+        pairs = [[request.query, doc["text"]] for doc in request.documents]
+        
+        # Score all pairs
+        scores = cross_encoder_model.predict(pairs)
+        
+        # Combine documents with scores
+        scored_docs = [
+            {
+                "id": doc["id"],
+                "score": float(scores[i]),
+                "original_rank": i + 1
+            }
+            for i, doc in enumerate(request.documents)
+        ]
+        
+        # Sort by score (descending)
+        scored_docs.sort(key=lambda x: x["score"], reverse=True)
+        
+        # Apply top_k if specified
+        if request.top_k:
+            scored_docs = scored_docs[:request.top_k]
+        
+        return {"reranked": scored_docs}
+    
+    except Exception as e:
+        print(f"❌ ERROR during reranking: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

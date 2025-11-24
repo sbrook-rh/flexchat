@@ -11,3 +11,6 @@ requests        # For HTTP requests (Ollama embeddings)
 # For Gemini: pip install google-generativeai
 openai           # OpenAI embeddings (optional)
 google-generativeai  # Gemini embeddings (optional)
+
+# Cross-encoder reranking (optional)
+sentence-transformers  # Cross-encoder models for reranking

@@ -394,6 +394,443 @@ curl -X DELETE http://localhost:5006/collection/recipes
 
 ---
 
+## Cross-Encoder Reranking (Optional)
+
+The wrapper service supports optional cross-encoder reranking for improved relevance scoring. This is **infrastructure capability** only - features must explicitly call the `/rerank` endpoint.
+
+### Enabling Cross-Encoder
+
+**List available models**:
+```bash
+python3 server.py --list-reranker-models
+```
+
+Output:
+```
+📋 Available Cross-Encoder Reranking Models:
+
+Development/Testing:
+  Model: cross-encoder/ms-marco-MiniLM-L-6-v2
+  Size: 90MB  |  Latency: ~100ms (10 docs, CPU)  |  Accuracy: Good
+
+Production (recommended):
+  Model: BAAI/bge-reranker-base
+  Size: 300MB  |  Latency: ~200ms (10 docs, CPU)  |  Accuracy: Excellent
+
+High-accuracy requirements:
+  Model: BAAI/bge-reranker-large
+  Size: 1.3GB  |  Latency: ~500ms (10 docs, CPU)  |  Accuracy: Best
+```
+
+**Start with cross-encoder from HuggingFace**:
+```bash
+python3 server.py --cross-encoder BAAI/bge-reranker-base
+```
+
+**Start with local cross-encoder model**:
+```bash
+python3 server.py --cross-encoder-path /models/bge-reranker-base
+```
+
+**Using environment variables**:
+```bash
+export CROSS_ENCODER_MODEL=BAAI/bge-reranker-base
+python3 server.py
+
+# Or local path
+export CROSS_ENCODER_PATH=/models/bge-reranker-base
+python3 server.py
+```
+
+### Command-Line Flags
+
+| Flag | Description | Example |
+|------|-------------|---------|
+| `--cross-encoder` | HuggingFace model name | `--cross-encoder BAAI/bge-reranker-base` |
+| `--cross-encoder-path` | Local model path (overrides `--cross-encoder`) | `--cross-encoder-path /models/bge-reranker` |
+| `--list-reranker-models` | Display recommended models and exit | `--list-reranker-models` |
+
+### Model Download Behavior
+
+**First run** (HuggingFace model):
+```bash
+python3 server.py --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2
+```
+
+Output:
+```
+🔄 Connecting to ChromaDB at ./chroma_db...
+✅ ChromaDB initialized.
+🔄 Loading cross-encoder model: cross-encoder/ms-marco-MiniLM-L-6-v2
+Downloading: 100% |██████████| 90.9M/90.9M [00:12<00:00, 7.36MB/s]
+✅ Cross-encoder loaded: cross-encoder/ms-marco-MiniLM-L-6-v2
+🚀 Starting server on port 5006...
+```
+
+**Subsequent runs**:
+- Model cached in `~/.cache/huggingface/hub/`
+- Loads instantly from cache
+- No network required after first download
+
+**Fail-fast behavior**:
+- If model specified but fails to load → service exits immediately
+- If no model specified → service runs without reranking capability
+
+### Health Check with Cross-Encoder
+
+```bash
+curl http://localhost:5006/health | jq
+```
+
+Without cross-encoder:
+```json
+{
+  "status": "healthy",
+  "collections_count": 2
+}
+```
+
+With cross-encoder loaded:
+```json
+{
+  "status": "healthy",
+  "collections_count": 2,
+  "cross_encoder": {
+    "model": "BAAI/bge-reranker-base",
+    "status": "loaded"
+  }
+}
+```
+
+### Rerank Endpoint
+
+**`POST /rerank`**
+
+Rerank documents using cross-encoder model.
+
+```bash
+curl -X POST http://localhost:5006/rerank \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "How do I configure pod security?",
+    "documents": [
+      {
+        "id": "doc1",
+        "text": "Kubernetes networking options..."
+      },
+      {
+        "id": "doc2",
+        "text": "To configure pod security standards, use pod-security admission controller..."
+      }
+    ],
+    "top_k": 2
+  }'
+```
+
+Response:
+```json
+{
+  "reranked": [
+    {
+      "id": "doc2",
+      "score": 8.186,
+      "original_rank": 2
+    },
+    {
+      "id": "doc1",
+      "score": -3.762,
+      "original_rank": 1
+    }
+  ]
+}
+```
+
+**Error response** (cross-encoder not loaded):
+```json
+{
+  "detail": "Cross-encoder not loaded. Start server with --cross-encoder flag."
+}
+```
+HTTP status: 503
+
+### Performance Characteristics
+
+| Model | Size | Memory | Latency (10 docs, CPU) | Throughput |
+|-------|------|--------|------------------------|------------|
+| `cross-encoder/ms-marco-MiniLM-L-6-v2` | 90MB | ~500MB | ~100ms | ~10 req/s |
+| `BAAI/bge-reranker-base` | 300MB | ~800MB | ~200ms | ~5 req/s |
+| `BAAI/bge-reranker-large` | 1.3GB | ~2GB | ~500ms | ~2 req/s |
+
+**Notes**:
+- Latency scales linearly with document count
+- GPU deployment significantly improves throughput (10-100x)
+- Concurrent requests are serialized (CPU-bound)
+- Memory overhead is per-instance (not per-request)
+
+### Production Deployment
+
+#### Docker with Cross-Encoder
+
+**Option 1: Download at runtime**
+
+`Dockerfile`:
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY server.py .
+COPY .env .
+
+EXPOSE 5006
+
+# Model downloads on first run
+CMD ["python3", "server.py", \
+     "--chroma-path", "/data/chromadb", \
+     "--cross-encoder", "BAAI/bge-reranker-base"]
+```
+
+Build and run:
+```bash
+docker build -t chromadb-wrapper .
+docker run -d \
+  -p 5006:5006 \
+  -v /data/chromadb:/data/chromadb \
+  -v ~/.cache/huggingface:/root/.cache/huggingface \
+  chromadb-wrapper
+```
+
+**Volume mount** for HuggingFace cache:
+- Persists model downloads across container restarts
+- Shared cache for multiple containers
+- Faster startup after first run
+
+**Option 2: Pre-download during build** (recommended)
+
+`Dockerfile`:
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Pre-download cross-encoder model
+RUN python3 -c "from sentence_transformers import CrossEncoder; CrossEncoder('BAAI/bge-reranker-base')"
+
+COPY server.py .
+COPY .env .
+
+EXPOSE 5006
+
+CMD ["python3", "server.py", \
+     "--chroma-path", "/data/chromadb", \
+     "--cross-encoder", "BAAI/bge-reranker-base"]
+```
+
+**Benefits**:
+- Faster startup (no download wait)
+- Works in airgapped environments
+- Image size increases by model size
+
+#### Kubernetes/OpenShift Deployment
+
+**Option 1: Shared cache volume (multi-pod)**
+
+`deployment.yaml`:
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: huggingface-cache
+spec:
+  accessModes:
+    - ReadWriteMany  # Multiple pods can read
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: chromadb-wrapper
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+      - name: chromadb-wrapper
+        image: chromadb-wrapper:latest
+        args:
+          - "--cross-encoder"
+          - "BAAI/bge-reranker-base"
+        volumeMounts:
+          - name: huggingface-cache
+            mountPath: /root/.cache/huggingface
+          - name: chromadb-data
+            mountPath: /data/chromadb
+        env:
+          - name: HF_HOME
+            value: "/root/.cache/huggingface"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+      volumes:
+        - name: huggingface-cache
+          persistentVolumeClaim:
+            claimName: huggingface-cache
+        - name: chromadb-data
+          persistentVolumeClaim:
+            claimName: chromadb-data
+```
+
+**Behavior**:
+- First pod downloads model to shared cache
+- Subsequent pods use cached model (instant startup)
+- All pods share same model files
+
+**Option 2: InitContainer (pre-load)**
+
+```yaml
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: download-model
+        image: chromadb-wrapper:latest
+        command:
+          - python3
+          - -c
+          - "from sentence_transformers import CrossEncoder; CrossEncoder('BAAI/bge-reranker-base')"
+        volumeMounts:
+          - name: huggingface-cache
+            mountPath: /root/.cache/huggingface
+      containers:
+      - name: chromadb-wrapper
+        # ... (same as above)
+```
+
+**Behavior**:
+- Model downloads before main container starts
+- Ensures model available on first request
+- Adds ~10-30s to pod startup time
+
+**Option 3: Baked into image** (recommended for production)
+
+Use Dockerfile with pre-download (Option 2 above):
+- No runtime downloads
+- Predictable startup time
+- Works in airgapped clusters
+- Larger image size (~300MB-1.3GB extra)
+
+#### systemd with Cross-Encoder
+
+`/etc/systemd/system/chromadb-wrapper.service`:
+```ini
+[Unit]
+Description=ChromaDB Wrapper with Cross-Encoder Reranking
+After=network.target
+
+[Service]
+Type=simple
+User=flexchat
+WorkingDirectory=/opt/flex-chat/backend/rag
+Environment="PATH=/opt/flex-chat/venv/bin"
+Environment="HF_HOME=/var/cache/huggingface"
+ExecStart=/opt/flex-chat/venv/bin/python3 server.py \
+  --chroma-path /data/chromadb \
+  --port 5006 \
+  --cross-encoder BAAI/bge-reranker-base
+Restart=always
+RestartSec=10
+
+# Resource limits
+MemoryMax=2G
+CPUQuota=200%
+
+[Install]
+WantedBy=multi-user.target
+```
+
+Start the service:
+```bash
+# Create cache directory
+sudo mkdir -p /var/cache/huggingface
+sudo chown flexchat:flexchat /var/cache/huggingface
+
+# Enable and start
+sudo systemctl enable chromadb-wrapper
+sudo systemctl start chromadb-wrapper
+sudo systemctl status chromadb-wrapper
+```
+
+### Troubleshooting Cross-Encoder
+
+**"ModuleNotFoundError: No module named 'sentence_transformers'"**
+
+**Cause**: Missing dependency
+
+**Solution**:
+```bash
+pip install sentence-transformers
+```
+
+**"FATAL: Failed to load cross-encoder"**
+
+**Cause**: Model download failed or invalid model name
+
+**Solutions**:
+```bash
+# Check network connectivity
+curl https://huggingface.co
+
+# Verify model exists
+# Browse: https://huggingface.co/models?pipeline_tag=text-classification&search=cross-encoder
+
+# Try different model
+python3 server.py --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2
+```
+
+**Slow startup (model download)**
+
+**Cause**: Downloading large model on first run
+
+**Solutions**:
+- Use smaller model (`cross-encoder/ms-marco-MiniLM-L-6-v2` = 90MB)
+- Pre-download model (see Docker Option 2 above)
+- Use local path after download: `--cross-encoder-path ~/.cache/huggingface/hub/...`
+
+**High memory usage**
+
+**Cause**: Cross-encoder model loaded in memory
+
+**Solutions**:
+- Use smaller model (MiniLM = ~500MB, base = ~800MB, large = ~2GB)
+- Increase server RAM
+- Run without cross-encoder if reranking not needed
+
+**503 when calling /rerank**
+
+**Cause**: Service started without `--cross-encoder` flag
+
+**Solution**:
+```bash
+# Restart with cross-encoder enabled
+python3 server.py --cross-encoder BAAI/bge-reranker-base
+```
+
+---
+
 ## Data Storage
 
 ### Directory Structure

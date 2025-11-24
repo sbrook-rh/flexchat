@@ -113,6 +113,119 @@ The chat API automatically detects user intent and routes to appropriate respons
   - 0.2 - 0.45: Medium confidence match
   - > 0.45: Low confidence match
 
+#### GET /health
+**Purpose**: Health check with optional cross-encoder status
+**Response**:
+```json
+{
+  "status": "healthy",
+  "collections_count": 2,
+  "cross_encoder": {
+    "model": "BAAI/bge-reranker-base",
+    "status": "loaded"
+  }
+}
+```
+
+**Notes**:
+- `cross_encoder` field only present when model loaded at startup
+- Use this to check if reranking capability is available
+
+#### POST /rerank
+**Purpose**: Rerank documents using cross-encoder model for improved relevance scoring
+**Request Body**:
+```json
+{
+  "query": "How do I configure pod security?",
+  "documents": [
+    {
+      "id": "doc1",
+      "text": "Document text to rerank..."
+    },
+    {
+      "id": "doc2", 
+      "text": "Another document..."
+    }
+  ],
+  "top_k": 3  // Optional: limit returned results
+}
+```
+
+**Response**:
+```json
+{
+  "reranked": [
+    {
+      "id": "doc2",
+      "score": 8.186,
+      "original_rank": 2
+    },
+    {
+      "id": "doc1",
+      "score": -3.762,
+      "original_rank": 1
+    }
+  ]
+}
+```
+
+**Notes**:
+- Requires cross-encoder model loaded at startup (see Startup Configuration below)
+- Documents are re-scored and reordered by relevance to query
+- Higher scores indicate better relevance
+- `original_rank` preserves input order for debugging
+- Returns 503 if cross-encoder not loaded
+
+**Error Responses**:
+- `503`: Cross-encoder not loaded. Start server with `--cross-encoder` flag
+- `400`: Invalid input (missing query or documents)
+- `500`: Reranking failed
+
+### Startup Configuration
+
+The RAG service supports optional cross-encoder reranking capability:
+
+```bash
+# Basic usage
+python server.py --chroma-path ./chroma_db --port 5006
+
+# With cross-encoder from HuggingFace
+python server.py --cross-encoder BAAI/bge-reranker-base
+
+# With local cross-encoder model
+python server.py --cross-encoder-path /path/to/model
+
+# List available models
+python server.py --list-reranker-models
+```
+
+**Command-line Flags**:
+- `--chroma-path PATH`: ChromaDB storage directory (default: `./chroma_db`)
+- `--port PORT`: Server port (default: `5006`)
+- `--cross-encoder MODEL`: HuggingFace cross-encoder model name
+- `--cross-encoder-path PATH`: Local path to cross-encoder model (overrides `--cross-encoder`)
+- `--list-reranker-models`: Display recommended models and exit
+
+**Environment Variables** (fallback):
+- `CROSS_ENCODER_MODEL`: Cross-encoder model name
+- `CROSS_ENCODER_PATH`: Local model path
+
+**Recommended Models**:
+
+| Model | Size | Latency | Use Case |
+|-------|------|---------|----------|
+| `cross-encoder/ms-marco-MiniLM-L-6-v2` | 90MB | ~100ms | Development/Testing |
+| `BAAI/bge-reranker-base` | 300MB | ~200ms | **Production (recommended)** |
+| `BAAI/bge-reranker-large` | 1.3GB | ~500ms | High-accuracy requirements |
+
+*Latency measured for 10 documents on CPU*
+
+**Model Download Behavior**:
+- First run downloads model from HuggingFace (~90MB-1.3GB depending on model)
+- Cached in `~/.cache/huggingface/hub/` for subsequent runs
+- Startup fails immediately if model specified but cannot load (fail-fast)
+- Service runs normally without cross-encoder if not specified
+
 ## Environment Variables
 
 ### Chat API (.env)

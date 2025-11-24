@@ -127,14 +127,21 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
       const isHealthy = response.status === 200 && 
                        (!response.data.status || response.data.status === 'ready' || response.data.status === 'healthy');
 
+      const details = {
+        url: this.baseUrl,
+        collection: this.collection,
+        responseTime: response.headers['x-response-time'] || 'unknown'
+      };
+      
+      // Include cross-encoder status if present
+      if (response.data.cross_encoder) {
+        details.cross_encoder = response.data.cross_encoder;
+      }
+
       return {
         status: isHealthy ? 'healthy' : 'degraded',
         message: isHealthy ? 'Wrapper service is responding' : `Wrapper service returned unexpected status: ${response.data.status}`,
-        details: {
-          url: this.baseUrl,
-          collection: this.collection,
-          responseTime: response.headers['x-response-time'] || 'unknown'
-        }
+        details
       };
     } catch (error) {
       return {
@@ -599,6 +606,61 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
     } catch (error) {
       console.error(`Error querying ChromaDB wrapper (collection: ${collection}):`, error.message);
       throw error;
+    }
+  }
+
+  /**
+   * Rerank documents using cross-encoder model
+   * @param {string} query - Query text
+   * @param {Array} documents - Array of documents to rerank (each: {id, text})
+   * @param {number} topK - Optional limit on returned results
+   * @returns {Promise<Array>} Reranked documents or original if unavailable
+   */
+  async rerank(query, documents, topK = null) {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+
+    // Check if cross-encoder available (graceful degradation)
+    try {
+      const health = await this.healthCheck();
+      if (!health.details?.cross_encoder) {
+        console.warn('⚠️  Cross-encoder not available, returning original ranking');
+        return documents;
+      }
+    } catch (error) {
+      console.warn('⚠️  Could not check cross-encoder availability:', error.message);
+      return documents;
+    }
+
+    try {
+      const response = await this.withRetry(async () => {
+        return await axios.post(
+          `${this.baseUrl}/rerank`,
+          {
+            query: query,
+            documents: documents.map(d => ({
+              id: d.id || d.metadata?.id || `doc-${Date.now()}-${Math.random()}`,
+              text: d.text
+            })),
+            top_k: topK
+          },
+          {
+            timeout: this.timeout,
+            headers: {
+              'Content-Type': 'application/json',
+              ...this.customHeaders,
+              ...(this.auth ? this.getAuthHeader() : {})
+            }
+          }
+        );
+      });
+
+      return response.data.reranked;
+    } catch (error) {
+      console.error('❌ Error calling /rerank endpoint:', error.message);
+      console.warn('⚠️  Falling back to original document order');
+      return documents;
     }
   }
 
