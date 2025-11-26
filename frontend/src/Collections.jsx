@@ -457,37 +457,14 @@ function Collections({ uiConfig, reloadConfig }) {
     setExpandedResults(newExpanded);
   };
 
-  const openUploadWizard = async (collection) => {
-    setResolvingConnection(true);
+  const openUploadWizard = (collection) => {
     setWizardTargetCollection(collection);
-    
-    try {
-      await resolveCompatibleConnection(collection);
-      
-      if (resolvedConnection || await checkResolvedConnection(collection)) {
-        setShowUploadWizard(true);
-      }
-    } catch (err) {
-      alert(`Cannot open wizard: ${err.message || 'Connection resolution failed'}`);
-      setWizardTargetCollection(null);
-    } finally {
-      setResolvingConnection(false);
-    }
-  };
-
-  const checkResolvedConnection = async (collection) => {
-    // Wait a bit for state to update
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(resolvedConnection !== null);
-      }, 100);
-    });
+    setShowUploadWizard(true);
   };
 
   const closeUploadWizard = () => {
     setShowUploadWizard(false);
     setWizardTargetCollection(null);
-    setResolvedConnection(null);
   };
 
   const handleWizardComplete = (result) => {
@@ -1301,11 +1278,10 @@ function Collections({ uiConfig, reloadConfig }) {
         )}
 
         {/* Document Upload Wizard */}
-        {showUploadWizard && wizardTargetCollection && resolvedConnection && (
+        {showUploadWizard && wizardTargetCollection && (
           <DocumentUploadWizard
             collectionName={wizardTargetCollection.name}
             serviceName={wizardTargetCollection.service}
-            resolvedConnection={resolvedConnection}
             collectionMetadata={wizardTargetCollection.metadata}
             onClose={closeUploadWizard}
             onComplete={handleWizardComplete}

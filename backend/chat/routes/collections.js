@@ -289,24 +289,16 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
   router.post('/collections/:name/documents', async (req, res) => {
     try {
       const { name } = req.params;
-      const { documents, raw_documents, schema, save_schema, service, embedding_connection, embedding_model } = req.body;
+      const { documents, raw_documents, schema, save_schema, service } = req.body;
       
       // Mutual exclusivity check
       if (documents && raw_documents) {
         return res.status(400).json({ error: 'Provide either documents or raw_documents, not both' });
       }
       
-      // Validate service and embedding parameters
+      // Validate service
       if (!service) {
         return res.status(400).json({ error: 'Service name is required' });
-      }
-      
-      if (!embedding_connection) {
-        return res.status(400).json({ error: 'embedding_connection is required' });
-      }
-      
-      if (!embedding_model) {
-        return res.status(400).json({ error: 'embedding_model is required' });
       }
       
       // Track transformation status

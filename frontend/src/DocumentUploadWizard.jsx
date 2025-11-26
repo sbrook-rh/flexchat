@@ -17,12 +17,11 @@ import React, { useState, useRef } from 'react';
  * Props:
  * - collectionName: Target collection for upload
  * - serviceName: RAG service name
- * - resolvedConnection: Resolved embedding connection ID
  * - collectionMetadata: Collection metadata (embedding model, etc.)
  * - onClose: Callback when wizard closes
  * - onComplete: Callback when upload succeeds (receives result data)
  */
-function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection, collectionMetadata, onClose, onComplete }) {
+function DocumentUploadWizard({ collectionName, serviceName, collectionMetadata, onClose, onComplete }) {
   // Cancellation ref (used to cancel upload between batches)
   const cancelUploadRef = useRef(false);
 
@@ -213,9 +212,7 @@ function DocumentUploadWizard({ collectionName, serviceName, resolvedConnection,
             save_schema: isFirstBatch ? wizardState.saveSchema : false, // Save schema on FIRST batch
             
             // Standard (same as existing "Upload Docs"):
-            service: serviceName,
-            embedding_connection: resolvedConnection,
-            embedding_model: collectionMetadata?.embedding_model
+            service: serviceName
           })
         });
 
