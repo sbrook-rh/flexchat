@@ -247,7 +247,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
    */
   router.post('/collections', async (req, res) => {
     try {
-      const { name, metadata, service, embedding_connection, embedding_model } = req.body;
+      const { name, metadata, service, embedding_model } = req.body;
       
       if (!name) {
         return res.status(400).json({ error: 'Collection name is required' });
@@ -256,31 +256,18 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       if (!service) {
         return res.status(400).json({ error: 'Service name is required' });
       }
-      if (!embedding_connection) {
-        return res.status(400).json({ error: 'embedding_connection is required' });
-      }
       
-      // Resolve embedding provider/model and dimensions
-      const rawConfig = getConfig();
-      const processedConfig = getProcessedConfig(rawConfig);
-      const llmConfig = processedConfig.llms?.[embedding_connection];
-      if (!llmConfig) {
-        return res.status(400).json({ error: `LLM connection "${embedding_connection}" not found` });
-      }
-      const provider = llmConfig.provider;
-      
-      // Require embedding_model from UI
       if (!embedding_model) {
         return res.status(400).json({ error: 'embedding_model is required' });
       }
       
       const enrichedMetadata = {
         ...(metadata || {}),
-        embedding_provider: provider,
-        embedding_model: embedding_model,
-        embedding_connection_id: embedding_connection
+        embedding_model: embedding_model
       };
       
+      const rawConfig = getConfig();
+      const processedConfig = getProcessedConfig(rawConfig);
       const { ragProviders } = getProviders();
       const result = await createCollection(service, name, enrichedMetadata, processedConfig.rag_services, ragProviders);
       res.json(result);
