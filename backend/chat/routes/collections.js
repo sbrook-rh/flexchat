@@ -8,7 +8,6 @@ const {
   getCollection,
   addDocuments 
 } = require('../lib/collection-manager');
-const { generateEmbeddings } = require('../lib/embedding-generator');
 const { getProcessedConfig } = require('../lib/config-loader');
 const { DEFAULT_TOPIC_PROMPT } = require('../lib/topic-detector');
 const { transformDocuments } = require('../lib/document-transformer');
@@ -275,23 +274,11 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
         return res.status(400).json({ error: 'embedding_model is required' });
       }
       
-      // Probe embedding dimensions (best-effort)
-      let embeddingDimensions = undefined;
-      try {
-        const dimsProbe = await generateEmbeddings(['dimension-probe'], embedding_connection, processedConfig, embedding_model);
-        if (Array.isArray(dimsProbe) && Array.isArray(dimsProbe[0])) {
-          embeddingDimensions = dimsProbe[0].length;
-        }
-      } catch (e) {
-        console.warn(`⚠️ Failed to probe embedding dimensions for "${embedding_connection}": ${e.message}`);
-      }
-      
       const enrichedMetadata = {
         ...(metadata || {}),
         embedding_provider: provider,
         embedding_model: embedding_model,
-        embedding_connection_id: embedding_connection,
-        ...(embeddingDimensions ? { embedding_dimensions: embeddingDimensions } : {})
+        embedding_connection_id: embedding_connection
       };
       
       const { ragProviders } = getProviders();
@@ -372,31 +359,16 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       const rawConfig = getConfig();
       const processedConfig = getProcessedConfig(rawConfig);
       
-      // Generate embeddings in Node
-      const texts = finalDocuments
-        .map(d => (d && typeof d.text === 'string' ? d.text : ''))
-        .filter(t => t && t.length > 0);
+      // Validate documents have text
+      const validDocuments = finalDocuments.filter(d => d && typeof d.text === 'string' && d.text.length > 0);
       
-      if (texts.length === 0) {
+      if (validDocuments.length === 0) {
         return res.status(400).json({ error: 'No valid documents with text provided' });
       }
       
-      const embeddings = await generateEmbeddings(texts, embedding_connection, processedConfig, embedding_model);
-      
-      // Attach embeddings to documents (skip empty-text docs)
-      const documentsWithEmbeddings = [];
-      let embIdx = 0;
-      for (const doc of finalDocuments) {
-        const text = doc && typeof doc.text === 'string' ? doc.text : '';
-        if (!text) continue;
-        documentsWithEmbeddings.push({
-          ...doc,
-          embedding: embeddings[embIdx++]
-        });
-      }
-      
+      // Wrapper generates embeddings internally
       const { ragProviders } = getProviders();
-      const result = await addDocuments(service, name, documentsWithEmbeddings, rawConfig.rag_services, ragProviders);
+      const result = await addDocuments(service, name, validDocuments, rawConfig.rag_services, ragProviders);
       
       // Add transformation status to response
       result.transformed = transformed;
@@ -629,19 +601,10 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       const processedConfig = getProcessedConfig(config);
       const startTime = Date.now();
       
-      const queryEmbedding = await generateEmbeddings(
-        [query],
-        embedding_connection,
-        processedConfig,
-        embedding_model
-      );
-      
-      // Query collection via provider
-      // Note: Pass query text and options with pre-computed embedding
+      // Query collection via provider (wrapper generates embedding internally)
       const results = await provider.query(query, {
         collection: name,
-        top_k: top_k,
-        query_embedding: queryEmbedding[0]
+        top_k: top_k
       });
       
       const endTime = Date.now();
@@ -653,7 +616,6 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
         service,
         results: results.results || results,
         embedding_model: embedding_model,
-        embedding_dimensions: queryEmbedding[0].length,
         execution_time_ms: endTime - startTime
       });
     } catch (error) {

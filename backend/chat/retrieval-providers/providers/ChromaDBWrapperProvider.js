@@ -133,6 +133,11 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
         responseTime: response.headers['x-response-time'] || 'unknown'
       };
       
+      // Include embedding models if present
+      if (response.data.embedding_models) {
+        details.embedding_models = response.data.embedding_models;
+      }
+      
       // Include cross-encoder status if present
       if (response.data.cross_encoder) {
         details.cross_encoder = response.data.cross_encoder;
@@ -557,11 +562,6 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
           collection: collection,  // Dynamic collection support
           top_k: options.top_k || this.defaultTopK
         };
-        
-        // Include pre-computed query embedding if provided
-        if (options.query_embedding) {
-          payload.query_embedding = options.query_embedding;
-        }
         
         return await axios.post(
           `${this.baseUrl}/query`,

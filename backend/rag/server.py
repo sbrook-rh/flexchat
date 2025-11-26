@@ -10,6 +10,7 @@ import uuid
 import requests
 import argparse
 import json
+import yaml
 
 # Load environment variables
 load_dotenv()
@@ -72,6 +73,10 @@ parser.add_argument('--cross-encoder-path', type=str, default=None,
                     help='Local path to cross-encoder model (overrides --cross-encoder)')
 parser.add_argument('--list-reranker-models', action='store_true',
                     help='List available reranker models and exit')
+parser.add_argument('--embeddings-config', type=str, default=None,
+                    help='Path to embeddings YAML config file (e.g., embeddings.yml)')
+parser.add_argument('--download-models', action='store_true',
+                    help='Download embedding models from config and exit without starting server')
 args = parser.parse_args()
 
 # ============================================================================
@@ -136,24 +141,123 @@ else:
     print("   💡 Enable with: python server.py --cross-encoder BAAI/bge-reranker-base")
     print("   💡 See options: python server.py --list-reranker-models")
 
+# ============================================================================
+# Embedding Model Loading
+# ============================================================================
+# Global variables for embedding models
+embedding_models = {}  # Dict[str, dict] - keyed by model ID
+embedding_model_configs = []  # List of configs from YAML
+
+# Support environment variable as fallback
+EMBEDDINGS_CONFIG = os.getenv('EMBEDDINGS_CONFIG', args.embeddings_config)
+
+# Load embedding models if config provided
+if EMBEDDINGS_CONFIG:
+    from sentence_transformers import SentenceTransformer
+    
+    print(f"🔄 Loading embedding models from {EMBEDDINGS_CONFIG}...")
+    
+    try:
+        with open(EMBEDDINGS_CONFIG, 'r') as f:
+            config = yaml.safe_load(f)
+        
+        if not config or 'embeddings' not in config or not config['embeddings']:
+            print("❌ FATAL: No embedding models configured")
+            print()
+            print("   Embedding models are required for document storage and querying.")
+            print()
+            print("   Create embeddings.yml:")
+            print()
+            print("   embeddings:")
+            print("     - id: mxbai-large")
+            print("       path: mixedbread-ai/mxbai-embed-large-v1")
+            print()
+            print("   Then start with: python server.py --embeddings-config embeddings.yml")
+            print()
+            sys.exit(1)
+        
+        embedding_model_configs = config['embeddings']
+        
+        # Validate config structure
+        seen_ids = set()
+        for model_config in embedding_model_configs:
+            if 'id' not in model_config or 'path' not in model_config:
+                print(f"❌ FATAL: Invalid model config - must have 'id' and 'path' fields: {model_config}")
+                sys.exit(1)
+            
+            model_id = model_config['id']
+            if model_id in seen_ids:
+                print(f"❌ FATAL: Duplicate model ID '{model_id}' in config")
+                sys.exit(1)
+            seen_ids.add(model_id)
+        
+        # Load each model
+        for model_config in embedding_model_configs:
+            model_id = model_config['id']
+            model_path = model_config['path']
+            
+            print(f"🔄 Loading embedding model: {model_id} ({model_path})...")
+            
+            try:
+                # Some models require trust_remote_code for custom code execution
+                model = SentenceTransformer(model_path, trust_remote_code=True)
+                dimensions = model.get_sentence_embedding_dimension()
+                
+                embedding_models[model_id] = {
+                    'model': model,
+                    'name': model_path,
+                    'dimensions': dimensions
+                }
+                
+                print(f"✅ Loaded: {model_id} ({dimensions} dimensions)")
+            except Exception as e:
+                print(f"❌ FATAL: Failed to load embedding model {model_id} ({model_path}): {e}")
+                sys.exit(1)
+        
+        print(f"✅ {len(embedding_models)} embedding model(s) loaded successfully")
+        
+        # If --download-models flag set, exit after loading
+        if args.download_models:
+            print()
+            print("✅ Model download complete. Models cached for future runs.")
+            print("   Start server with: python server.py --embeddings-config embeddings.yml")
+            print()
+            sys.exit(0)
+    
+    except FileNotFoundError:
+        print(f"❌ FATAL: Embeddings config file not found: {EMBEDDINGS_CONFIG}")
+        sys.exit(1)
+    except yaml.YAMLError as e:
+        print(f"❌ FATAL: Invalid YAML in {EMBEDDINGS_CONFIG}: {e}")
+        sys.exit(1)
+
+else:
+    print("❌ FATAL: No embeddings config specified")
+    print()
+    print("   Embedding models are required for document storage and querying.")
+    print()
+    print("   Create embeddings.yml and start with:")
+    print("   python server.py --embeddings-config embeddings.yml")
+    print()
+    print("   Or set environment variable:")
+    print("   EMBEDDINGS_CONFIG=embeddings.yml python server.py")
+    print()
+    sys.exit(1)
+
 # Pydantic models
 class QueryRequest(BaseModel):
     query: str
     top_k: int = 3
     collection: Optional[str] = None  # Allow dynamic collection selection
-    query_embedding: List[float]  # Pre-computed embedding vector
     where: Optional[Dict[str, Any]] = None  # Metadata filter (ChromaDB syntax)
 
 class CreateCollectionRequest(BaseModel):
     name: str
     metadata: Optional[Dict[str, Any]] = {}
-    embedding_provider: Optional[str] = None  # Override default provider (openai, gemini, ollama)
-    embedding_model: Optional[str] = None     # Override default model
+    embedding_model: Optional[str] = None  # Model ID from loaded models (validated)
 
 class AddDocumentsRequest(BaseModel):
-    documents: List[Dict[str, Any]]  # Each doc: {text: str, metadata: dict, id?: str}
-    embedding_provider: Optional[str] = None  # Override default provider
-    embedding_model: Optional[str] = None     # Override default model
+    documents: List[Dict[str, Any]]  # Each doc: {text: str, metadata?: dict, id?: str}
 
 class UpdateCollectionMetadataRequest(BaseModel):
     metadata: Dict[str, Any]
@@ -163,6 +267,46 @@ class RerankRequest(BaseModel):
     documents: List[Dict[str, str]]  # Each: {id: str, text: str}
     top_k: Optional[int] = None
 
+# ============================================================================
+# Helper Functions
+# ============================================================================
+
+def get_embedding_model_for_collection(collection):
+    """
+    Retrieve the embedding model to use for a collection.
+    
+    Args:
+        collection: ChromaDB collection object
+        
+    Returns:
+        SentenceTransformer model instance
+        
+    Raises:
+        HTTPException: If model not found or not loaded
+    """
+    metadata = collection.metadata or {}
+    model_id = metadata.get('embedding_model')
+    
+    if not model_id:
+        available = list(embedding_models.keys())
+        raise HTTPException(
+            status_code=400,
+            detail=f"Collection '{collection.name}' has no embedding_model in metadata. "
+                   f"This may be an older collection. Please update metadata with one of: {available}"
+        )
+    
+    if model_id not in embedding_models:
+        available = list(embedding_models.keys())
+        raise HTTPException(
+            status_code=503,
+            detail=f"Embedding model '{model_id}' not loaded. Available models: {available}"
+        )
+    
+    return embedding_models[model_id]['model']
+
+# ============================================================================
+# API Endpoints
+# ============================================================================
 
 # Health check endpoint
 @app.get("/")
@@ -184,6 +328,18 @@ async def health_check():
             "status": "healthy",
             "collections_count": len(collections)
         }
+        
+        # Add embedding models status if loaded
+        if embedding_models:
+            response["embedding_models"] = [
+                {
+                    "id": model_id,
+                    "name": model_info['name'],
+                    "status": "loaded",
+                    "dimensions": model_info['dimensions']
+                }
+                for model_id, model_info in embedding_models.items()
+            ]
         
         # Add cross-encoder status if loaded
         if cross_encoder_model:
@@ -273,27 +429,35 @@ def create_collection(request: CreateCollectionRequest):
         except:
             pass  # Collection doesn't exist, proceed
         
-        # Determine which embedding provider/model to use
-        # Priority: API request > defaults from .env
-        provider = request.embedding_provider or EMBEDDING_PROVIDER
-        model = request.embedding_model or embedding_config.get("model")
+        # Validate embedding_model
+        if not request.embedding_model:
+            available = list(embedding_models.keys())
+            raise HTTPException(
+                status_code=400,
+                detail=f"embedding_model is required. Available models: {available}"
+            )
         
-        # Automatically add embedding provider info to metadata
+        if request.embedding_model not in embedding_models:
+            available = list(embedding_models.keys())
+            raise HTTPException(
+                status_code=400,
+                detail=f"Model '{request.embedding_model}' not loaded. Available models: {available}"
+            )
+        
+        # Store embedding model in metadata
         collection_metadata = request.metadata or {}
-        collection_metadata["embedding_provider"] = provider
-        collection_metadata["embedding_model"] = model
+        collection_metadata["embedding_model"] = request.embedding_model
         
         # Create collection with cosine distance for normalized embeddings
-        # Note: ChromaDB uses 'hnsw:space' in metadata to set distance function
         collection = chroma_client.create_collection(
             name=request.name,
             metadata={
                 **collection_metadata,
-                "hnsw:space": "cosine"  # Use cosine distance for text embeddings (not L2)
+                "hnsw:space": "cosine"  # Use cosine distance for text embeddings
             }
         )
         
-        print(f"✅ Created collection: {request.name} (embedding: {provider}/{model}, distance: cosine)")
+        print(f"✅ Created collection: {request.name} (embedding model: {request.embedding_model}, distance: cosine)")
         return {
             "status": "created",
             "name": request.name,
@@ -369,53 +533,42 @@ def delete_collection(name: str):
 # Document management endpoints
 @app.post("/collections/{collection_name}/documents")
 def add_documents(collection_name: str, request: AddDocumentsRequest):
-    """Add documents to a collection with pre-computed embeddings"""
+    """Add documents to a collection (embeddings generated internally)"""
     try:
         collection = chroma_client.get_collection(name=collection_name)
         
         if not request.documents:
-            raise HTTPException(status_code=400, detail="No documents provided")
+            raise HTTPException(status_code=400, detail="Documents array is required")
         
-        print(f"📝 Processing {len(request.documents)} documents for collection {collection_name} (pre-computed embeddings required)...")
+        # Get embedding model for this collection
+        model = get_embedding_model_for_collection(collection)
+        
+        print(f"📝 Processing {len(request.documents)} documents for collection {collection_name}...")
         
         # Prepare data
         texts = []
         metadatas = []
         ids = []
-        embeddings = []
-        dims = None
         
         # Process each document
         for i, doc in enumerate(request.documents):
             text = doc.get('text', '')
             if not text:
-                continue
-            emb = doc.get('embedding')
-            if emb is None:
                 raise HTTPException(
                     status_code=400,
-                    detail="All documents must include pre-computed embeddings"
-                )
-            if not isinstance(emb, list) or not all(isinstance(x, (int, float)) for x in emb):
-                raise HTTPException(
-                    status_code=400,
-                    detail="Embedding must be an array of numbers"
-                )
-            if dims is None:
-                dims = len(emb)
-            elif len(emb) != dims:
-                raise HTTPException(
-                    status_code=400,
-                    detail="All embeddings in a single request must have the same dimensions"
+                    detail=f"Document at index {i} missing required 'text' field"
                 )
             
             texts.append(text)
             metadatas.append(doc.get('metadata', {}))
             ids.append(doc.get('id') or f"doc_{uuid.uuid4()}")
-            embeddings.append(emb)
         
         if not texts:
             raise HTTPException(status_code=400, detail="No valid documents with text provided")
+        
+        # Generate embeddings using collection's model
+        print(f"🔄 Generating embeddings for {len(texts)} documents...")
+        embeddings = model.encode(texts, convert_to_numpy=True).tolist()
         
         # Add to ChromaDB
         collection.add(
@@ -689,8 +842,12 @@ def query_db(request: QueryRequest):
                 detail=f"Collection '{collection_name}' not found"
             )
         
-        # Use provided query embedding for similarity search
-        query_embedding = request.query_embedding
+        # Get embedding model for this collection
+        model = get_embedding_model_for_collection(collection)
+        
+        # Generate query embedding
+        print(f"   🔄 Generating query embedding...")
+        query_embedding = model.encode([request.query], convert_to_numpy=True).tolist()[0]
         
         # Get collection metadata for response
         collection_metadata = collection.metadata or {}

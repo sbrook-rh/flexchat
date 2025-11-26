@@ -5,6 +5,7 @@ uvicorn         # ASGI server to run FastAPI
 python-dotenv   # For loading environment variables from .env
 pydantic        # Data validation for API requests
 requests        # For HTTP requests (Ollama embeddings)
+PyYAML          # For loading YAML config files
 
 # Optional embedding providers (install based on EMBEDDING_PROVIDER in .env)
 # For OpenAI: pip install openai
@@ -12,5 +13,6 @@ requests        # For HTTP requests (Ollama embeddings)
 openai           # OpenAI embeddings (optional)
 google-generativeai  # Gemini embeddings (optional)
 
-# Cross-encoder reranking (optional)
-sentence-transformers  # Cross-encoder models for reranking
+# Cross-encoder reranking and embedding models
+sentence-transformers  # Cross-encoder models for reranking and embedding generation
+einops                 # Required by some embedding models (e.g., nomic-ai/nomic-embed-text-v1)

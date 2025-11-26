@@ -6,8 +6,6 @@
  * Does NOT make routing decisions - just collects data.
  */
 
-const { generateEmbeddings } = require('./embedding-generator');
-
 /**
  * Collect RAG results from selected collections
  * 
@@ -36,9 +34,6 @@ async function collectRagResults(userMessage, topic, currentTopic, selectedColle
   console.log(`   🔍 Query strategy: ${!currentTopic || currentTopic.trim() === '' ? 'first message (raw query)' : 'follow-up (contextualized topic)'}`);
   console.log(`   📝 Query text: "${queryText}"`);
   
-  // Cache for query embeddings: Key = "connectionId:model", Value = embedding array
-  const embeddingCache = new Map();
-  
   // Iterate through selected collections
   for (const collection of selectedCollections) {
     const serviceName = collection.service;
@@ -59,46 +54,11 @@ async function collectRagResults(userMessage, topic, currentTopic, selectedColle
     }
     
     try {
-      // Generate query embedding (with caching for same connection+model)
-      let queryEmbedding = null;
-      
-      if (collection.embedding_connection && collection.embedding_model) {
-        const embeddingKey = `${collection.embedding_connection}:${collection.embedding_model}`;
-        
-        // Check cache first
-        if (embeddingCache.has(embeddingKey)) {
-          console.log(`   ♻️  Reusing cached embedding for ${embeddingKey}`);
-          queryEmbedding = embeddingCache.get(embeddingKey);
-        } else {
-          // Generate new embedding
-          console.log(`   🔧 Generating query embedding for ${embeddingKey}`);
-          try {
-            const embeddings = await generateEmbeddings(
-              [queryText],
-              collection.embedding_connection,
-              config,
-              collection.embedding_model
-            );
-            queryEmbedding = embeddings[0];
-            embeddingCache.set(embeddingKey, queryEmbedding);
-          } catch (error) {
-            console.error(`   ❌ Failed to generate embedding for ${embeddingKey}:`, error.message);
-            // Continue without embedding - will fail at wrapper level
-          }
-        }
-      } else {
-        console.warn(`   ⚠️  Collection ${collectionName} missing embedding connection info`);
-      }
-      
-      // Query the collection
+      // Query the collection (wrapper generates embedding internally)
       const queryOptions = {
         collection: collectionName,
         top_k: 3  // TODO: make configurable
       };
-      
-      if (queryEmbedding) {
-        queryOptions.query_embedding = queryEmbedding;
-      }
       
       const response = await provider.query(queryText, queryOptions);
       
