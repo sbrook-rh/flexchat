@@ -13,7 +13,7 @@ function Collections({ uiConfig, reloadConfig }) {
   const [error, setError] = useState(null);
   const [llms, setLlms] = useState({});
   const [defaultEmbedding, setDefaultEmbedding] = useState(null);
-  const [embeddingModels, setEmbeddingModels] = useState([]);
+  const [availableEmbeddingModels, setAvailableEmbeddingModels] = useState([]);
   
   // New collection form
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -22,7 +22,6 @@ function Collections({ uiConfig, reloadConfig }) {
     description: '',
     match_threshold: 0.3,
     partial_threshold: 0.5,
-    embedding_connection: '',
     embedding_model: ''
   });
   const [collectionId, setCollectionId] = useState('');
@@ -35,10 +34,9 @@ function Collections({ uiConfig, reloadConfig }) {
     description: '',
     match_threshold: 0.3,
     partial_threshold: 0.5,
-    embedding_connection: '',
     embedding_model: ''
   });
-  const [editEmbeddingModels, setEditEmbeddingModels] = useState([]);
+  const [editAvailableEmbeddingModels, setEditAvailableEmbeddingModels] = useState([]);
   
   // Connection resolution state (shared by Document Upload Wizard)
   const [resolvedConnection, setResolvedConnection] = useState(null);
@@ -88,82 +86,26 @@ function Collections({ uiConfig, reloadConfig }) {
       .catch(() => setLlms({}));
   }, []);
 
-  // Fetch embedding-capable models for a given connection
-  const fetchEmbeddingModelsForConnection = async (connectionId) => {
-    const conn = llms[connectionId];
-    if (!conn) {
-      setEmbeddingModels([]);
-      return;
+  // Get embedding models from RAG service wrapper
+  const getEmbeddingModelsForService = (serviceName) => {
+    if (!uiConfig?.providerStatus?.rag_services?.[serviceName]) {
+      return [];
     }
-    try {
-      const res = await fetch('/api/connections/llm/discovery/models', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: conn.provider,
-          config: conn
-        })
-      });
-      const data = await res.json();
-      const models = Array.isArray(data.models) ? data.models : [];
-      const embeddingOnly = models.filter(m =>
-        m.type === 'embedding' || (m.capabilities || []).includes('embedding')
-      );
-      setEmbeddingModels(embeddingOnly);
-    } catch (e) {
-      console.error('Failed to fetch models:', e);
-      setEmbeddingModels([]);
-    }
+    const serviceHealth = uiConfig.providerStatus.rag_services[serviceName];
+    return serviceHealth.details?.embedding_models || [];
   };
 
-  // Fetch embedding-capable models for edit form
-  const fetchEmbeddingModelsForEdit = async (connectionId) => {
-    const conn = llms[connectionId];
-    if (!conn) {
-      setEditEmbeddingModels([]);
-      return;
-    }
-    try {
-      const res = await fetch('/api/connections/llm/discovery/models', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: conn.provider,
-          config: conn
-        })
-      });
-      const data = await res.json();
-      const models = Array.isArray(data.models) ? data.models : [];
-      const embeddingOnly = models.filter(m =>
-        m.type === 'embedding' || (m.capabilities || []).includes('embedding')
-      );
-      setEditEmbeddingModels(embeddingOnly);
-    } catch (e) {
-      console.error('Failed to fetch models for edit:', e);
-      setEditEmbeddingModels([]);
-    }
-  };
 
-  // When opening the create modal, preselect defaults if available
+  // Update available embedding models when create form opens
   useEffect(() => {
-    if (showCreateForm && defaultEmbedding && Object.keys(llms).includes(defaultEmbedding.llm)) {
-      // Preselect connection and fetch models
-      setNewCollection(prev => ({ ...prev, embedding_connection: defaultEmbedding.llm }));
-      fetchEmbeddingModelsForConnection(defaultEmbedding.llm);
+    if (showCreateForm && currentWrapper) {
+      const models = getEmbeddingModelsForService(currentWrapper);
+      setAvailableEmbeddingModels(models);
+    } else {
+      setAvailableEmbeddingModels([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showCreateForm]);
-
-  // When embedding models load, preselect default model if it's in the list
-  useEffect(() => {
-    if (showCreateForm && defaultEmbedding && newCollection.embedding_connection === defaultEmbedding.llm && embeddingModels.length > 0) {
-      const defaultModelInList = embeddingModels.some(m => m.id === defaultEmbedding.model);
-      if (defaultModelInList) {
-        setNewCollection(prev => ({ ...prev, embedding_model: defaultEmbedding.model }));
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [embeddingModels, showCreateForm]);
+  }, [showCreateForm, currentWrapper, uiConfig]);
 
   // Generate a valid collection ID from display name
   const generateCollectionId = (displayName) => {
@@ -235,10 +177,6 @@ function Collections({ uiConfig, reloadConfig }) {
       alert('Please enter a collection name');
       return;
     }
-    if (!newCollection.embedding_connection) {
-      alert('Please select an embedding connection');
-      return;
-    }
     if (!newCollection.embedding_model) {
       alert('Please select an embedding model');
       return;
@@ -251,7 +189,6 @@ function Collections({ uiConfig, reloadConfig }) {
         body: JSON.stringify({
           name: collectionId,  // Use generated ID as the actual collection name
           service: currentWrapper,
-          embedding_connection: newCollection.embedding_connection,
           embedding_model: newCollection.embedding_model,
           metadata: {
             display_name: newCollection.displayName,  // Store original display name
@@ -276,7 +213,6 @@ function Collections({ uiConfig, reloadConfig }) {
         description: '',
         match_threshold: 0.3,
         partial_threshold: 0.5,
-        embedding_connection: '',
         embedding_model: ''
       });
       setCollectionId('');
@@ -308,10 +244,10 @@ function Collections({ uiConfig, reloadConfig }) {
       const existingCollection = collections.find(c => c.name === editingCollection);
       const existingMetadata = existingCollection?.metadata || {};
       
-      // If collection is empty and embedding fields are set, validate them
-      if (existingCollection?.count === 0 && (editForm.embedding_connection || editForm.embedding_model)) {
-        if (!editForm.embedding_connection || !editForm.embedding_model) {
-          alert('Both embedding connection and model must be selected to re-model the collection');
+      // If collection is empty and embedding model is set, validate it
+      if (existingCollection?.count === 0 && editForm.embedding_model) {
+        if (!editForm.embedding_model) {
+          alert('Embedding model must be selected to re-model the collection');
           return;
         }
       }
@@ -329,9 +265,8 @@ function Collections({ uiConfig, reloadConfig }) {
         updated_at: new Date().toISOString()
       };
       
-      // Include embedding fields if collection is empty and they're set
-      if (existingCollection?.count === 0 && editForm.embedding_connection && editForm.embedding_model) {
-        metadataUpdate.embedding_connection = editForm.embedding_connection;
+      // Include embedding model if collection is empty and it's set
+      if (existingCollection?.count === 0 && editForm.embedding_model) {
         metadataUpdate.embedding_model = editForm.embedding_model;
       }
       
@@ -358,10 +293,9 @@ function Collections({ uiConfig, reloadConfig }) {
         description: '',
         match_threshold: 0.3,
         partial_threshold: 0.5,
-        embedding_connection: '',
         embedding_model: ''
       });
-      setEditEmbeddingModels([]);
+      setEditAvailableEmbeddingModels([]);
       
       // Reload UI config to update all pages
       reloadConfig();
@@ -377,13 +311,13 @@ function Collections({ uiConfig, reloadConfig }) {
       description: collection.metadata?.description || '',
       match_threshold: collection.metadata?.match_threshold || 0.3,
       partial_threshold: collection.metadata?.partial_threshold || 0.5,
-      embedding_connection: collection.metadata?.embedding_connection || '',
       embedding_model: collection.metadata?.embedding_model || ''
     });
     
-    // Load embedding models for the current connection if editing an empty collection
-    if (collection.count === 0 && collection.metadata?.embedding_connection) {
-      fetchEmbeddingModelsForEdit(collection.metadata.embedding_connection);
+    // Load embedding models from wrapper if editing an empty collection
+    if (collection.count === 0) {
+      const models = getEmbeddingModelsForService(collection.service);
+      setEditAvailableEmbeddingModels(models);
     }
     
     setShowCreateForm(false);
@@ -397,10 +331,9 @@ function Collections({ uiConfig, reloadConfig }) {
       description: '',
       match_threshold: 0.3,
       partial_threshold: 0.5,
-      embedding_connection: '',
       embedding_model: ''
     });
-    setEditEmbeddingModels([]);
+    setEditAvailableEmbeddingModels([]);
   };
 
   const deleteCollection = async (collectionName) => {
@@ -454,7 +387,7 @@ function Collections({ uiConfig, reloadConfig }) {
 
   // Test Modal handlers
   const shouldShowTestButton = (collection) => {
-    return collection.count > 0 && collection.metadata?.embedding_connection;
+    return collection.count > 0 && collection.metadata?.embedding_model;
   };
 
   const openTestModal = (collection) => {
@@ -496,8 +429,7 @@ function Collections({ uiConfig, reloadConfig }) {
           query: testQuery,
           top_k: testTopK,
           service: testTargetCollection.service,
-          embedding_connection: testTargetCollection.metadata.embedding_connection,
-          embedding_model: testTargetCollection.metadata.embedding_model
+          collection: testTargetCollection.name
         })
       });
       
@@ -1020,11 +952,11 @@ function Collections({ uiConfig, reloadConfig }) {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                             </svg>
                           </button>
-                        ) : !collection.metadata?.embedding_connection ? (
+                        ) : !collection.metadata?.embedding_model ? (
                           <button
                             disabled
                             className="p-2 text-gray-400 cursor-not-allowed rounded-full"
-                            title="No embedding connection available"
+                            title="No embedding model available"
                           >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
@@ -1140,50 +1072,35 @@ function Collections({ uiConfig, reloadConfig }) {
                 <p className="text-xs text-gray-500 mt-1">Used by the AI to decide if this collection should be consulted</p>
               </div>
 
-              {/* Advanced: Embedding preset */}
+              {/* Embedding Model Selection */}
               <div className="border border-gray-200 rounded-lg p-4">
                 <div className="mb-2">
-                  <h3 className="text-sm font-semibold text-gray-900">Embedding Preset</h3>
-                  <p className="text-xs text-gray-600">Choose which LLM connection to use for embeddings.</p>
+                  <h3 className="text-sm font-semibold text-gray-900">Embedding Model</h3>
+                  <p className="text-xs text-gray-600">Select the embedding model loaded in this RAG service.</p>
                 </div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Embedding Connection *
+                  Model *
                 </label>
                 <select
-                  value={newCollection.embedding_connection || ''}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setNewCollection({ ...newCollection, embedding_connection: val, embedding_model: '' });
-                    if (val) fetchEmbeddingModelsForConnection(val);
-                  }}
+                  value={newCollection.embedding_model || ''}
+                  onChange={(e) => setNewCollection({ ...newCollection, embedding_model: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 >
-                  <option value="">Select connection...</option>
-                  {Object.keys(llms).map((id) => {
-                    const displayName = llms[id].description || id;
-                    return (
-                      <option key={id} value={id}>{displayName} ({llms[id].provider})</option>
-                    );
-                  })}
+                  <option value="">Select a model...</option>
+                  {availableEmbeddingModels.length === 0 ? (
+                    <option disabled>No embedding models loaded in this service</option>
+                  ) : (
+                    availableEmbeddingModels.map(m => (
+                      <option key={m.id} value={m.id}>
+                        {m.id} - {m.name} ({m.dimensions}d)
+                      </option>
+                    ))
+                  )}
                 </select>
-                <div className="mt-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Embedding Model *
-                  </label>
-                  <select
-                    value={newCollection.embedding_model || (defaultEmbedding && defaultEmbedding.llm === newCollection.embedding_connection ? defaultEmbedding.model : '')}
-                    onChange={(e) => setNewCollection({ ...newCollection, embedding_model: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                    disabled={!newCollection.embedding_connection}
-                  >
-                    <option value="">Select a model...</option>
-                    {embeddingModels.map(m => (
-                      <option key={m.id} value={m.id}>{m.name || m.id}</option>
-                    ))}
-                  </select>
-                </div>
+                {availableEmbeddingModels.length === 0 && (
+                  <p className="text-xs text-red-600 mt-1">⚠ No embedding models loaded. Check wrapper configuration.</p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -1287,45 +1204,29 @@ function Collections({ uiConfig, reloadConfig }) {
                           Collection is empty. You can change the embedding model before uploading documents.
                         </p>
                       </div>
-                      <div className="space-y-3">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Embedding Connection *
-                          </label>
-                          <select
-                            value={editForm.embedding_connection || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setEditForm({ ...editForm, embedding_connection: val, embedding_model: '' });
-                              if (val) fetchEmbeddingModelsForEdit(val);
-                            }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="">Select connection...</option>
-                            {Object.keys(llms).map((id) => {
-                              const displayName = llms[id].description || id;
-                              return (
-                                <option key={id} value={id}>{displayName} ({llms[id].provider})</option>
-                              );
-                            })}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Embedding Model *
-                          </label>
-                          <select
-                            value={editForm.embedding_model || ''}
-                            onChange={(e) => setEditForm({ ...editForm, embedding_model: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                            disabled={!editForm.embedding_connection}
-                          >
-                            <option value="">Select a model...</option>
-                            {editEmbeddingModels.map(m => (
-                              <option key={m.id} value={m.id}>{m.name || m.id}</option>
-                            ))}
-                          </select>
-                        </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Embedding Model *
+                        </label>
+                        <select
+                          value={editForm.embedding_model || ''}
+                          onChange={(e) => setEditForm({ ...editForm, embedding_model: e.target.value })}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select a model...</option>
+                          {editAvailableEmbeddingModels.length === 0 ? (
+                            <option disabled>No embedding models loaded in this service</option>
+                          ) : (
+                            editAvailableEmbeddingModels.map(m => (
+                              <option key={m.id} value={m.id}>
+                                {m.id} - {m.name} ({m.dimensions}d)
+                              </option>
+                            ))
+                          )}
+                        </select>
+                        {editAvailableEmbeddingModels.length === 0 && (
+                          <p className="text-xs text-red-600 mt-1">⚠ No embedding models loaded. Check wrapper configuration.</p>
+                        )}
                       </div>
                     </div>
                   );
@@ -1334,14 +1235,10 @@ function Collections({ uiConfig, reloadConfig }) {
                   return (
                     <div className="border border-gray-200 rounded-lg p-4">
                       <div className="mb-2">
-                        <h3 className="text-sm font-semibold text-gray-900">Embedding</h3>
-                        <p className="text-xs text-gray-600">Embedding settings are fixed for this collection.</p>
+                        <h3 className="text-sm font-semibold text-gray-900">Embedding Model</h3>
+                        <p className="text-xs text-gray-600">Embedding model is fixed for collections with documents.</p>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">Provider</label>
-                          <input type="text" value={meta.embedding_provider || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
-                        </div>
                         <div>
                           <label className="block text-xs text-gray-600 mb-1">Model</label>
                           <input type="text" value={meta.embedding_model || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
@@ -1349,10 +1246,6 @@ function Collections({ uiConfig, reloadConfig }) {
                         <div>
                           <label className="block text-xs text-gray-600 mb-1">Dimensions</label>
                           <input type="text" value={meta.embedding_dimensions ?? '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
-                        </div>
-                        <div>
-                          <label className="block text-xs text-gray-600 mb-1">Connection ID</label>
-                          <input type="text" value={meta.embedding_connection_id || '-'} readOnly className="w-full px-3 py-2 border border-gray-200 rounded bg-gray-50 text-gray-700" />
                         </div>
                       </div>
                     </div>
