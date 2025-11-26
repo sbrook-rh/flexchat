@@ -175,24 +175,6 @@ The system SHALL provide a complete UI for adding, editing, and removing AI and 
 - **THEN** each provider shows connection status (connected, disconnected, error)
 - **AND** provides quick actions (test, edit, remove)
 
-### Requirement: Embedding Configuration UI
-The system SHALL provide UI for configuring default embeddings and per-service overrides.
-
-#### Scenario: Configure Default Embedding
-- **WHEN** a user selects default embedding provider and model
-- **THEN** the system updates the `embedding` section in configuration
-- **AND** shows which RAG services will use this default
-
-#### Scenario: Per-Service Embedding Override
-- **WHEN** a user configures a RAG service with custom embeddings
-- **THEN** the system adds service-specific embedding configuration
-- **AND** indicates this service uses custom embeddings (not default)
-
-#### Scenario: Embedding Model Compatibility Warning
-- **WHEN** a user changes embedding configuration for a service with existing collections
-- **THEN** the system warns that existing collections were embedded with a different model
-- **AND** suggests re-embedding or keeping previous configuration
-
 ### Requirement: Intent Detection Configuration UI
 The system SHALL provide UI for configuring intent detection provider and defining intent phrases.
 
@@ -447,7 +429,7 @@ The Configuration Builder UI SHALL provide structured navigation for multiple co
 #### Scenario: Vertical Tab Navigation
 - **WHEN** the Configuration Builder is displayed
 - **THEN** a vertical tab sidebar is rendered on the left side
-- **AND** the sidebar contains tabs for: Providers, Embeddings, Intent, Handlers, Reasoning
+- **AND** the sidebar contains tabs for: LLM Providers, RAG Services, Topic Detection, Intent, Handlers, Reasoning
 - **AND** each tab displays an icon, label, and optional badge count
 - **AND** clicking a tab switches the content area to that section
 - **AND** the active tab is visually highlighted
@@ -474,15 +456,6 @@ The Configuration Builder UI SHALL provide structured navigation for multiple co
 
 ### Requirement: Conditional Tab Enabling
 Configuration sections with dependencies SHALL be conditionally enabled based on prerequisite configuration, preventing user confusion and invalid configurations.
-
-#### Scenario: Embeddings Tab Enabling
-- **WHEN** no RAG services are configured
-- **THEN** the Embeddings tab is disabled
-- **AND** hovering over the disabled tab shows a tooltip: "Configure RAG Services first"
-- **AND** clicking the disabled tab has no effect
-- **WHEN** at least one RAG service is configured
-- **THEN** the Embeddings tab becomes enabled
-- **AND** clicking the tab switches to the Embeddings section
 
 #### Scenario: Intent Tab Enabling
 - **WHEN** no LLM providers are configured
@@ -532,7 +505,7 @@ The Configuration Builder SHALL maintain tab state within the component, preserv
 Tabs for unimplemented configuration sections SHALL be present but display placeholder content, providing visibility into planned features.
 
 #### Scenario: Placeholder Section Display
-- **WHEN** a placeholder tab (Intent, Embeddings, or Reasoning) is clicked
+- **WHEN** a placeholder tab (Intent or Reasoning) is clicked
 - **THEN** the content area displays the section title
 - **AND** shows a message: "Coming in Phase X"
 - **AND** optionally shows a mockup or description of planned functionality
@@ -679,7 +652,7 @@ The system SHALL use descriptive display names throughout the UI while maintaini
 - **AND** format: "Description" on first line, "ID: provider-id" on second line
 
 #### Scenario: Display Provider Description in References
-- **WHEN** configuring response handlers, embeddings, intent detection, or topic detection
+- **WHEN** configuring response handlers, intent detection, or topic detection
 - **THEN** dropdowns show provider descriptions (not IDs)
 - **AND** stores the provider ID in the configuration field
 - **AND** displays the description when viewing existing configurations
