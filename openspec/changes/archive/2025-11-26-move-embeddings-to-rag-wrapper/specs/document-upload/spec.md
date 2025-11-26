@@ -1,8 +1,7 @@
-# document-upload Specification
+# document-upload Spec Delta
 
-## Purpose
-TBD - created by archiving change enhance-document-upload. Update Purpose after archive.
-## Requirements
+## MODIFIED Requirements
+
 ### Requirement: Raw Document Upload with Transformation
 The system SHALL accept raw JSON documents with a transformation schema, convert them to standardized `{id, text, metadata}` format, and send text-only documents to RAG wrapper for embedding generation.
 
@@ -29,31 +28,6 @@ The system SHALL accept raw JSON documents with a transformation schema, convert
 - **THEN** the endpoint returns 400 Bad Request
 - **AND** the response includes `error: "Document transformation failed"` and original error message
 
-### Requirement: Schema Persistence
-The system SHALL optionally persist transformation schemas in collection metadata for reuse.
-
-#### Scenario: Save schema when requested
-- **GIVEN** a request with `raw_documents`, `schema`, and `save_schema: true`
-- **WHEN** documents are successfully uploaded
-- **THEN** the schema is saved to `metadata.document_schema` field via `updateCollectionMetadata()`
-- **AND** the schema includes `created_at` timestamp (if new) and `last_used` timestamp
-- **AND** the response includes `schema_saved: true`
-
-#### Scenario: Schema persistence failure is non-fatal
-- **GIVEN** a request with `save_schema: true`
-- **AND** the RAG service doesn't support metadata or persistence fails
-- **WHEN** `updateCollectionMetadata()` throws an error
-- **THEN** the document upload still succeeds (200 OK)
-- **AND** the response includes `schema_saved: false`
-- **AND** the response includes `schema_warning` with the error message
-- **AND** a warning is logged to console
-
-#### Scenario: Skip schema persistence when not requested
-- **GIVEN** a request with `raw_documents` and `schema` but `save_schema` is false or omitted
-- **WHEN** documents are uploaded
-- **THEN** the schema is not persisted
-- **AND** the response does not include `schema_saved` field
-
 ### Requirement: Parameter Mutual Exclusivity
 The system SHALL enforce mutual exclusivity between `documents` and `raw_documents` parameters without requiring embedding parameters.
 
@@ -78,21 +52,6 @@ The system SHALL enforce mutual exclusivity between `documents` and `raw_documen
 - **AND** transformed documents sent to wrapper as text-only
 - **AND** no embedding generation in Node
 - **AND** the response includes `transformed: true`
-
-### Requirement: Schema Validation for Raw Documents
-The system SHALL validate that a schema is provided when raw_documents are used.
-
-#### Scenario: Reject raw_documents without schema
-- **GIVEN** a request with `raw_documents` but no `schema` parameter
-- **WHEN** the endpoint validates parameters
-- **THEN** the request is rejected with 400 Bad Request
-- **AND** the error message is "schema is required when using raw_documents"
-
-#### Scenario: Validate raw_documents is an array
-- **GIVEN** a request with `raw_documents` as a non-array value
-- **WHEN** the endpoint validates parameters
-- **THEN** the request is rejected with 400 Bad Request
-- **AND** the error message is "raw_documents must be an array"
 
 ### Requirement: Backward Compatibility
 The system SHALL maintain document upload API structure while removing embedding generation from Node backend.
@@ -119,29 +78,6 @@ The system SHALL maintain document upload API structure while removing embedding
 - **AND** no `embedding_provider`, `embedding_model`, or `embedding` fields
 - **AND** wrapper determines model from collection metadata
 
-### Requirement: Enhanced Response Format
-The system SHALL include transformation and schema persistence status in the response.
-
-#### Scenario: Response for transformed documents with saved schema
-- **GIVEN** a successful upload with `raw_documents`, `schema`, and `save_schema: true`
-- **WHEN** the response is returned
-- **THEN** it includes `transformed: true`, `schema_saved: true`
-- **AND** it includes existing fields: `count`, `service`, `collection`
-
-#### Scenario: Response for traditional documents
-- **GIVEN** a successful upload with `documents` parameter
-- **WHEN** the response is returned
-- **THEN** it includes `transformed: false`
-- **AND** it includes existing fields: `count`, `service`, `collection`
-- **AND** no `schema_saved` field is present
-
-#### Scenario: Response for schema persistence failure
-- **GIVEN** transformation succeeded but schema persistence failed
-- **WHEN** the response is returned
-- **THEN** it includes `transformed: true`, `schema_saved: false`
-- **AND** it includes `schema_warning` with the error message
-- **AND** HTTP status is 200 OK (upload succeeded)
-
 ### Requirement: Request Parameter Structure
 The system SHALL accept simplified request format without embedding parameters for RAG operations.
 
@@ -166,4 +102,8 @@ The system SHALL accept simplified request format without embedding parameters f
 - **WHEN** `service` is missing
 - **THEN** the request is rejected with 400 Bad Request and error "Service name is required"
 - **AND** no embedding-related parameters are required
+
+## REMOVED Requirements
+
+None - requirements are modified to remove embedding generation, but structure remains
 

@@ -4,91 +4,87 @@
 TBD - created by archiving change refactor-embedding-architecture. Update Purpose after archive.
 ## Requirements
 ### Requirement: Collection Creation with Embedding Metadata
-Collections SHALL be created with embedding metadata that captures the embedding model used for all documents in the collection.
+Collections SHALL be created with embedding model metadata that captures the specific embedding model loaded in the RAG wrapper.
 
-#### Scenario: Create Collection with Embedding Connection
-- **WHEN** POST `/api/collections` is called with `name`, `service`, `embedding_connection`, and optional `embedding_model`
-- **THEN** it resolves embedding model (prefer explicit `embedding_model`, otherwise connection/default), creates the collection, passes top-level `embedding_provider` and `embedding_model` to the wrapper, and stores metadata with `embedding_provider`, `embedding_model`, `embedding_dimensions`, and `embedding_connection_id`
+#### Scenario: Create Collection with Embedding Model
+- **WHEN** POST `/api/collections` is called with `name`, `service`, and `embedding_model`
+- **THEN** it validates embedding model is available in RAG wrapper (via health check)
+- **AND** creates the collection
+- **AND** passes `embedding_model` to the wrapper for validation and storage
+- **AND** stores metadata with `embedding_model`, `created_at`, and any custom metadata
 
-#### Scenario: Create Collection Without Embedding Connection
-- **WHEN** POST `/api/collections` is called without `embedding_connection` parameter
-- **THEN** it returns 400 error: `embedding_connection is required`
+#### Scenario: Create Collection Without Embedding Model
+- **WHEN** POST `/api/collections` is called without `embedding_model` parameter
+- **THEN** it returns 400 error: `embedding_model is required. Available models: [list from wrapper health]`
 
-#### Scenario: Create Collection with Invalid Embedding Connection
-- **WHEN** POST `/api/collections` is called with non-existent `embedding_connection` ID
-- **THEN** it returns 400 error: `LLM connection "[id]" not found`
+#### Scenario: Create Collection with Invalid Embedding Model
+- **WHEN** POST `/api/collections` is called with `embedding_model` not available in wrapper
+- **THEN** it returns 400 error: `Embedding model '[id]' not available. Available models: [list]`
 
 #### Scenario: Retrieve Collection Metadata
 - **WHEN** collection information is requested
-- **THEN** it includes embedding metadata (provider, model, dimensions, connection_id, created_at)
+- **THEN** it includes `embedding_model` in metadata
+- **AND** no longer includes `embedding_provider`, `embedding_dimensions`, or `embedding_connection_id`
 
 ### Requirement: Document Upload with Embedding Generation
-Documents uploaded to a collection SHALL have embeddings generated in the Node backend before being stored in the RAG service.
+Documents uploaded to a collection SHALL be sent as text-only to the RAG wrapper, which generates embeddings internally.
 
-#### Scenario: Upload Documents with Embedding Connection
-- **WHEN** POST `/api/collections/:name/documents` is called with `documents`, `service`, and `embedding_connection` parameters
-- **THEN** it generates embeddings using the specified connection, validates compatibility with collection metadata, and adds documents with embeddings to the collection
+#### Scenario: Upload Documents as Text Only
+- **WHEN** POST `/api/collections/:name/documents` is called with `documents` (each containing `text`, optional `metadata` and `id`)
+- **AND** `service` parameter
+- **THEN** it sends documents to RAG wrapper without generating embeddings
+- **AND** wrapper generates embeddings using collection's stored embedding model
+- **AND** returns success with document count
 
-#### Scenario: Upload Documents Without Embedding Connection
-- **WHEN** POST `/api/collections/:name/documents` is called without `embedding_connection` parameter
-- **THEN** it returns 400 error: `embedding_connection is required`
+#### Scenario: Upload Documents Without Service
+- **WHEN** POST `/api/collections/:name/documents` is called without `service` parameter
+- **THEN** it returns 400 error: `Service name is required`
 
-#### Scenario: Upload Documents with Incompatible Embedding Model
-- **WHEN** POST `/api/collections/:name/documents` is called with `embedding_connection` that uses different provider or model than collection metadata
-- **THEN** it returns 400 error describing the mismatch: `Embedding model mismatch: Collection requires [provider]/[model], but you're using [other_provider]/[other_model]`
-
-#### Scenario: Upload Documents with Compatible Embedding Model
-- **WHEN** POST `/api/collections/:name/documents` is called with `embedding_connection` matching collection's embedding metadata
-- **THEN** it generates embeddings, adds documents to collection, and returns success with document count
-
-#### Scenario: Empty Document Array
+#### Scenario: Upload Documents with Empty Array
 - **WHEN** POST `/api/collections/:name/documents` is called with empty documents array
 - **THEN** it returns 400 error: `Documents array is required`
 
+#### Scenario: Upload Documents to Collection Without Embedding Model
+- **WHEN** POST `/api/collections/:name/documents` is called
+- **AND** collection metadata does not include `embedding_model` (older collection)
+- **THEN** RAG wrapper returns 400 error with migration instructions
+- **AND** error lists available embedding models
+- **AND** Node backend passes error to frontend
+
 ### Requirement: Embedding Compatibility Validation
-The system SHALL validate embedding compatibility when documents are added to collections.
+The system SHALL validate that RAG wrapper has the required embedding model loaded for collection operations.
 
-#### Scenario: Validate Compatible Embedding Connection
-- **WHEN** collection has metadata `{embedding_provider: "openai", embedding_model: "text-embedding-3-small"}` and upload uses connection with same provider and model
-- **THEN** validation passes and upload proceeds
+#### Scenario: Validate Embedding Model Available in Wrapper
+- **WHEN** collection is created or documents are uploaded
+- **AND** RAG wrapper health check shows embedding models
+- **THEN** Node backend validates requested model is in available list
+- **AND** proceeds if available
+- **AND** returns clear error if not available
 
-#### Scenario: Validate Incompatible Provider
-- **WHEN** collection has metadata `{embedding_provider: "openai", ...}` and upload uses connection with `embedding_provider: "ollama"`
-- **THEN** validation fails with clear error message
-
-#### Scenario: Validate Incompatible Model
-- **WHEN** collection has metadata `{embedding_model: "text-embedding-3-small"}` and upload uses connection with `embedding_model: "text-embedding-ada-002"`
-- **THEN** validation fails with clear error message
-
-### Requirement: Compatible Embedding Connection Discovery
-The system SHALL find compatible embedding connections for collections even when connection IDs change across configurations.
-
-#### Scenario: Find Compatible Connection by Provider and Model
-- **WHEN** `findCompatibleEmbeddingConnection(collectionMetadata, config)` is called with collection requiring "openai/text-embedding-3-small"
-- **THEN** it searches all configured LLM connections and returns the ID of any connection with matching provider and model
-
-#### Scenario: No Compatible Connection Found
-- **WHEN** `findCompatibleEmbeddingConnection()` is called but no LLM connection matches the required provider and model
-- **THEN** it throws error: `No compatible embedding connection found for [provider]/[model]`
-
-#### Scenario: Multiple Compatible Connections
-- **WHEN** multiple LLM connections match the required provider and model
-- **THEN** it returns the first matching connection ID
+#### Scenario: Validate Wrapper Health Before Operations
+- **WHEN** collection creation or document upload occurs
+- **THEN** Node backend uses cached health check results
+- **AND** validates embedding_models array exists
+- **AND** fails gracefully if wrapper unreachable
 
 ### Requirement: Collection Metadata Schema
-Collections SHALL store embedding metadata in a standardized schema.
+Collections SHALL store embedding model ID in metadata for use by RAG wrapper.
 
 #### Scenario: Metadata Schema Fields
 - **WHEN** collection metadata is stored
-- **THEN** it includes: `embedding_provider` (string), `embedding_model` (string), `embedding_dimensions` (integer), `embedding_connection_id` (string), `created_at` (ISO 8601 timestamp)
+- **THEN** it includes: `embedding_model` (string - model ID), `created_at` (ISO 8601 timestamp)
+- **AND** no longer includes: `embedding_provider`, `embedding_dimensions`, `embedding_connection_id`
 
 #### Scenario: Metadata Persistence
-- **WHEN** collection is created with embedding metadata
-- **THEN** metadata persists across server restarts and configuration changes
+- **WHEN** collection is created with embedding_model
+- **THEN** metadata persists across server restarts
+- **AND** RAG wrapper uses stored model ID for all operations
 
-#### Scenario: Metadata Immutability
-- **WHEN** documents are added to existing collection
-- **THEN** the embedding metadata cannot be changed (embedding model is locked for the collection)
+#### Scenario: Metadata Immutability Guidance
+- **WHEN** collection has documents
+- **AND** user attempts to change `embedding_model` in metadata
+- **THEN** system allows the change (no validation)
+- **AND** documents should be re-indexed to use new model (warning in documentation)
 
 ### Requirement: Metadata Merge Mode
 The system SHALL provide a merge mode for collection metadata updates, allowing partial updates without replacing all metadata fields.
@@ -199,35 +195,33 @@ The system SHALL store query profiles as stringified JSON in collection metadata
 - **AND** follows the documented query profile format specification
 
 ### Requirement: Collection Edit UI
-The system SHALL provide a user interface for editing collection metadata, with the display name as the primary editable field and support for changing embedding models when the collection is empty.
+The system SHALL provide a user interface for editing collection metadata, with embedding model selection based on available models from RAG wrapper.
 
 #### Scenario: Re-model empty collection
-- **GIVEN** a collection with `count === 0` and current embedding settings `{connection: "openai", model: "text-embedding-ada-002"}`
+- **GIVEN** a collection with `count === 0` and current `embedding_model: "mxbai-large"`
 - **WHEN** user opens the Edit modal
-- **THEN** an "Embedding (Re-model)" section appears below the basic metadata fields
-- **AND** section shows embedding connection dropdown (populated from available LLM connections)
-- **AND** section shows embedding model dropdown (initially empty)
-- **AND** current embedding connection is pre-selected
-- **AND** when user selects a connection, embedding models are fetched and displayed
-- **AND** user can select a different embedding model
+- **THEN** an "Embedding (Re-model)" section appears
+- **AND** section shows embedding model dropdown populated from wrapper health endpoint
+- **AND** current embedding model is pre-selected
+- **AND** user can select a different embedding model from available options
 
 #### Scenario: Save re-model changes
 - **GIVEN** Edit modal is open for an empty collection
-- **WHEN** user changes embedding connection to "gemini" and model to "text-embedding-004"
+- **WHEN** user changes embedding model to "nomic"
 - **AND** clicks "Save Changes"
-- **THEN** collection metadata is updated with new embedding settings
-- **AND** success message shows "Collection '{display_name}' updated successfully!"
+- **THEN** collection metadata is updated with new `embedding_model`
+- **AND** success message shows "Collection '[display_name]' updated successfully!"
 - **AND** collection list refreshes showing updated metadata
 
 #### Scenario: Re-model section hidden for non-empty collections
 - **GIVEN** a collection with `count > 0`
 - **WHEN** user opens the Edit modal
 - **THEN** the "Embedding (Re-model)" section is NOT visible
-- **AND** embedding settings cannot be changed
+- **AND** embedding model cannot be changed (requires re-indexing)
 
 #### Scenario: Re-model validation
 - **GIVEN** Edit modal is open for an empty collection
-- **WHEN** user selects an embedding connection but leaves model unselected
+- **WHEN** user leaves embedding model unselected
 - **AND** attempts to save
 - **THEN** validation error prevents save
 - **AND** user is prompted to select an embedding model
@@ -285,72 +279,19 @@ The system SHALL provide a UI action to remove all documents from a collection w
 - **THEN** error message is displayed to user
 - **AND** collection state remains unchanged
 
-### Requirement: Embedding Connection Resolution
-The system SHALL resolve collection embedding connections to current configuration, handling cases where connection IDs change across config reloads.
-
-#### Scenario: Exact connection ID match with verification
-- **WHEN** collection has `embedding_connection_id: "my-ollama"` and current config contains connection "my-ollama" with matching provider and model
-- **THEN** resolution returns "my-ollama"
-- **AND** embedding model availability is verified via provider.listModels()
-
-#### Scenario: Connection ID changed but provider and model available
-- **WHEN** collection has `embedding_connection_id: "my-ollama"` (no longer exists) with `embedding_provider: "ollama"` and `embedding_model: "all-minilm:latest"`
-- **AND** current config has connection "prod-ollama" with same provider and model
-- **THEN** resolution returns "prod-ollama"
-- **AND** uses first matching connection found
-
-#### Scenario: No compatible connection found
-- **WHEN** collection requires embedding model not available in any current connection
-- **THEN** resolution returns null
-- **AND** UI displays warning about unavailable embedding model
-
-#### Scenario: Multiple connections with same provider and model
-- **WHEN** multiple LLM connections match required provider and model
-- **THEN** resolution returns first matching connection ID
-- **AND** connections are interchangeable (same provider + model)
-
-#### Scenario: Collection with no embedding metadata
-- **WHEN** collection has no `embedding_provider` or `embedding_model` in metadata (no documents uploaded yet)
-- **THEN** resolution returns null
-- **AND** test functionality is disabled in UI
-
-#### Scenario: Provider offline during resolution
-- **WHEN** provider.listModels() throws error (provider unavailable)
-- **THEN** error is caught and logged
-- **AND** provider model list returned as empty array
-- **AND** collections using that provider get null resolved connection
-
-### Requirement: UI Config Embedding Connection Resolution
-The `/api/ui-config` endpoint SHALL include resolved embedding connections for all collections to enable frontend testing capabilities.
-
-#### Scenario: UI config includes resolved connections
-- **WHEN** GET `/api/ui-config` is called
-- **THEN** response includes collections array
-- **AND** each collection has `metadata.embedding_connection` field with resolved connection ID or null
-
-#### Scenario: Model fetching is cached per provider type
-- **WHEN** config has 3 Ollama connections and 2 OpenAI connections
-- **THEN** `listModels()` is called once for Ollama provider
-- **AND** `listModels()` is called once for OpenAI provider
-- **AND** results are reused across connections of same provider type
-
-#### Scenario: UI config performance overhead
-- **WHEN** UI config endpoint resolves embedding connections
-- **THEN** total overhead is ~250-600ms depending on provider count
-- **AND** caching minimizes redundant provider calls
-
 ### Requirement: Collection Test Query Endpoint
-The system SHALL provide an endpoint for testing queries against collections using the collection's original embedding model.
+The system SHALL provide an endpoint for testing queries against collections using the RAG wrapper's embedding generation.
 
 #### Scenario: Test query with valid parameters
-- **WHEN** POST `/api/collections/:name/test-query` is called with `query`, `service`, `embedding_connection`, `embedding_model`, and optional `top_k`
-- **THEN** it generates embedding for query using specified connection and model
-- **AND** queries collection via RAG provider
+- **WHEN** POST `/api/collections/:name/test-query` is called with `query`, `service`, and optional `top_k`
+- **THEN** it sends query text to RAG wrapper without generating embeddings
+- **AND** wrapper generates query embedding using collection's model
 - **AND** returns results with distances, metadata, and execution time
 
 #### Scenario: Test query response format
 - **WHEN** test query executes successfully
-- **THEN** response includes: `query` (text), `collection` (name), `service` (name), `results` (array with rank, distance, content, metadata), `embedding_model`, `embedding_dimensions`, `execution_time_ms`
+- **THEN** response includes: `query` (text), `collection` (name), `service` (name), `results` (array with rank, distance, content, metadata), `embedding_model` (from collection metadata), `execution_time_ms`
+- **AND** no longer includes `embedding_dimensions` or `embedding_connection`
 
 #### Scenario: Missing query parameter
 - **WHEN** POST `/api/collections/:name/test-query` is called without `query` field
@@ -359,15 +300,6 @@ The system SHALL provide an endpoint for testing queries against collections usi
 #### Scenario: Missing service parameter
 - **WHEN** POST `/api/collections/:name/test-query` is called without `service` field
 - **THEN** returns 400 error: "Service name is required"
-
-#### Scenario: Missing embedding connection parameter
-- **WHEN** POST `/api/collections/:name/test-query` is called without `embedding_connection` field
-- **THEN** returns 400 error: "embedding_connection is required"
-- **AND** includes hint: "Collection may not have embeddings configured yet"
-
-#### Scenario: Missing embedding model parameter
-- **WHEN** POST `/api/collections/:name/test-query` is called without `embedding_model` field
-- **THEN** returns 400 error: "embedding_model is required"
 
 #### Scenario: Invalid service name
 - **WHEN** POST `/api/collections/:name/test-query` is called with non-existent service
@@ -379,78 +311,36 @@ The system SHALL provide an endpoint for testing queries against collections usi
 
 #### Scenario: Query execution timing
 - **WHEN** test query is executed
-- **THEN** execution time is measured from embedding generation start to results return
+- **THEN** execution time is measured from wrapper request start to results return
 - **AND** included in response as `execution_time_ms`
+- **AND** includes embedding generation time (now part of wrapper request)
 
 #### Scenario: Empty results
-- **WHEN** query returns no matching documents (collection empty or no matches)
+- **WHEN** query returns no matching documents
 - **THEN** returns successful response with empty results array
-- **AND** HTTP status is 200 (not an error)
+- **AND** HTTP status is 200
 
 ### Requirement: Collection Testing UI
-The Collections page SHALL provide an interactive testing interface for querying collections with the collection's original embedding model.
+The Collections page SHALL provide an interactive testing interface for querying collections without embedding connection parameters.
 
 #### Scenario: Test button visibility
-- **WHEN** collection has `metadata.embedding_connection` not null and `count > 0`
+- **WHEN** collection has `metadata.embedding_model` and `count > 0`
 - **THEN** "Test / Calibrate" button is visible on collection card
 
 #### Scenario: Test button disabled states
-- **WHEN** collection has `count === 0` or `metadata.embedding_connection === null`
+- **WHEN** collection has `count === 0` or `metadata.embedding_model` is missing
 - **THEN** "Test / Calibrate" button is disabled
-- **AND** tooltip explains why (no documents or no embedding connection)
-
-#### Scenario: Open test modal
-- **WHEN** user clicks "Test / Calibrate" button
-- **THEN** test modal opens
-- **AND** modal displays collection name as title
-- **AND** query input field is empty and focused
+- **AND** tooltip explains why (no documents or no embedding model configured)
 
 #### Scenario: Submit test query
 - **WHEN** user enters query text and clicks "Test Query" button
 - **THEN** API call is made to `/api/collections/:name/test-query`
-- **AND** request includes service, embedding_connection, embedding_model from collection metadata
+- **AND** request includes only `service` and `query` (no embedding parameters)
 - **AND** loading indicator is displayed during API call
 
 #### Scenario: Display test results
 - **WHEN** test query returns successfully
-- **THEN** results are displayed in sortable table
-- **AND** table shows columns: Rank, Distance, Content (truncated), Metadata
-- **AND** execution time and embedding dimensions displayed above table
-
-#### Scenario: Empty query validation
-- **WHEN** user attempts to submit test query with empty query text
-- **THEN** validation error is displayed
-- **AND** API call is not made
-
-#### Scenario: Test query error handling
-- **WHEN** test query API call fails
-- **THEN** error message is displayed to user
-- **AND** error details from API response are shown
-- **AND** results table is cleared
-
-#### Scenario: Results table sorting
-- **WHEN** test results are displayed
-- **THEN** user can sort by distance (ascending/descending)
-- **AND** default sort is by rank (ascending, same as distance ascending)
-
-#### Scenario: Content truncation
-- **WHEN** document content exceeds 200 characters in results table
-- **THEN** content is truncated with ellipsis
-- **AND** user can click to expand full content
-
-#### Scenario: Metadata display
-- **WHEN** results include document metadata
-- **THEN** metadata is displayed as formatted JSON or key-value pairs
-- **AND** metadata is readable and not overwhelming
-
-#### Scenario: No results message
-- **WHEN** test query returns empty results array
-- **THEN** message displayed: "No results found for this query"
-- **AND** suggestions provided (try different query, check collection contents)
-
-#### Scenario: Top K configuration
-- **WHEN** user can adjust top_k value in test modal
-- **THEN** default is 10
-- **AND** valid range is 1-100
-- **AND** value is included in API request
+- **THEN** results are displayed with embedding model from metadata
+- **AND** execution time includes embedding generation
+- **AND** no embedding dimensions displayed (not relevant to user)
 
