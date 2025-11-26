@@ -37,11 +37,6 @@ function Collections({ uiConfig, reloadConfig }) {
     embedding_model: ''
   });
   const [editAvailableEmbeddingModels, setEditAvailableEmbeddingModels] = useState([]);
-  
-  // Connection resolution state (shared by Document Upload Wizard)
-  const [resolvedConnection, setResolvedConnection] = useState(null);
-  const [connectionError, setConnectionError] = useState(null);
-  const [resolvingConnection, setResolvingConnection] = useState(false);
 
   // Document Upload Wizard state
   const [showUploadWizard, setShowUploadWizard] = useState(false);
@@ -685,68 +680,6 @@ function Collections({ uiConfig, reloadConfig }) {
       reloadConfig(); // Refresh collections list
     } catch (err) {
       alert('Error saving profile: ' + err.message);
-    }
-  };
-
-  const resolveCompatibleConnection = async (collection) => {
-    try {
-      const meta = collection.metadata;
-      if (!meta || !meta.embedding_provider || !meta.embedding_model) {
-        setConnectionError('Collection is missing embedding metadata.');
-        setResolvingConnection(false);
-        return;
-      }
-
-      // Step 1: Try to match by embedding_connection_id
-      if (meta.embedding_connection_id && llms[meta.embedding_connection_id]) {
-        setResolvedConnection(meta.embedding_connection_id);
-        setResolvingConnection(false);
-        return;
-      }
-
-      // Step 2: Search all LLM connections by discovering models
-      const requiredProvider = meta.embedding_provider;
-      const requiredModel = meta.embedding_model;
-
-      for (const [connectionId, connectionConfig] of Object.entries(llms)) {
-        if (connectionConfig.provider !== requiredProvider) continue;
-
-        // Discover models for this connection
-        try {
-          const res = await fetch('/api/connections/llm/discovery/models', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              provider: connectionConfig.provider,
-              config: connectionConfig
-            })
-          });
-          const data = await res.json();
-          const models = Array.isArray(data.models) ? data.models : [];
-          const embeddingModels = models.filter(m =>
-            m.type === 'embedding' || (m.capabilities || []).includes('embedding')
-          );
-
-          // Check if required model is in the list (exact match only)
-          if (embeddingModels.some(m => m.id === requiredModel)) {
-            setResolvedConnection(connectionId);
-            setResolvingConnection(false);
-            return;
-          }
-        } catch (err) {
-          console.warn(`Failed to discover models for ${connectionId}:`, err);
-        }
-      }
-
-      // Step 3: No match found
-      setConnectionError(
-        `No configured LLM connection supports ${requiredProvider}/${requiredModel}. ` +
-        `Please configure an ${requiredProvider} connection with this model.`
-      );
-      setResolvingConnection(false);
-    } catch (err) {
-      setConnectionError(`Error resolving connection: ${err.message}`);
-      setResolvingConnection(false);
     }
   };
 

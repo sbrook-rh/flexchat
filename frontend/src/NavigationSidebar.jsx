@@ -33,15 +33,6 @@ function NavigationSidebar({ activeTab, onTabChange, tabStates }) {
       description: 'Knowledge sources'
     },
     {
-      id: 'embeddings',
-      label: 'Embeddings',
-      icon: '📦',
-      enabled: tabStates.embeddings.enabled,
-      tooltip: tabStates.embeddings.enabled ? null : 'Configure RAG Services first',
-      badge: null, // Phase 3
-      description: 'Vector embeddings'
-    },
-    {
       id: 'topic',
       label: 'Topic Detection',
       icon: '🎯',

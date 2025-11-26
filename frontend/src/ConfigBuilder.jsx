@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import NavigationSidebar from './NavigationSidebar';
 import LLMProvidersSection from './sections/LLMProvidersSection';
 import RAGServicesSection from './sections/RAGServicesSection';
-import EmbeddingsSection from './sections/EmbeddingsSection';
 import TopicSection from './sections/TopicSection';
 import IntentSection from './sections/IntentSection';
 import HandlersSection from './sections/HandlersSection';
@@ -409,9 +408,6 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     const handlerCount = (workingConfig.responses || []).length;
     
     return {
-      embeddings: { 
-        enabled: ragCount > 0 
-      },
       topic: { 
         enabled: llmCount > 0 
       },
@@ -559,12 +555,6 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     setValidationState('dirty');
   };
 
-  // Handler for embeddings configuration updates
-  const handleEmbeddingsUpdate = (updatedConfig) => {
-    setWorkingConfig(updatedConfig);
-    setValidationState('dirty');
-  };
-
   // Handler for intent detection configuration updates
   const handleIntentUpdate = (updatedConfig) => {
     setWorkingConfig(updatedConfig);
@@ -590,16 +580,6 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             onAddRAGService={handleAddRAGService}
             onEditRAGService={handleEditRAGService}
             onDeleteRAGService={handleDeleteRAGService}
-          />
-        );
-      case 'embeddings':
-        return (
-          <EmbeddingsSection
-            workingConfig={workingConfig}
-            onUpdate={handleEmbeddingsUpdate}
-            modelsCache={modelsCache}
-            setModelsCache={setModelsCache}
-            fetchModelsForProvider={fetchModelsForProvider}
           />
         );
       case 'topic':
