@@ -156,7 +156,6 @@ const ChatView = ({ uiConfig }) => {
         setSelectedModels(defaults);
         setAvailableModels(models);
       }
-      setLoadingModels(false);
     }
   }, [uiConfig]);
 
@@ -334,7 +333,7 @@ const ChatView = ({ uiConfig }) => {
               return (
                 <div key={wrapper.name} className="mb-4">
                   <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-200">
-                    <h4 className="text-xs font-semibold text-gray-600">{wrapper.name}</h4>
+                    <h4 className="text-xs font-semibold text-gray-600">{wrapper.description}</h4>
                     {!wrapper.collection && (
                       <button
                         onClick={() => navigate(`/collections?wrapper=${wrapper.name}`)}

@@ -48,6 +48,7 @@ async function listCollections(ragServices, ragProviders) {
         // Track this wrapper service
         const wrapperInfo = {
           name: serviceName,
+          description: serviceConfig.description,
           url: serviceConfig.url,
           collectionCount: providerCollections.length
         };
