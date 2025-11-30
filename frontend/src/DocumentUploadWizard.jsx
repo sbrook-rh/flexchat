@@ -676,7 +676,7 @@ function FieldMappingStep({ wizardState, onUpdate }) {
   wizardState.rawDocuments.forEach(doc => {
     Object.keys(doc).forEach(key => allFields.add(key));
   });
-  const fieldNames = Array.from(allFields).sort();
+  const fieldNames = Array.from(allFields);
 
   const { text_fields, id_field, metadata_fields } = wizardState.schema;
 
