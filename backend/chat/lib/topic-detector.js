@@ -131,11 +131,20 @@ async function identifyTopic(userMessage, previousMessages, currentTopic, llmCon
 
     const raw = response.content.trim();
     console.log(`🧾 Topic detection raw response:\n${raw}\n`);
-    const match = raw.match(/\{[\s\S]*\}/); // extract JSON if wrapped in text
+    
+    // First, try to extract JSON from markdown code blocks (```json ... ```)
+    const codeBlockMatch = raw.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    let jsonText = codeBlockMatch ? codeBlockMatch[1].trim() : raw;
+    
+    // If no code block, try to extract JSON object from text
+    if (!codeBlockMatch) {
+      const match = jsonText.match(/\{[\s\S]*?\}/);
+      jsonText = match ? match[0] : jsonText;
+    }
 
     let parsed;
     try {
-      parsed = match ? JSON.parse(match[0]) : { topic_status: "continuation", topic_summary: raw };
+      parsed = JSON.parse(jsonText);
     } catch (parseErr) {
       console.warn(`⚠️ Failed to parse JSON response from topic detection`);
       console.warn(`   Model output: ${raw.slice(0, 200)}`);
