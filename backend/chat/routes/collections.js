@@ -545,7 +545,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
   router.post('/collections/:name/test-query', async (req, res) => {
     try {
       const { name } = req.params;
-      const { query, top_k = 10, service, embedding_connection, embedding_model } = req.body;
+      const { query, top_k = 10, service } = req.body;
       
       // Validation
       if (!query) {
@@ -554,17 +554,6 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       
       if (!service) {
         return res.status(400).json({ error: 'Service name is required' });
-      }
-      
-      if (!embedding_connection) {
-        return res.status(400).json({ 
-          error: 'embedding_connection is required',
-          hint: 'Collection may not have embeddings configured yet'
-        });
-      }
-      
-      if (!embedding_model) {
-        return res.status(400).json({ error: 'embedding_model is required' });
       }
       
       const config = getConfig();
@@ -594,7 +583,6 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
         collection: name,
         service,
         results: results.results || results,
-        embedding_model: embedding_model,
         execution_time_ms: endTime - startTime
       });
     } catch (error) {
