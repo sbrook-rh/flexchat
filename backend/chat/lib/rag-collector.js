@@ -100,7 +100,8 @@ async function collectRagResults(userMessage, topic, currentTopic, selectedColle
       
       // Get description from collection metadata (if available)
       const description = collectionMetadata.description || `Information about ${collectionName}`;
-      
+      const titleField = collectionMetadata.title_field || 'title';
+      const sourceField = collectionMetadata.source_field || 'source';
       // Add to results array
       const ragResult = {
         result_type: resultType,
@@ -108,8 +109,8 @@ async function collectRagResults(userMessage, topic, currentTopic, selectedColle
         collection: collectionName,
         documents: results.map(r => ({
           text: r.text,
-          title: r.metadata?.title,
-          source: r.metadata?.source,
+          title: r.metadata?.[titleField],
+          source: r.metadata?.[sourceField],
           metadata: r.metadata,
           collection: collectionName  // Add collection name to each document
         })),

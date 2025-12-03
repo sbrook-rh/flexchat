@@ -2,6 +2,8 @@
 
 A configuration-driven, AI-powered chat application with topic-aware RAG (Retrieval-Augmented Generation), dynamic knowledge base management, and transparent multi-model support.
 
+- see [`PROJECT_STATUS.md`]
+
 ## Key Features
 
 ### 🤖 **Multi-Provider AI Support**
