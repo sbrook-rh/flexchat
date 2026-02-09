@@ -14,7 +14,7 @@ const createConfigRouter = require('./routes/config');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const app = express();
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' }));
 
 // Enable CORS
 app.use((req, res, next) => {
@@ -109,7 +109,7 @@ async function reinitializeProviders(newRawConfig) {
         }
 
         aiProviders[name] = provider;
-        providerStatus.llms[name] = { connected: true };
+        providerStatus.llms[name] = { ...health, connected: true };
         console.log(`      ✅ ${name} initialized successfully`);
       } catch (error) {
         console.error(`      ❌ Failed to initialize ${name}: ${error.message}`);
@@ -147,7 +147,7 @@ async function reinitializeProviders(newRawConfig) {
         }
 
         ragProviders[name] = service;
-        providerStatus.rag_services[name] = { connected: true };
+        providerStatus.rag_services[name] = { ...health, connected: true };
         console.log(`      ✅ ${name} initialized successfully`);
       } catch (error) {
         console.error(`      ❌ Failed to initialize ${name}: ${error.message}`);
@@ -237,7 +237,7 @@ async function initialize() {
       }
 
       aiProviders[name] = provider;
-      providerStatus.llms[name] = { connected: true };
+      providerStatus.llms[name] = { ...health, connected: true };
       console.log(`   ✅ ${name} initialized successfully`);
     } catch (error) {
       console.error(`   ❌ Failed to initialize AI provider ${name}: ${error.message}`);
@@ -281,7 +281,7 @@ async function initialize() {
         }
 
         ragProviders[name] = provider;
-        providerStatus.rag_services[name] = { connected: true };
+        providerStatus.rag_services[name] = { ...health, connected: true };
         console.log(`   ✅ ${name} initialized successfully`);
       } catch (error) {
         console.error(`   ❌ Failed to initialize RAG service ${name}: ${error.message}`);

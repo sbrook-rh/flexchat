@@ -1,0 +1,58 @@
+# Embedding Models Configuration
+# 
+# This file configures which embedding models the RAG wrapper loads at startup.
+# Models are downloaded from HuggingFace on first use and cached locally.
+#
+# Each model entry requires:
+#   - id: Short alias used in API requests and collection metadata
+#   - path: HuggingFace model ID or local filesystem path
+#
+# Recommended models (by use case):
+#
+# Fast & Lightweight (~90MB):
+#   - sentence-transformers/all-MiniLM-L6-v2 (384 dimensions)
+#
+# Balanced Performance (~500MB):
+#   - nomic-ai/nomic-embed-text-v1 (768 dimensions)
+#
+# High Quality (~2GB):
+#   - mixedbread-ai/mxbai-embed-large-v1 (1024 dimensions)
+
+embeddings:
+  # Example: High-quality model for production
+  - id: mxbai-large
+    path: mixedbread-ai/mxbai-embed-large-v1
+  
+  # Example: Balanced model for general use
+  - id: nomic
+    path: nomic-ai/nomic-embed-text-v1
+  
+  # Example: Lightweight model for development/testing
+  - id: minilm
+    path: sentence-transformers/all-MiniLM-L6-v2
+
+# Note: Models are downloaded to ~/.cache/huggingface/ on first run
+# Use --download-models flag to pre-download without starting server:
+#   python server.py --download-models --embeddings-config embeddings.yml
+#
+# Security: trust_remote_code=True is enabled for models that require custom code
+# (e.g., nomic-ai/nomic-embed-text-v1). Only use models from trusted sources.
+
+# ============================================================================
+# OpenShift / Container Deployments (Volume Mounts)
+# ============================================================================
+# For production deployments with pre-downloaded models on persistent volumes:
+#
+# embeddings:
+#   - id: mxbai-large
+#     path: /models/mxbai-embed-large-v1
+#   
+#   - id: nomic
+#     path: /models/nomic-embed-text-v1
+#
+# Then mount your models volume at /models in your deployment:
+#   volumeMounts:
+#     - name: embedding-models
+#       mountPath: /models
+#       readOnly: true
+

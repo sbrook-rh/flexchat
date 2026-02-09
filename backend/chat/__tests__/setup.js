@@ -42,23 +42,29 @@ jest.mock('@google/genai', () => ({
   }))
 }));
 
-// Mock OpenAI
-jest.mock('openai', () => ({
-  OpenAI: jest.fn().mockImplementation(() => ({
-    models: {
-      list: jest.fn().mockResolvedValue({
-        data: [
-          {
-            id: 'gpt-3.5-turbo',
-            object: 'model',
-            created: 1677610602,
-            owned_by: 'openai'
-          }
-        ]
-      })
-    }
-  }))
-}));
+// Mock OpenAI (using manual mock to avoid dependency issues)
+jest.mock('openai', () => {
+  try {
+    return {
+      OpenAI: jest.fn().mockImplementation(() => ({
+        models: {
+          list: jest.fn().mockResolvedValue({
+            data: [
+              {
+                id: 'gpt-3.5-turbo',
+                object: 'model',
+                created: 1677610602,
+                owned_by: 'openai'
+              }
+            ]
+          })
+        }
+      }))
+    };
+  } catch (e) {
+    return {};
+  }
+}, { virtual: true });
 
 // Mock Ollama
 jest.mock('axios', () => ({

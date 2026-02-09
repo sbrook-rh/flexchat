@@ -1,15 +1,71 @@
 import React, { useState, useEffect } from 'react';
 
 /**
+ * Generate a stable kebab-case ID from a description
+ */
+function generateServiceId(description) {
+  return description
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Extract ports from localhost URLs in existing services
+ */
+function getUsedPorts(services) {
+  const ports = [];
+  if (!services || !Array.isArray(services)) return ports;
+  
+  services.forEach(service => {
+    const url = service.config?.url || '';
+    const match = url.match(/^https?:\/\/localhost:(\d+)/);
+    if (match) {
+      ports.push(parseInt(match[1], 10));
+    }
+  });
+  
+  return ports;
+}
+
+/**
+ * Find the next available sequential port starting from basePort
+ */
+function getNextAvailablePort(basePort, usedPorts) {
+  const sortedPorts = [...usedPorts].sort((a, b) => a - b);
+  
+  // If no ports in use, return base port
+  if (sortedPorts.length === 0) {
+    return basePort;
+  }
+  
+  // Check for gaps in the sequence
+  for (let i = 0; i < sortedPorts.length; i++) {
+    const expectedPort = basePort + i;
+    if (sortedPorts[i] !== expectedPort) {
+      return expectedPort; // Found a gap
+    }
+  }
+  
+  // No gaps, return the next port after the last one
+  return sortedPorts[sortedPorts.length - 1] + 1;
+}
+
+/**
  * RAGWizard - Step-by-step wizard for adding/editing RAG services
  * Decision 15: Separate wizard for RAG services (simpler, no model selection)
  */
-function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
+function RAGWizard({ onSave, onCancel, editMode = false, initialData = null, existingServices = [] }) {
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedProvider, setSelectedProvider] = useState(editMode ? initialData?.provider : null);
   const [providerSchema, setProviderSchema] = useState(null);
   const [config, setConfig] = useState(editMode ? initialData?.config : {});
-  const [providerName, setProviderName] = useState(editMode ? initialData?.name : '');
+  
+  // Separate ID (stable) from description (user-editable)
+  const [serviceId, setServiceId] = useState(editMode ? initialData?.id : null);
+  const [description, setDescription] = useState(
+    editMode ? (initialData?.config?.description || initialData?.name) : ''
+  );
   
   // Connection testing state
   const [testStatus, setTestStatus] = useState(null); // null, 'testing', 'success', 'error'
@@ -45,9 +101,20 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
           setProviderSchema(schema);
           const defaults = {};
           schema.fields?.forEach(field => {
-            if (field.default && !config[field.name]) {
+            // In edit mode, preserve existing values
+            if (editMode && config[field.name]) {
+              return;
+            }
+            
+            // Apply smart port default for ChromaDB Wrapper URL field
+            if (field.name === 'url' && selectedProvider === 'chromadb-wrapper' && !editMode) {
+              const usedPorts = getUsedPorts(existingServices);
+              const nextPort = getNextAvailablePort(5006, usedPorts);
+              defaults[field.name] = `http://localhost:${nextPort}`;
+            } else if (field.default && !config[field.name]) {
               defaults[field.name] = field.default;
             }
+            
             if (field.name === 'provider') {
               defaults.provider = selectedProvider;
             }
@@ -56,7 +123,7 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
         })
         .catch(err => console.error('Failed to load schema:', err));
     }
-  }, [selectedProvider]);
+  }, [selectedProvider, existingServices, editMode]);
   
   // Auto-wrap env var with ${}
   const handleEnvVarBlur = (fieldName) => {
@@ -78,7 +145,7 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
         });
       }
       case 3: return testStatus === 'success';
-      case 4: return providerName.trim() !== '';
+      case 4: return description.trim() !== '';
       default: return true;
     }
   };
@@ -123,8 +190,10 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
   
   // Save
   const handleSave = () => {
+    const finalServiceId = editMode ? serviceId : generateServiceId(description);
     onSave({
-      name: providerName,
+      id: finalServiceId,
+      name: description,
       type: 'rag',
       config: config
     });
@@ -330,20 +399,46 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
             <h2 className="text-xl font-semibold text-gray-900">Name Your RAG Service</h2>
             <p className="text-sm text-gray-600">Give this RAG service a memorable name.</p>
             
-            <div className="mt-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Service Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={providerName}
-                onChange={(e) => setProviderName(e.target.value)}
-                placeholder="e.g., MyChroma, ProductionVectorDB"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-              <p className="text-xs text-gray-500 mt-2">
-                This name will be used to reference this service in response handlers.
-              </p>
+            <div className="mt-6 space-y-4">
+              {/* Show ID field in edit mode (read-only) */}
+              {editMode && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Service ID <span className="text-gray-500 text-xs">(cannot be changed)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={serviceId}
+                      disabled
+                      className="w-full px-4 py-2 bg-gray-50 text-gray-600 border border-gray-300 rounded-lg cursor-not-allowed"
+                    />
+                    <span className="absolute right-3 top-2.5 text-gray-400" title="Locked">🔒</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    This ID is used by response handlers and cannot be changed after creation.
+                  </p>
+                </div>
+              )}
+              
+              {/* Description field (always editable) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="e.g., Red Hat Products, Customer Support Docs"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                {!editMode && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    A stable ID will be generated from this name (e.g., "Red Hat Products" → red-hat-products)
+                  </p>
+                )}
+              </div>
             </div>
             
             <div className="mt-6 p-4 bg-purple-50 border border-purple-200 rounded-lg">
@@ -353,9 +448,15 @@ function RAGWizard({ onSave, onCancel, editMode = false, initialData = null }) {
                   <dt>Provider:</dt>
                   <dd className="font-medium">{selectedProvider}</dd>
                 </div>
+                {!editMode && description && (
+                  <div className="flex justify-between">
+                    <dt>Generated ID:</dt>
+                    <dd className="font-medium font-mono text-xs">{generateServiceId(description)}</dd>
+                  </div>
+                )}
                 <div className="flex justify-between">
-                  <dt>Name:</dt>
-                  <dd className="font-medium">{providerName || '(not set)'}</dd>
+                  <dt>Display Name:</dt>
+                  <dd className="font-medium">{description || '(not set)'}</dd>
                 </div>
               </dl>
             </div>

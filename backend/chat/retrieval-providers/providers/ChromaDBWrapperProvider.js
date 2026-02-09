@@ -127,14 +127,26 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
       const isHealthy = response.status === 200 && 
                        (!response.data.status || response.data.status === 'ready' || response.data.status === 'healthy');
 
+      const details = {
+        url: this.baseUrl,
+        collection: this.collection,
+        responseTime: response.headers['x-response-time'] || 'unknown'
+      };
+      
+      // Include embedding models if present
+      if (response.data.embedding_models) {
+        details.embedding_models = response.data.embedding_models;
+      }
+      
+      // Include cross-encoder status if present
+      if (response.data.cross_encoder) {
+        details.cross_encoder = response.data.cross_encoder;
+      }
+
       return {
         status: isHealthy ? 'healthy' : 'degraded',
         message: isHealthy ? 'Wrapper service is responding' : `Wrapper service returned unexpected status: ${response.data.status}`,
-        details: {
-          url: this.baseUrl,
-          collection: this.collection,
-          responseTime: response.headers['x-response-time'] || 'unknown'
-        }
+        details
       };
     } catch (error) {
       return {
@@ -435,19 +447,50 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
   }
 
   /**
+   * Empty a collection by deleting all documents
+   * Preserves collection metadata and settings
+   * @param {string} collectionName - Collection name
+   * @returns {Promise<Object>} Empty result with count_deleted
+   */
+  async emptyCollection(collectionName) {
+    if (!collectionName) {
+      throw new Error('Collection name is required');
+    }
+    
+    try {
+      const response = await axios.delete(
+        `${this.baseUrl}/collections/${collectionName}/documents/all`,
+        {
+          timeout: 30000,
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.customHeaders,
+            ...(this.auth ? this.getAuthHeader() : {})
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Error emptying collection ${collectionName}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Update collection metadata
    * @param {string} collectionName - Collection name
    * @param {Object} metadata - Metadata to update
    * @returns {Promise<Object>} Updated collection info
    */
-  async updateCollectionMetadata(collectionName, metadata) {
+  async updateCollectionMetadata(collectionName, metadata, merge = false) {
     if (!collectionName) {
       throw new Error('Collection name is required');
     }
     
     try {
       const response = await axios.put(
-        `${this.baseUrl}/collections/${collectionName}/metadata`,
+        `${this.baseUrl}/collections/${collectionName}/metadata?merge=${merge}`,
         { metadata },
         {
           timeout: 10000,
@@ -462,6 +505,41 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
       return response.data;
     } catch (error) {
       console.error(`Error updating collection metadata for ${collectionName}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get unique metadata values for a field
+   * @param {string} collectionName - Collection name
+   * @param {string} field - Metadata field name
+   * @returns {Promise<Object>} {field, values, count}
+   */
+  async getMetadataValues(collectionName, field) {
+    if (!collectionName) {
+      throw new Error('Collection name is required');
+    }
+    if (!field) {
+      throw new Error('Field name is required');
+    }
+    
+    try {
+      const response = await axios.get(
+        `${this.baseUrl}/collections/${collectionName}/metadata-values`,
+        {
+          params: { field },
+          timeout: 10000,
+          headers: {
+            'Content-Type': 'application/json',
+            ...this.customHeaders,
+            ...(this.auth ? this.getAuthHeader() : {})
+          }
+        }
+      );
+      
+      return response.data;
+    } catch (error) {
+      console.error(`Error getting metadata values for ${collectionName}.${field}:`, error.message);
       throw error;
     }
   }
@@ -484,11 +562,6 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
           collection: collection,  // Dynamic collection support
           top_k: options.top_k || this.defaultTopK
         };
-        
-        // Include pre-computed query embedding if provided
-        if (options.query_embedding) {
-          payload.query_embedding = options.query_embedding;
-        }
         
         return await axios.post(
           `${this.baseUrl}/query`,
@@ -533,6 +606,61 @@ class ChromaDBWrapperProvider extends RetrievalProvider {
     } catch (error) {
       console.error(`Error querying ChromaDB wrapper (collection: ${collection}):`, error.message);
       throw error;
+    }
+  }
+
+  /**
+   * Rerank documents using cross-encoder model
+   * @param {string} query - Query text
+   * @param {Array} documents - Array of documents to rerank (each: {id, text})
+   * @param {number} topK - Optional limit on returned results
+   * @returns {Promise<Array>} Reranked documents or original if unavailable
+   */
+  async rerank(query, documents, topK = null) {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
+
+    // Check if cross-encoder available (graceful degradation)
+    try {
+      const health = await this.healthCheck();
+      if (!health.details?.cross_encoder) {
+        console.warn('⚠️  Cross-encoder not available, returning original ranking');
+        return documents;
+      }
+    } catch (error) {
+      console.warn('⚠️  Could not check cross-encoder availability:', error.message);
+      return documents;
+    }
+
+    try {
+      const response = await this.withRetry(async () => {
+        return await axios.post(
+          `${this.baseUrl}/rerank`,
+          {
+            query: query,
+            documents: documents.map(d => ({
+              id: d.id || d.metadata?.id || `doc-${Date.now()}-${Math.random()}`,
+              text: d.text
+            })),
+            top_k: topK
+          },
+          {
+            timeout: this.timeout,
+            headers: {
+              'Content-Type': 'application/json',
+              ...this.customHeaders,
+              ...(this.auth ? this.getAuthHeader() : {})
+            }
+          }
+        );
+      });
+
+      return response.data.reranked;
+    } catch (error) {
+      console.error('❌ Error calling /rerank endpoint:', error.message);
+      console.warn('⚠️  Falling back to original document order');
+      return documents;
     }
   }
 

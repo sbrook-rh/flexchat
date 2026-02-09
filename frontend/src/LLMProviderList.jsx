@@ -33,21 +33,28 @@ function LLMProviderList({
     );
   };
 
-  const LLMProviderCard = ({ name, config, onEdit, onDelete }) => (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-lg font-semibold text-gray-900">{name}</h3>
-            <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700">
-              LLM
-            </span>
+  const LLMProviderCard = ({ providerId, config, onEdit, onDelete }) => {
+    // Use description for display, fallback to ID for backward compatibility
+    const displayName = config.description || providerId;
+    
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div className="flex items-start justify-between mb-2">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-semibold text-gray-900">{displayName}</h3>
+              <span className="px-2 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700">
+                LLM
+              </span>
+            </div>
+            <p className="text-xs text-gray-500 mb-2">
+              ID: <span className="font-mono">{providerId}</span>
+            </p>
+            <p className="text-sm text-gray-600 mb-2">
+              Provider: <span className="font-medium">{config.provider}</span>
+            </p>
+            {getStatusBadge(null)}
           </div>
-          <p className="text-sm text-gray-600 mb-2">
-            Provider: <span className="font-medium">{config.provider}</span>
-          </p>
-          {getStatusBadge(null)}
-        </div>
         
         {/* Edit/delete actions */}
         <div className="flex gap-2 ml-4">
@@ -62,7 +69,7 @@ function LLMProviderList({
           </button>
           <button
             onClick={() => {
-              if (window.confirm(`Delete LLM provider "${name}"?`)) {
+              if (window.confirm(`Delete LLM provider "${displayName}"?`)) {
                 onDelete();
               }
             }}
@@ -100,7 +107,8 @@ function LLMProviderList({
         </dl>
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6">
@@ -124,13 +132,13 @@ function LLMProviderList({
 
       {llmProviders.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {llmProviders.map(([name, config]) => (
+          {llmProviders.map(([providerId, config]) => (
             <LLMProviderCard
-              key={name}
-              name={name}
+              key={providerId}
+              providerId={providerId}
               config={config}
-              onEdit={() => onEditLLMProvider(name, config)}
-              onDelete={() => onDeleteLLMProvider(name)}
+              onEdit={() => onEditLLMProvider(providerId, config)}
+              onDelete={() => onDeleteLLMProvider(providerId)}
             />
           ))}
         </div>

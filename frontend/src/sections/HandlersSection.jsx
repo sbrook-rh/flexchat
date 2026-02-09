@@ -145,6 +145,8 @@ function HandlersSection({ workingConfig, onUpdate, modelsCache, setModelsCache,
  */
 function HandlerCard({ handler, index, totalHandlers, isCatchAll, onEdit, onDelete, onDuplicate, onMoveUp, onMoveDown, workingConfig }) {
   const matchSummary = getMatchSummary(handler.match, workingConfig);
+  const llmConfig = workingConfig?.llms?.[handler.llm];
+  const llmDisplayName = llmConfig?.description || handler.llm;
   
   return (
     <div className={`border rounded-lg p-4 ${isCatchAll ? 'bg-purple-50 border-purple-300' : 'bg-white border-gray-300'}`}>
@@ -161,7 +163,7 @@ function HandlerCard({ handler, index, totalHandlers, isCatchAll, onEdit, onDele
           </div>
           <div className="text-sm">
             <code className="bg-gray-100 px-2 py-1 rounded font-mono text-xs">
-              {handler.llm}/{handler.model}
+              {llmDisplayName}/{handler.model}
             </code>
             {handler.max_tokens && (
               <span className="ml-2 text-xs text-gray-600">
@@ -299,7 +301,9 @@ function getMatchSummary(match, workingConfig) {
   const summary = [];
   
   if (match.service) {
-    let text = `RAG Service: ${match.service}`;
+    const serviceConfig = workingConfig?.rag_services?.[match.service];
+    const serviceDisplayName = serviceConfig?.description || match.service;
+    let text = `RAG Service: ${serviceDisplayName}`;
     if (match.collection) {
       text += ` → Collection: ${match.collection}`;
     } else if (match.collection_contains) {

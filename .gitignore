@@ -5,6 +5,9 @@ config/*.json
 .env.local
 .env.*.local
 
+# Embedding model configurations (may contain specific model choices)
+backend/rag/embeddings*.yml
+
 # Dependencies
 node_modules/
 */node_modules/
@@ -71,3 +74,4 @@ ai
 openplan
 .cursor
 backend/loaders/
+.bash_history

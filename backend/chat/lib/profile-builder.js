@@ -36,10 +36,17 @@ async function buildProfileFromPartials(partialResults, topic, intentConfig, aiP
   
   // Step 1: Build initial profile structure
   const hasPartials = Array.isArray(partialResults) && partialResults.length > 0;
+  const allDocuments = hasPartials ? partialResults.flatMap(r => r.documents) : [];
   const profile = {
     rag_results: hasPartials ? 'partial' : 'none',
-    documents: hasPartials ? partialResults.flatMap(r => r.documents) : []
+    documents: allDocuments
   };
+  
+  console.log(`   📦 Partial results: ${partialResults.length} collection(s)`);
+  console.log(`   📄 Total documents in profile: ${allDocuments.length}`);
+  if (allDocuments.length > 0) {
+    console.log(`   📋 Document titles: ${allDocuments.map(d => d.title || 'Untitled').join(', ')}`);
+  }
   
   // Step 2: Build intent detection prompt
   const categories = [];

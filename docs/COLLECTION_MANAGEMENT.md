@@ -54,19 +54,105 @@ Users can create new collections via `/collections` page:
 
 ### 2. Document Upload
 
-Users can upload documents to collections:
+The system provides **two upload methods** depending on your document format:
+
+#### A. Upload JSON Wizard (Recommended for Raw Data)
+
+**Use this for:** Raw JSON documents that need field mapping (e.g., recipes, products, articles)
+
+**Access:** Click "Upload JSON" button on any collection in the Collections page
+
+**The wizard guides you through 3 steps:**
+
+##### Step 1: File Upload & Field Discovery
+
+![Document Upload Wizard - Step 1](screenshots/document_upload_wizard_step_1.png)
+
+- **Drag & drop** or **select** a JSON file containing an array of objects
+- System automatically discovers all available fields from the first document
+- Shows preview of discovered fields and document structure
+- Validates JSON format and array structure
+
+**Example JSON:**
+```json
+[
+  {
+    "title": "Chocolate Chip Cookies",
+    "ingredients": ["flour", "sugar", "chocolate chips"],
+    "instructions": "Mix ingredients...",
+    "prepTime": "15 minutes",
+    "category": "dessert"
+  },
+  ...
+]
+```
+
+##### Step 2: Field Mapping
+
+![Document Upload Wizard - Step 2](screenshots/document_upload_wizard_step_2.png)
+
+For each discovered field, choose its role:
+
+- **TEXT** - Used for semantic search (select at least one)
+- **ID** - Unique identifier for the document (optional, auto-generated if not specified)
+- **METADATA** - Additional attributes stored with the document
+- **SKIP** - Ignore this field
+
+**Smart Defaults:**
+- If collection has a saved schema, fields are **pre-selected automatically**
+- First upload requires manual mapping
+- Schema is saved for future uploads (unless you uncheck "Save schema")
+
+**Processing:**
+- TEXT fields are concatenated with `\n\n` separator
+- METADATA fields become searchable attributes
+- Arrays are automatically flattened with commas
+- Nested objects are JSON-stringified
+
+##### Step 3: Preview & Upload
+
+![Document Upload Wizard - Step 3](screenshots/document_upload_wizard_step_3.png)
+
+- **Preview** transformed documents (shows first 3)
+- **Review** document count and settings
+- **Configure** schema persistence:
+  - ✅ **"Save this configuration for future uploads"** (default for new collections)
+  - ⬜ **"Update existing schema"** (default when schema already exists)
+- **Upload** to collection
+
+**Behind the scenes:**
+1. Frontend sends raw documents + transformation schema to backend
+2. Backend transforms each document to `{id, text, metadata}` format
+3. Embeddings generated for the `text` field
+4. Documents stored in ChromaDB with metadata
+5. Schema saved to collection metadata (if checkbox selected)
+
+**Result:** Clean, searchable documents optimized for RAG retrieval!
+
+---
+
+#### B. Direct Document Upload (Pre-Formatted)
+
+**Use this for:** Documents already in `{id, text, metadata}` format, or simple text files
+
+**Access:** Click "Upload Documents" button on any collection
 
 **Supported Formats:**
 - Plain text (`.txt`)
 - Markdown (`.md`)
-- JSON (`.json`)
+- JSON with `{id, text, metadata}` structure
 - Paste text directly
 
 **Processing:**
-1. Frontend sends documents to chat server
+1. Frontend sends pre-formatted documents to chat server
 2. Chat server proxies to Python wrapper
 3. Wrapper generates embeddings via OpenAI
-4. Wrapper stores in ChromaDB with metadata
+4. Wrapper stores in ChromaDB
+
+**When to use:**
+- Uploading documentation files (.txt, .md)
+- Documents already transformed externally
+- Simple single-field content (no mapping needed)
 
 ### 3. Collection Selection (Chat UI)
 
@@ -304,13 +390,30 @@ User → /collections
 
 ### 2. Upload Documents
 
+**Option A: Using the Wizard (for raw JSON data):**
+
 ```
 User → Select collection: "docker_best_practices"
+  → Click "Upload JSON"
+  → Step 1: Upload recipes.json (array of Docker tip objects)
+  → Step 2: Map fields:
+     - TEXT: tip_title, tip_description
+     - ID: tip_id
+     - METADATA: category, difficulty
+  → Step 3: Preview, check "Save schema", Upload
+  → Documents transformed and embedded
+  → Schema saved for next time
+```
+
+**Option B: Using direct upload (for .txt/.md files):**
+
+```
+User → Select collection: "docker_best_practices"
+  → Click "Upload Documents"
   → Upload files:
      - docker_compose_guide.md
      - dockerfile_best_practices.txt
      - container_security.md
-  → Or paste Docker documentation
   → Submit
   → Documents processed and embedded
 ```
@@ -337,6 +440,7 @@ User → /chat
 | `threshold` | number | No | 0.3 | Match threshold (0-2, lower = stricter) |
 | `max_tokens` | number | No | 800 | Maximum tokens in response |
 | `temperature` | number | No | 0.7 | LLM creativity (0-2) |
+| `document_schema` | string | No | - | JSON string with saved field mapping (text_fields, id_field, metadata_fields) |
 | `created_at` | string | No | - | ISO timestamp of creation |
 
 ## Best Practices
@@ -432,14 +536,24 @@ Answer questions.
 
 ## Future Enhancements
 
-- Edit collection metadata
+### Collection Management
+- Edit collection metadata after creation
 - Document management (view, delete individual docs)
 - Collection analytics (query stats, popular docs)
 - Import/export collections
 - Collection templates
-- Bulk document upload
-- Document preview
-- Search within collections
 - Collection sharing
 - Version control for collections
+
+### Upload Wizard Enhancements
+- ~~Visual field mapping wizard~~ ✅ **COMPLETED**
+- ~~Schema persistence and reuse~~ ✅ **COMPLETED**
+- Support for JSONL files (line-delimited JSON)
+- Custom text separators per upload
+- Static metadata key-value inputs
+- Validation for required fields
+- Field type detection (string, number, boolean)
+- Preview more than 3 documents
+- Undo/edit after upload
+- Batch uploads with progress tracking
 

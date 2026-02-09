@@ -1,0 +1,24 @@
+session_name: flex
+start_directory: ~/Projects/flex-chat
+
+windows:
+  - window_name: frontend
+    start_directory: ./frontend
+    panes:
+      - npm run dev
+
+  - window_name: rag
+    start_directory: ./backend/rag
+    layout: tiled
+    panes:
+      - python server.py --chroma-path chroma_db/red_hat_products --cross-encoder BAAI/bge-reranker-base --embeddings-config embeddings-standard.yml
+      - python server.py --chroma-path chroma_db/cooking --port 5007 --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2 --embeddings-config embeddings-fast.yml
+      - python server.py --chroma-path chroma_db/documentation --port 5008 --cross-encoder BAAI/bge-reranker-large --embeddings-config embeddings-accurate.yml
+
+  - window_name: backend
+    start_directory: ./backend/chat
+    panes:
+      - sleep 10 && node server.js --config config.json
+
+  - window_name: misc
+    start_directory: .

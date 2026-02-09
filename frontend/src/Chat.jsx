@@ -90,10 +90,6 @@ const ChatView = ({ uiConfig }) => {
   const [selectedCollections, setSelectedCollections] = useState(new Set());
   const [llmConfig, setLlmConfig] = useState({});
 
-  const [availableModels, setAvailableModels] = useState({});
-  const [selectedModels, setSelectedModels] = useState({});
-  const [loadingModels, setLoadingModels] = useState(false);
-
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(localStorage.getItem('leftSidebarCollapsed') === 'true');
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(localStorage.getItem('rightSidebarCollapsed') === 'true');
 
@@ -160,61 +156,8 @@ const ChatView = ({ uiConfig }) => {
         setSelectedModels(defaults);
         setAvailableModels(models);
       }
-      setLoadingModels(false);
     }
   }, [uiConfig]);
-
-  // Resolve embedding connection for a collection
-  const resolveEmbeddingConnection = async (collection) => {
-    const meta = collection.metadata;
-    if (!meta || !meta.embedding_provider || !meta.embedding_model) {
-      throw new Error(`Collection ${collection.name} is missing embedding metadata`);
-    }
-
-    // Step 1: Try exact embedding_connection_id match
-    if (meta.embedding_connection_id && llmConfig[meta.embedding_connection_id]) {
-      return {
-        embedding_connection: meta.embedding_connection_id,
-        embedding_model: meta.embedding_model
-      };
-    }
-
-    // Step 2: Search all LLM connections by discovering models
-    const requiredProvider = meta.embedding_provider;
-    const requiredModel = meta.embedding_model;
-
-    for (const [connectionId, connectionConfig] of Object.entries(llmConfig)) {
-      if (connectionConfig.provider !== requiredProvider) continue;
-
-      try {
-        const res = await fetch('/api/connections/llm/discovery/models', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provider: connectionConfig.provider,
-            config: connectionConfig
-          })
-        });
-        const data = await res.json();
-        const models = Array.isArray(data.models) ? data.models : [];
-        const embeddingModels = models.filter(m =>
-          m.type === 'embedding' || (m.capabilities || []).includes('embedding')
-        );
-
-        // Check if required model is in the list (exact match only)
-        if (embeddingModels.some(m => m.id === requiredModel)) {
-          return {
-            embedding_connection: connectionId,
-            embedding_model: requiredModel
-          };
-        }
-      } catch (err) {
-        console.warn(`Failed to discover models for ${connectionId}:`, err);
-      }
-    }
-
-    throw new Error(`No compatible connection found for ${requiredProvider}/${requiredModel}`);
-  };
 
   const handleSend = async (retryCount = 0) => {
     if (!input.trim()) return;
@@ -225,40 +168,15 @@ const ChatView = ({ uiConfig }) => {
     setRetryTracker(retryCount);
 
     try {
-      // Resolve embedding connections for selected collections
-      console.log('🔧 Resolving embedding connections for collections...', { collections, llmConfig });
-      const selectedCollectionsArray = await Promise.all(
-        Array.from(selectedCollections).map(async key => {
-          const [service, name] = key.split(':');
-          const collection = collections.find(c => c.service === service && c.name === name);
-          
-          if (!collection) {
-            console.warn(`Collection not found: ${service}/${name}`);
-            return { service, name };
-          }
-
-          console.log(`🔍 Resolving embedding for ${service}/${name}...`, collection.metadata);
-
-          try {
-            const embeddingInfo = await resolveEmbeddingConnection(collection);
-            console.log(`✅ Resolved: ${service}/${name} → ${embeddingInfo.embedding_connection}/${embeddingInfo.embedding_model}`);
-            return {
-              service,
-              name,
-              embedding_connection: embeddingInfo.embedding_connection,
-              embedding_model: embeddingInfo.embedding_model
-            };
-          } catch (err) {
-            console.error(`❌ Failed to resolve embedding for ${service}/${name}:`, err);
-            // Return without embedding info - backend will handle error
-            return { service, name };
-          }
-        })
-      );
+      // Build array of selected collections (RAG wrapper handles embeddings internally)
+      const selectedCollectionsArray = Array.from(selectedCollections).map(key => {
+        const [service, name] = key.split(':');
+        return { service, name };
+      });
 
       console.log('📤 Sending payload with collections:', selectedCollectionsArray);
 
-      const payload = { prompt: inputText, previousMessages, retryCount, selectedCollections: selectedCollectionsArray, selectedModels, topic };
+      const payload = { prompt: inputText, previousMessages, retryCount, selectedCollections: selectedCollectionsArray, topic };
       const response = await fetch(chatApiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const data = await response.json();
 
@@ -407,60 +325,6 @@ const ChatView = ({ uiConfig }) => {
           {leftSidebarCollapsed ? '→' : '←'}
         </button>
         <div className={leftSidebarCollapsed ? 'hidden' : 'flex flex-col h-full px-4 pb-4 pt-14 overflow-y-auto'}>
-          {/* Full sidebar content preserved */}
-          {/* Model Selection */}
-          {Object.keys(selectedModels).length > 0 && (
-            <div className="mb-6">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Model Selection</h3>
-              {Object.keys(selectedModels)
-                .filter(key => !key.includes('_reasoning'))
-                .map(provider => {
-                  const reasoningKey = `${provider}_reasoning`;
-                  const hasReasoning = selectedModels[reasoningKey] !== undefined;
-
-                  return (
-                    <div key={provider} className="mb-4">
-                      <label className="block text-xs text-gray-600 mb-1 capitalize">
-                        {provider} - Response Model
-                      </label>
-                      <select
-                        value={selectedModels[provider]}
-                        onChange={(e) => setSelectedModels({ ...selectedModels, [provider]: e.target.value })}
-                        className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-3"
-                        disabled={loadingModels}
-                      >
-                        {availableModels[provider]?.map(model => (
-                          <option key={model.id} value={model.id}>{model.name}</option>
-                        )) || (
-                          <option value={selectedModels[provider]}>{selectedModels[provider]}</option>
-                        )}
-                      </select>
-
-                      {hasReasoning && (
-                        <>
-                          <label className="block text-xs text-gray-600 mb-1 capitalize">
-                            {provider} - Reasoning Model
-                          </label>
-                          <select
-                            value={selectedModels[reasoningKey]}
-                            onChange={(e) => setSelectedModels({ ...selectedModels, [reasoningKey]: e.target.value })}
-                            className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            disabled={loadingModels}
-                          >
-                            <option value="">(None - use response model)</option>
-                            {availableModels[reasoningKey]?.map(model => (
-                              <option key={model.id} value={model.id}>{model.name}</option>
-                            ))}
-                          </select>
-                          <p className="text-xs text-gray-500 mt-1 italic">🧠 Used for complex queries</p>
-                        </>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
-          )}
-
           {/* Collections */}
           <h3 className="text-sm font-semibold text-gray-700 mb-3">Collections</h3>
           {wrappers.length > 0 ? (
@@ -469,7 +333,7 @@ const ChatView = ({ uiConfig }) => {
               return (
                 <div key={wrapper.name} className="mb-4">
                   <div className="flex items-center justify-between mb-2 pb-1 border-b border-gray-200">
-                    <h4 className="text-xs font-semibold text-gray-600">{wrapper.name}</h4>
+                    <h4 className="text-xs font-semibold text-gray-600">{wrapper.description}</h4>
                     {!wrapper.collection && (
                       <button
                         onClick={() => navigate(`/collections?wrapper=${wrapper.name}`)}

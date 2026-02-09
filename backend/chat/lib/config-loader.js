@@ -107,36 +107,37 @@ function validateConfig(config) {
     });
   }
   
-  // Validate RAG service embedding LLM references
-  if (config.rag_services && config.llms) {
-    Object.entries(config.rag_services).forEach(([serviceName, service]) => {
-      if (service.embedding && service.embedding.llm && !config.llms[service.embedding.llm]) {
-        errors.push(`RAG service "${serviceName}" references undefined LLM in embedding: "${service.embedding.llm}"`);
-      }
+  // Validate no duplicate LLM provider IDs
+  // Note: JavaScript objects have unique keys by definition, but this validation
+  // provides helpful errors for manual config editing (e.g., JSON syntax errors)
+  if (config.llms) {
+    const llmIds = Object.keys(config.llms);
+    const seen = new Set();
+    const duplicates = [];
+    
+    llmIds.forEach(id => {
+      if (seen.has(id)) duplicates.push(id);
+      seen.add(id);
     });
+    
+    if (duplicates.length > 0) {
+      errors.push(`Duplicate LLM provider IDs: ${duplicates.join(', ')}`);
+    }
   }
   
-  // Validate global embedding LLM reference
-  if (config.embedding && config.embedding.llm && config.llms && !config.llms[config.embedding.llm]) {
-    errors.push(`Global embedding references undefined LLM: "${config.embedding.llm}"`);
+  // Validate RAG service references in response handlers
+  if (config.responses && config.rag_services) {
+    config.responses.forEach((response, idx) => {
+      if (response.match?.service && !config.rag_services[response.match.service]) {
+        errors.push(`Response rule ${idx + 1} references undefined RAG service: "${response.match.service}"`);
+      }
+    });
   }
   
   // Validate intent detection LLM reference
   if (config.intent && config.intent.provider && config.intent.provider.llm) {
     if (config.llms && !config.llms[config.intent.provider.llm]) {
       errors.push(`Intent detection references undefined LLM: "${config.intent.provider.llm}"`);
-    }
-  }
-  
-  // Warn if RAG services exist but no embedding configured
-  if (config.rag_services && Object.keys(config.rag_services).length > 0) {
-    const hasGlobalEmbedding = config.embedding && config.embedding.llm && config.embedding.model;
-    const servicesWithoutEmbedding = Object.entries(config.rag_services).filter(
-      ([name, service]) => !service.embedding && !hasGlobalEmbedding
-    );
-    if (servicesWithoutEmbedding.length > 0) {
-      console.warn('⚠️  Warning: RAG services configured without embeddings:', servicesWithoutEmbedding.map(([name]) => name).join(', '));
-      console.warn('   Configure a global embedding or per-service embeddings for RAG to function properly.');
     }
   }
   

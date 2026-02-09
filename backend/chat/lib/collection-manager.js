@@ -48,6 +48,7 @@ async function listCollections(ragServices, ragProviders) {
         // Track this wrapper service
         const wrapperInfo = {
           name: serviceName,
+          description: serviceConfig.description,
           url: serviceConfig.url,
           collectionCount: providerCollections.length
         };
@@ -147,13 +148,13 @@ async function deleteCollection(serviceName, collectionName, ragServices, ragPro
  * @param {Object} ragProviders - Initialized RAG provider instances
  * @returns {Promise<Object>} Updated collection info
  */
-async function updateCollectionMetadata(serviceName, collectionName, metadata, ragServices, ragProviders) {
+async function updateCollectionMetadata(serviceName, collectionName, metadata, ragServices, ragProviders, merge = false) {
   // Validate service exists and is a wrapper
   const serviceConfig = ragServices[serviceName];
   if (!serviceConfig) {
     throw new Error(`RAG service "${serviceName}" not found in configuration`);
   }
-  
+  console.log('serviceConfig', serviceConfig);
   if (serviceConfig.provider !== 'chromadb-wrapper') {
     throw new Error(`RAG service "${serviceName}" does not support metadata updates (not a wrapper)`);
   }
@@ -164,7 +165,36 @@ async function updateCollectionMetadata(serviceName, collectionName, metadata, r
   }
   
   // Update metadata via provider
-  return await provider.updateCollectionMetadata(collectionName, metadata);
+  return await provider.updateCollectionMetadata(collectionName, metadata, merge);
+}
+
+/**
+ * Get collection details including metadata
+ * 
+ * @param {string} serviceName - Name of the RAG service
+ * @param {string} collectionName - Name of collection
+ * @param {Object} ragProviders - Initialized RAG provider instances
+ * @param {Object} ragServices - RAG services from config
+ * @returns {Promise<Object>} Collection details with name, count, metadata
+ */
+async function getCollection(serviceName, collectionName, ragProviders, ragServices) {
+  // Validate service exists and is a wrapper
+  const serviceConfig = ragServices[serviceName];
+  if (!serviceConfig) {
+    throw new Error(`RAG service "${serviceName}" not found in configuration`);
+  }
+  
+  if (serviceConfig.provider !== 'chromadb-wrapper') {
+    throw new Error(`RAG service "${serviceName}" does not support collection info (not a wrapper)`);
+  }
+  
+  const provider = ragProviders[serviceName];
+  if (!provider) {
+    throw new Error(`RAG service "${serviceName}" provider not initialized`);
+  }
+  
+  // Get collection info via provider
+  return await provider.getCollectionInfo(collectionName);
 }
 
 /**
@@ -202,6 +232,7 @@ module.exports = {
   createCollection,
   deleteCollection,
   updateCollectionMetadata,
+  getCollection,
   addDocuments
 };
 

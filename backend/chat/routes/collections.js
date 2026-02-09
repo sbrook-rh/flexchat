@@ -4,12 +4,100 @@ const {
   listCollections, 
   createCollection, 
   deleteCollection, 
-  updateCollectionMetadata, 
+  updateCollectionMetadata,
+  getCollection,
   addDocuments 
 } = require('../lib/collection-manager');
-const { generateEmbeddings } = require('../lib/embedding-generator');
 const { getProcessedConfig } = require('../lib/config-loader');
 const { DEFAULT_TOPIC_PROMPT } = require('../lib/topic-detector');
+const { transformDocuments } = require('../lib/document-transformer');
+
+/**
+ * ChromaDB Metadata Constraints:
+ * 
+ * 1. Metadata values MUST be primitives: string, int, float, or boolean.
+ *    Complex types (objects, arrays) are NOT supported.
+ *    Solution: JSON.stringify complex values before storage, JSON.parse when reading.
+ * 
+ * 2. Special immutable keys (set at collection creation, cannot be updated):
+ *    - 'hnsw:space' - Distance metric (cosine, l2, ip)
+ *    Solution: Remove these keys before calling updateCollectionMetadata()
+ * 
+ * Examples:
+ * - document_schema: JSON.stringify(schema)  // Store
+ * - JSON.parse(metadata.document_schema)     // Read
+ * - const { 'hnsw:space': _, ...updatable } = metadata  // Remove immutable keys
+ */
+
+/**
+ * Fetch available embedding models for a provider
+ * Filters to embedding-capable models only
+ * @param {Object} provider - AI provider instance
+ * @param {string} providerName - Provider name for logging
+ * @returns {Array} Array of embedding models, or empty array on error
+ */
+async function fetchProviderEmbeddingModels(provider, providerName) {
+  try {
+    if (typeof provider.listModels !== 'function') {
+      return [];
+    }
+    
+    const models = await provider.listModels();
+    return models.filter(m => m.canEmbed && m.canEmbed());
+  } catch (error) {
+    console.warn(`⚠️  Failed to fetch models for provider '${providerName}':`, error.message);
+    return [];
+  }
+}
+
+/**
+ * Resolve current LLM connection for a collection's embedding model
+ * Matches on provider type AND verifies model availability
+ * @param {Object} collection - Collection with metadata
+ * @param {Object} llmConnections - Current LLM connections from config
+ * @param {Object} providerModels - Cached models by provider type
+ * @returns {string|null} Resolved connection ID or null
+ */
+async function resolveEmbeddingConnection(collection, llmConnections, providerModels) {
+  const metadata = collection.metadata || {};
+  const { embedding_connection_id, embedding_provider, embedding_model } = metadata;
+  
+  if (!embedding_provider || !embedding_model) {
+    return null;
+  }
+  
+  // Strategy 1: Try exact ID match first (config unchanged)
+  if (embedding_connection_id && llmConnections[embedding_connection_id]) {
+    const conn = llmConnections[embedding_connection_id];
+    
+    if (conn.provider === embedding_provider) {
+      const models = providerModels[embedding_provider] || [];
+      const hasModel = models.some(m => 
+        m.id === embedding_model || m.name === embedding_model
+      );
+      
+      if (hasModel) {
+        return embedding_connection_id;
+      }
+    }
+  }
+  
+  // Strategy 2: Find any connection with matching provider that has the model
+  for (const [connId, conn] of Object.entries(llmConnections)) {
+    if (conn.provider === embedding_provider) {
+      const models = providerModels[embedding_provider] || [];
+      const hasModel = models.some(m => 
+        m.id === embedding_model || m.name === embedding_model
+      );
+      
+      if (hasModel) {
+        return connId;
+      }
+    }
+  }
+  
+  return null;
+}
 
 /**
  * Create collections router with dependency injection
@@ -45,16 +133,56 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
    * GET /api/ui-config
    * 
    * Phase 1.6.5: Extended with provider status tracking
+   * Collection Testing: Extended with embedding connection resolution
    */
   router.get('/ui-config', async (req, res) => {
     try {
       // Get current state via getters (always up-to-date after hot-reload)
       const config = getConfig();
-      const { ragProviders } = getProviders();
+      const { ragProviders, aiProviders } = getProviders();
       const providerStatus = getProviderStatus();
       
       // Get collections and wrappers
       const collectionsData = await listCollections(config.rag_services, ragProviders);
+      
+      // Fetch available models per provider type (cached per provider, not per connection)
+      const providerModels = {};
+      const seenProviders = new Set();
+      
+      for (const [connId, connConfig] of Object.entries(config.llms || {})) {
+        const providerName = connConfig.provider;
+        
+        if (seenProviders.has(providerName)) {
+          continue;
+        }
+        seenProviders.add(providerName);
+        
+        const provider = aiProviders[connId];
+        if (provider) {
+          providerModels[providerName] = await fetchProviderEmbeddingModels(provider, providerName);
+        } else {
+          providerModels[providerName] = [];
+        }
+      }
+      
+      // Resolve embedding connections for all collections
+      const collectionsWithResolvedEmbeddings = await Promise.all(
+        collectionsData.collections.map(async (collection) => {
+          const resolvedConnection = await resolveEmbeddingConnection(
+            collection,
+            config.llms || {},
+            providerModels
+          );
+          
+          return {
+            ...collection,
+            metadata: {
+              ...collection.metadata,
+              embedding_connection: resolvedConnection
+            }
+          };
+        })
+      );
       
       // TODO: Build model selection config
       // For now, return empty structure
@@ -88,7 +216,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       
       res.json({
         // Existing fields
-        collections: collectionsData.collections,
+        collections: collectionsWithResolvedEmbeddings,
         wrappers: collectionsData.wrappers,
         modelSelection,
         llms: config.llms || {},  // Add LLM connections for embedding resolution
@@ -119,7 +247,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
    */
   router.post('/collections', async (req, res) => {
     try {
-      const { name, metadata, service, embedding_connection, embedding_model } = req.body;
+      const { name, metadata, service, embedding_model } = req.body;
       
       if (!name) {
         return res.status(400).json({ error: 'Collection name is required' });
@@ -128,43 +256,18 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       if (!service) {
         return res.status(400).json({ error: 'Service name is required' });
       }
-      if (!embedding_connection) {
-        return res.status(400).json({ error: 'embedding_connection is required' });
-      }
       
-      // Resolve embedding provider/model and dimensions
-      const rawConfig = getConfig();
-      const processedConfig = getProcessedConfig(rawConfig);
-      const llmConfig = processedConfig.llms?.[embedding_connection];
-      if (!llmConfig) {
-        return res.status(400).json({ error: `LLM connection "${embedding_connection}" not found` });
-      }
-      const provider = llmConfig.provider;
-      
-      // Require embedding_model from UI
       if (!embedding_model) {
         return res.status(400).json({ error: 'embedding_model is required' });
       }
       
-      // Probe embedding dimensions (best-effort)
-      let embeddingDimensions = undefined;
-      try {
-        const dimsProbe = await generateEmbeddings(['dimension-probe'], embedding_connection, processedConfig, embedding_model);
-        if (Array.isArray(dimsProbe) && Array.isArray(dimsProbe[0])) {
-          embeddingDimensions = dimsProbe[0].length;
-        }
-      } catch (e) {
-        console.warn(`⚠️ Failed to probe embedding dimensions for "${embedding_connection}": ${e.message}`);
-      }
-      
       const enrichedMetadata = {
         ...(metadata || {}),
-        embedding_provider: provider,
-        embedding_model: embedding_model,
-        embedding_connection_id: embedding_connection,
-        ...(embeddingDimensions ? { embedding_dimensions: embeddingDimensions } : {})
+        embedding_model: embedding_model
       };
       
+      const rawConfig = getConfig();
+      const processedConfig = getProcessedConfig(rawConfig);
       const { ragProviders } = getProviders();
       const result = await createCollection(service, name, enrichedMetadata, processedConfig.rag_services, ragProviders);
       res.json(result);
@@ -179,59 +282,118 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
 
   /**
    * Add documents to a collection
+   * Supports both pre-formatted documents and raw documents with transformation
    * Requires service name to avoid ambiguity
    * POST /api/collections/:name/documents
    */
   router.post('/collections/:name/documents', async (req, res) => {
     try {
       const { name } = req.params;
-      const { documents, service, embedding_connection, embedding_model } = req.body;
+      const { documents, raw_documents, schema, save_schema, service } = req.body;
       
-      if (!documents || !Array.isArray(documents)) {
-        return res.status(400).json({ error: 'Documents array is required' });
+      // Mutual exclusivity check
+      if (documents && raw_documents) {
+        return res.status(400).json({ error: 'Provide either documents or raw_documents, not both' });
       }
       
+      // Validate service
       if (!service) {
         return res.status(400).json({ error: 'Service name is required' });
       }
       
-      if (!embedding_connection) {
-        return res.status(400).json({ error: 'embedding_connection is required' });
+      // Track transformation status
+      let transformed = false;
+      let finalDocuments;
+      
+      // New path: raw documents with transformation
+      if (raw_documents) {
+        if (!schema) {
+          return res.status(400).json({ error: 'schema is required when using raw_documents' });
+        }
+        
+        if (!Array.isArray(raw_documents)) {
+          return res.status(400).json({ error: 'raw_documents must be an array' });
+        }
+        
+        // Transform documents
+        try {
+          finalDocuments = transformDocuments(raw_documents, schema);
+          transformed = true;
+        } catch (transformError) {
+          return res.status(400).json({
+            error: 'Document transformation failed',
+            message: transformError.message
+          });
+        }
+      } 
+      // Existing path: pre-formatted documents
+      else {
+        if (!documents || !Array.isArray(documents)) {
+          return res.status(400).json({ error: 'Documents array is required' });
+        }
+        finalDocuments = documents;
+        transformed = false;
       }
       
       const rawConfig = getConfig();
       const processedConfig = getProcessedConfig(rawConfig);
       
-      // Require embedding_model from UI
-      if (!embedding_model) {
-        return res.status(400).json({ error: 'embedding_model is required' });
-      }
+      // Validate documents have text
+      const validDocuments = finalDocuments.filter(d => d && typeof d.text === 'string' && d.text.length > 0);
       
-      // Generate embeddings in Node
-      const texts = documents
-        .map(d => (d && typeof d.text === 'string' ? d.text : ''))
-        .filter(t => t && t.length > 0);
-      
-      if (texts.length === 0) {
+      if (validDocuments.length === 0) {
         return res.status(400).json({ error: 'No valid documents with text provided' });
       }
       
-      const embeddings = await generateEmbeddings(texts, embedding_connection, processedConfig, embedding_model);
+      // Wrapper generates embeddings internally
+      const { ragProviders } = getProviders();
+      const result = await addDocuments(service, name, validDocuments, rawConfig.rag_services, ragProviders);
       
-      // Attach embeddings to documents (skip empty-text docs)
-      const documentsWithEmbeddings = [];
-      let embIdx = 0;
-      for (const doc of documents) {
-        const text = doc && typeof doc.text === 'string' ? doc.text : '';
-        if (!text) continue;
-        documentsWithEmbeddings.push({
-          ...doc,
-          embedding: embeddings[embIdx++]
-        });
+      // Add transformation status to response
+      result.transformed = transformed;
+      
+      // Schema persistence (non-fatal)
+      if (transformed && save_schema && schema) {
+        try {
+          const collection = await getCollection(service, name, ragProviders, processedConfig.rag_services);
+          const currentMetadata = collection.metadata || {};
+          
+          // Parse existing schema if it exists (it's stored as JSON string)
+          const existingSchema = currentMetadata.document_schema 
+            ? JSON.parse(currentMetadata.document_schema)
+            : null;
+          
+          // ChromaDB metadata only accepts primitives (string, int, float, boolean)
+          // Must stringify the schema object before storage
+          const schemaWithTimestamps = {
+            ...schema,
+            created_at: existingSchema?.created_at || new Date().toISOString(),
+            last_used: new Date().toISOString()
+          };
+          
+          // Remove ChromaDB-specific keys that cannot be updated (immutable)
+          // hnsw:space is set at collection creation and cannot be changed
+          const { 'hnsw:space': _, ...updatableMetadata } = currentMetadata;
+          
+          await updateCollectionMetadata(
+            service, 
+            name, 
+            {
+              ...updatableMetadata,
+              document_schema: JSON.stringify(schemaWithTimestamps)  // Store as JSON string
+            },
+            processedConfig.rag_services,
+            ragProviders
+          );
+          
+          result.schema_saved = true;
+        } catch (schemaError) {
+          console.warn(`⚠️  Schema persistence failed for collection ${name}:`, schemaError.message);
+          result.schema_saved = false;
+          result.schema_warning = schemaError.message;
+        }
       }
       
-      const { ragProviders } = getProviders();
-      const result = await addDocuments(service, name, documentsWithEmbeddings, rawConfig.rag_services, ragProviders);
       res.json(result);
     } catch (error) {
       console.error(`❌ Error adding documents to collection ${req.params.name}:`, error);
@@ -250,7 +412,7 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
   router.put('/collections/:name/metadata', async (req, res) => {
     try {
       const { name } = req.params;
-      const { metadata, service } = req.body;
+      const { metadata, service, merge = false } = req.body;
       
       if (!metadata || typeof metadata !== 'object') {
         return res.status(400).json({ error: 'Metadata object is required' });
@@ -262,12 +424,87 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       
       const config = getConfig();
       const { ragProviders } = getProviders();
-      const result = await updateCollectionMetadata(service, name, metadata, config.rag_services, ragProviders);
+      const result = await updateCollectionMetadata(service, name, metadata, config.rag_services, ragProviders, merge);
       res.json(result);
     } catch (error) {
       console.error(`❌ Error updating metadata for collection ${req.params.name}:`, error);
       res.status(500).json({ 
         error: 'Failed to update metadata',
+        message: error.message 
+      });
+    }
+  });
+
+  /**
+   * Get unique metadata values for a field
+   * GET /api/collections/:name/metadata-values?field=...&service=...
+   */
+  router.get('/collections/:name/metadata-values', async (req, res) => {
+    try {
+      const { name } = req.params;
+      const { field, service } = req.query;
+      
+      if (!field) {
+        return res.status(400).json({ error: 'Field parameter is required' });
+      }
+      
+      if (!service) {
+        return res.status(400).json({ error: 'Service name is required (query parameter)' });
+      }
+      
+      const config = getConfig();
+      const { ragProviders } = getProviders();
+      
+      // Get the provider
+      const provider = ragProviders[service];
+      if (!provider) {
+        return res.status(404).json({ error: `Service "${service}" not found` });
+      }
+      
+      // Call the provider's metadata-values endpoint if it exists
+      if (typeof provider.getMetadataValues === 'function') {
+        const result = await provider.getMetadataValues(name, field);
+        res.json(result);
+      } else {
+        return res.status(501).json({ error: 'Metadata values not supported by this provider' });
+      }
+    } catch (error) {
+      console.error(`❌ Error getting metadata values for ${req.params.name}:`, error);
+      res.status(500).json({ 
+        error: 'Failed to get metadata values',
+        message: error.message 
+      });
+    }
+  });
+
+  /**
+   * Empty a collection (delete all documents)
+   * Preserves collection metadata and settings
+   * DELETE /api/collections/:name/documents/all
+   */
+  router.delete('/collections/:name/documents/all', async (req, res) => {
+    try {
+      const { name } = req.params;
+      const { service } = req.query;
+      
+      if (!service) {
+        return res.status(400).json({ error: 'Service name is required (query parameter)' });
+      }
+      
+      const { ragProviders } = getProviders();
+      
+      // Get the provider
+      const provider = ragProviders[service];
+      if (!provider) {
+        return res.status(404).json({ error: `Service "${service}" not found` });
+      }
+      
+      const result = await provider.emptyCollection(name);
+      res.json(result);
+    } catch (error) {
+      console.error(`❌ Error emptying collection ${req.params.name}:`, error);
+      res.status(500).json({ 
+        error: 'Failed to empty collection',
         message: error.message 
       });
     }
@@ -295,6 +532,63 @@ function createCollectionsRouter(getConfig, getProviders, getProviderStatus) {
       console.error(`❌ Error deleting collection ${req.params.name}:`, error);
       res.status(500).json({ 
         error: 'Failed to delete collection',
+        message: error.message 
+      });
+    }
+  });
+
+  /**
+   * Test query against a collection
+   * Returns raw results with distances for debugging
+   * POST /api/collections/:name/test-query
+   */
+  router.post('/collections/:name/test-query', async (req, res) => {
+    try {
+      const { name } = req.params;
+      const { query, top_k = 10, service } = req.body;
+      
+      // Validation
+      if (!query) {
+        return res.status(400).json({ error: 'Query text is required' });
+      }
+      
+      if (!service) {
+        return res.status(400).json({ error: 'Service name is required' });
+      }
+      
+      const config = getConfig();
+      const { ragProviders } = getProviders();
+      
+      // Get provider
+      const provider = ragProviders[service];
+      if (!provider) {
+        return res.status(404).json({ error: `Service "${service}" not found` });
+      }
+      
+      // Generate embedding for query
+      const processedConfig = getProcessedConfig(config);
+      const startTime = Date.now();
+      
+      // Query collection via provider (wrapper generates embedding internally)
+      const results = await provider.query(query, {
+        collection: name,
+        top_k: top_k
+      });
+      
+      const endTime = Date.now();
+      
+      // Return results with metadata
+      res.json({
+        query,
+        collection: name,
+        service,
+        results: results.results || results,
+        execution_time_ms: endTime - startTime
+      });
+    } catch (error) {
+      console.error(`❌ Error testing query for ${req.params.name}:`, error);
+      res.status(500).json({ 
+        error: 'Failed to test query',
         message: error.message 
       });
     }

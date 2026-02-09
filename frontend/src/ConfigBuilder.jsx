@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import NavigationSidebar from './NavigationSidebar';
 import LLMProvidersSection from './sections/LLMProvidersSection';
 import RAGServicesSection from './sections/RAGServicesSection';
-import EmbeddingsSection from './sections/EmbeddingsSection';
 import TopicSection from './sections/TopicSection';
 import IntentSection from './sections/IntentSection';
 import HandlersSection from './sections/HandlersSection';
@@ -148,18 +147,24 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     setShowRAGWizard(true);
   };
 
-  const handleEditLLMProvider = (name, config) => {
+  const handleEditLLMProvider = (id, config) => {
+    // Extract description from config, fallback to id for backward compatibility
+    const description = config.description || id;
     setWizardEditData({
-      name,
+      name: id,
       config,
-      provider: config.provider
+      provider: config.provider,
+      description
     });
     setShowLLMWizard(true);
   };
 
-  const handleEditRAGService = (name, config) => {
+  const handleEditRAGService = (serviceId, config) => {
+    // Extract description from config, fallback to serviceId for backward compatibility
+    const description = config.description || serviceId;
     setWizardEditData({
-      name,
+      id: serviceId,
+      name: description,
       config,
       provider: config.provider
     });
@@ -189,11 +194,24 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     
     // Add or update LLM provider
     if (!newConfig.llms) newConfig.llms = {};
-    newConfig.llms[providerData.name] = providerData.config;
+    
+    const providerId = providerData.id;
+    
+    // Check for duplicate IDs (only in create mode)
+    if (!wizardEditData && newConfig.llms[providerId]) {
+      alert(`A provider with ID "${providerId}" already exists. Please choose a different name.`);
+      return;
+    }
+    
+    // Use ID as key, store description in config
+    newConfig.llms[providerId] = {
+      ...providerData.config,
+      description: providerData.name
+    };
     
     // Store the selected model as default_model for future reference
     if (providerData.selectedModel) {
-      newConfig.llms[providerData.name].default_model = providerData.selectedModel;
+      newConfig.llms[providerId].default_model = providerData.selectedModel;
     }
     
     // Decision 15: Auto-create default response handler if none exist
@@ -205,7 +223,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       // Auto-create topic provider config
       newConfig.topic = {
         provider: {
-          llm: providerData.name,
+          llm: providerId,
           model: providerData.selectedModel
         }
       };
@@ -213,7 +231,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       // Auto-create intent provider config
       newConfig.intent = {
         provider: {
-          llm: providerData.name,
+          llm: providerId,
           model: providerData.selectedModel
         }
       };
@@ -221,7 +239,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       // Auto-create default response handler
       if (!newConfig.responses) newConfig.responses = [];
       newConfig.responses.push({
-        llm: providerData.name,
+        llm: providerId,
         model: providerData.selectedModel,
         prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
       });
@@ -234,7 +252,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
       const defaultHandlerIndex = uiConfig?.defaultHandlerIndex ?? newConfig.responses.findIndex(r => !r.match);
       if (defaultHandlerIndex !== -1) {
         newConfig.responses[defaultHandlerIndex] = {
-          llm: providerData.name,
+          llm: providerId,
           model: providerData.selectedModel,
           prompt: "You are a helpful AI assistant. Try to answer the user's question clearly and concisely."
         };
@@ -257,12 +275,25 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     
     // Add or update RAG service
     if (!newConfig.rag_services) newConfig.rag_services = {};
-    newConfig.rag_services[providerData.name] = providerData.config;
+    
+    const serviceId = providerData.id;
+    
+    // Check for duplicate IDs (only in create mode)
+    if (!wizardEditData && newConfig.rag_services[serviceId]) {
+      alert(`A service with ID "${serviceId}" already exists. Please choose a different name.`);
+      return;
+    }
+    
+    // Use ID as key, store description in config
+    newConfig.rag_services[serviceId] = {
+      ...providerData.config,
+      description: providerData.name
+    };
     
     setWorkingConfig(newConfig);
     setShowRAGWizard(false);
     setWizardEditData(null);
-    setValidationState('dirty'); // Mark as dirty
+    setValidationState('dirty');
   };
   
   const handleWizardCancel = () => {
@@ -377,9 +408,6 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     const handlerCount = (workingConfig.responses || []).length;
     
     return {
-      embeddings: { 
-        enabled: ragCount > 0 
-      },
       topic: { 
         enabled: llmCount > 0 
       },
@@ -527,12 +555,6 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     setValidationState('dirty');
   };
 
-  // Handler for embeddings configuration updates
-  const handleEmbeddingsUpdate = (updatedConfig) => {
-    setWorkingConfig(updatedConfig);
-    setValidationState('dirty');
-  };
-
   // Handler for intent detection configuration updates
   const handleIntentUpdate = (updatedConfig) => {
     setWorkingConfig(updatedConfig);
@@ -558,16 +580,6 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             onAddRAGService={handleAddRAGService}
             onEditRAGService={handleEditRAGService}
             onDeleteRAGService={handleDeleteRAGService}
-          />
-        );
-      case 'embeddings':
-        return (
-          <EmbeddingsSection
-            workingConfig={workingConfig}
-            onUpdate={handleEmbeddingsUpdate}
-            modelsCache={modelsCache}
-            setModelsCache={setModelsCache}
-            fetchModelsForProvider={fetchModelsForProvider}
           />
         );
       case 'topic':
@@ -856,6 +868,7 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             onCancel={handleWizardCancel}
             editMode={wizardEditData !== null}
             initialData={wizardEditData}
+            existingServices={Object.entries(workingConfig?.rag_services || {}).map(([id, config]) => ({ id, config }))}
           />
         )}
       </>
