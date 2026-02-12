@@ -99,21 +99,101 @@ class GeminiProvider extends AIProvider {
   }
 
   /**
+   * Convert tool definitions from OpenAI format to Gemini functionDeclarations format.
+   * Note: The response-generator passes tools pre-converted via registry.toProviderFormat('gemini'),
+   * which already produces [{functionDeclarations: [...]}] arrays. This method handles the
+   * case where raw tool objects are passed directly.
+   *
+   * @param {Object[]} tools - Tools in Gemini registry format [{functionDeclarations:[...]}]
+   * @returns {Object[]} - Gemini tools array
+   */
+  _convertToolsToGeminiFormat(tools) {
+    if (!tools || tools.length === 0) return [];
+    // registry.toProviderFormat('gemini') produces one { functionDeclarations: [tool] } per tool.
+    // Gemini requires all declarations merged into a single { functionDeclarations: [...] } object.
+    const allDeclarations = tools.flatMap(t => t.functionDeclarations || []);
+    return [{ functionDeclarations: allDeclarations }];
+  }
+
+  /**
+   * Convert Gemini function calls to OpenAI-compatible tool_calls format.
+   *
+   * @param {Object[]} functionCalls - Gemini function call objects
+   * @returns {Object[]} - OpenAI-style tool_calls array
+   */
+  _convertGeminiToolCalls(functionCalls) {
+    return functionCalls.map((fc, index) => ({
+      id: `call_${index}`,
+      type: 'function',
+      function: {
+        name: fc.name,
+        arguments: JSON.stringify(fc.args || {})
+      }
+    }));
+  }
+
+  /**
    * Generate chat completion
    */
   async generateChat(messages, model, options = {}) {
     try {
       // Gemini API expects "models/" prefix, add it if not present
       const fullModelName = model.startsWith('models/') ? model : `models/${model}`;
-      
-      const result = await this.genAI.models.generateContent({
+
+      // Separate system message from conversation messages
+      const systemMessage = messages.find(m => m.role === 'system');
+      const conversationMessages = messages.filter(m => m.role !== 'system');
+
+      const requestConfig = {
         model: fullModelName,
-        contents: this.convertMessagesToContents(messages),
+        contents: this.convertMessagesToContents(conversationMessages),
         generationConfig: {
           temperature: options.temperature || this.config.temperature || 0.7,
           maxOutputTokens: options.max_tokens || this.config.maxTokens || 1000,
         }
-      });
+      };
+
+      // Use Gemini's dedicated system_instruction field instead of injecting as a user message
+      if (systemMessage?.content) {
+        requestConfig.systemInstruction = { parts: [{ text: systemMessage.content }] };
+      }
+
+      // Add tools when provided
+      if (options.tools && options.tools.length > 0) {
+        requestConfig.tools = this._convertToolsToGeminiFormat(options.tools);
+      }
+
+      this.debugLog('request payload', requestConfig);
+
+      const result = await this.genAI.models.generateContent(requestConfig);
+
+      if (process.env.FLEX_CHAT_DEBUG === '1') {
+        const functionCalls = result.functionCalls ? result.functionCalls() : null;
+        this.debugLog('raw response', {
+          text: result.text,
+          functionCalls,
+          candidates: result.candidates
+        });
+      }
+
+      // Check for function calls in response
+      const functionCalls = result.functionCalls ? result.functionCalls() : null;
+      const hasFunctionCalls = functionCalls && functionCalls.length > 0;
+
+      if (hasFunctionCalls) {
+        const toolCalls = this._convertGeminiToolCalls(functionCalls);
+        return {
+          content: null,
+          usage: {
+            prompt_tokens: this.estimateTokens(JSON.stringify(messages)),
+            completion_tokens: 0,
+            total_tokens: this.estimateTokens(JSON.stringify(messages))
+          },
+          model: model,
+          finish_reason: 'tool_calls',
+          tool_calls: toolCalls
+        };
+      }
 
       return {
         content: result.text,
@@ -295,14 +375,28 @@ class GeminiProvider extends AIProvider {
    */
   convertMessagesToContents(messages) {
     return messages.map(msg => {
-      if (msg.role === 'system') {
-        return { role: 'user', parts: [{ text: `System: ${msg.content}` }] };
-      } else if (msg.role === 'user') {
-        return { role: 'user', parts: [{ text: msg.content }] };
+      if (msg.role === 'user') {
+        return { role: 'user', parts: [{ text: msg.content || '' }] };
       } else if (msg.role === 'assistant') {
-        return { role: 'model', parts: [{ text: msg.content }] };
+        return { role: 'model', parts: [{ text: msg.content || '' }] };
+      } else if (msg.role === 'tool') {
+        // Tool result: Gemini expects a functionResponse part
+        let toolResult;
+        try {
+          toolResult = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
+        } catch {
+          toolResult = { result: msg.content };
+        }
+        return {
+          role: 'user',
+          parts: [{ functionResponse: { name: msg.name, response: toolResult } }]
+        };
+      } else if (msg.role === 'system') {
+        // Fallback: system messages should be handled via systemInstruction in generateChat,
+        // but include as user message if somehow passed directly here
+        return { role: 'user', parts: [{ text: msg.content || '' }] };
       }
-      return { role: 'user', parts: [{ text: msg.content }] };
+      return { role: 'user', parts: [{ text: msg.content || '' }] };
     });
   }
 

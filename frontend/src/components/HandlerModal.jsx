@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useModelValidation } from '../hooks/useModelValidation';
 
 /**
  * HandlerModal - Create or edit a response handler
@@ -16,11 +17,12 @@ function HandlerModal({ handler, workingConfig, onSave, onCancel, modelsCache, s
     prompt: handler?.prompt || '',
     max_tokens: handler?.max_tokens || 1000,
     match: handler?.match || null,
+    tools: handler?.tools || null,
   });
 
   const [availableModels, setAvailableModels] = useState([]);
   const [loadingModels, setLoadingModels] = useState(false);
-  const [activeTab, setActiveTab] = useState('basic'); // 'basic' | 'match' | 'prompt'
+  const [activeTab, setActiveTab] = useState('basic'); // 'basic' | 'match' | 'prompt' | 'tools'
 
   const llmProviders = workingConfig?.llms || {};
   const llmProviderKeys = Object.keys(llmProviders || {});
@@ -130,6 +132,21 @@ function HandlerModal({ handler, workingConfig, onSave, onCancel, modelsCache, s
             >
               Prompt & Parameters
             </button>
+            <button
+              onClick={() => setActiveTab('tools')}
+              className={`py-3 px-4 border-b-2 font-medium text-sm transition-colors ${
+                activeTab === 'tools'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Tools
+              {formData.tools?.enabled && (
+                <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded">
+                  🔧 on
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -153,10 +170,16 @@ function HandlerModal({ handler, workingConfig, onSave, onCancel, modelsCache, s
             />
           )}
           {activeTab === 'prompt' && (
-            <PromptTab 
-              formData={formData} 
+            <PromptTab
+              formData={formData}
               setFormData={setFormData}
               promptTextareaRef={promptTextareaRef}
+            />
+          )}
+          {activeTab === 'tools' && (
+            <ToolsTab
+              formData={formData}
+              setFormData={setFormData}
             />
           )}
         </div>
@@ -200,6 +223,7 @@ const isSmallModel = (modelName) => {
  * BasicTab - LLM and Model selection
  */
 function BasicTab({ formData, setFormData, llmProviderKeys, availableModels, loadingModels, workingConfig }) {
+  const { isCapabilityValidated } = useModelValidation();
   return (
     <div className="space-y-6">
       {/* LLM Provider */}
@@ -244,7 +268,9 @@ function BasicTab({ formData, setFormData, llmProviderKeys, availableModels, loa
                 const badges = [];
                 if (isSmallModel(model.id)) badges.push('⚡');
                 if (model.capabilities?.includes('vision')) badges.push('🎨');
-                if (model.capabilities?.includes('function-calling')) badges.push('🔧');
+                const hasToolCalling = model.capabilities?.includes('function-calling')
+                  || isCapabilityValidated(formData.llm, model.id, 'function-calling');
+                if (hasToolCalling) badges.push('🔧');
                 if (model.maxTokens && model.maxTokens >= 100000) badges.push('📚');
                 
                 const displayName = `${model.name || model.id}${badges.length > 0 ? ' ' + badges.join(' ') : ''}`;
@@ -262,9 +288,12 @@ function BasicTab({ formData, setFormData, llmProviderKeys, availableModels, loa
                   const selectedModel = availableModels.find(m => m.id === formData.model);
                   const info = [];
                   if (selectedModel.maxTokens) info.push(`Max: ${selectedModel.maxTokens.toLocaleString()} tokens`);
-                  if (selectedModel.capabilities?.length > 0) {
-                    const caps = selectedModel.capabilities.map(c => c.replace('-', ' ')).join(', ');
-                    info.push(`Capabilities: ${caps}`);
+                  const caps = [...(selectedModel.capabilities || [])];
+                  if (!caps.includes('function-calling') && isCapabilityValidated(formData.llm, selectedModel.id, 'function-calling')) {
+                    caps.push('function-calling ✓');
+                  }
+                  if (caps.length > 0) {
+                    info.push(`Capabilities: ${caps.map(c => c.replace('-', ' ')).join(', ')}`);
                   }
                   return info.length > 0 ? info.join(' • ') : 'Chat model';
                 })()}
@@ -615,6 +644,135 @@ function PromptTab({ formData, setFormData, promptTextareaRef }) {
           Maximum number of tokens in the response (50-10000)
         </p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * ToolsTab - Configure tool calling for this handler
+ */
+function ToolsTab({ formData, setFormData }) {
+  const [registeredTools, setRegisteredTools] = useState([]);
+  const [loadingTools, setLoadingTools] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/tools/list')
+      .then(res => res.json())
+      .then(data => setRegisteredTools(data.tools || []))
+      .catch(() => setRegisteredTools([]))
+      .finally(() => setLoadingTools(false));
+  }, []);
+
+  const toolsConfig = formData.tools || { enabled: false, allowed_tools: [], max_iterations: null };
+  const enabled = toolsConfig.enabled === true;
+  const allowedTools = toolsConfig.allowed_tools || [];
+  const maxIterations = toolsConfig.max_iterations || '';
+
+  const updateTools = (patch) => {
+    const updated = { ...toolsConfig, ...patch };
+    // If disabling, remove the tools key entirely
+    if (!updated.enabled) {
+      setFormData({ ...formData, tools: null });
+    } else {
+      setFormData({ ...formData, tools: updated });
+    }
+  };
+
+  const toggleTool = (toolName) => {
+    const next = allowedTools.includes(toolName)
+      ? allowedTools.filter(t => t !== toolName)
+      : [...allowedTools, toolName];
+    updateTools({ allowed_tools: next });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Enable toggle */}
+      <div className="flex items-start gap-3">
+        <input
+          type="checkbox"
+          id="tools-enabled"
+          checked={enabled}
+          onChange={(e) => updateTools({ enabled: e.target.checked })}
+          className="mt-1"
+        />
+        <div>
+          <label htmlFor="tools-enabled" className="block text-sm font-medium text-gray-700">
+            Enable tool calling for this handler
+          </label>
+          <p className="text-xs text-gray-500 mt-1">
+            When enabled, the model can invoke registered tools before generating a response.
+            Requires a model that supports function calling.
+          </p>
+        </div>
+      </div>
+
+      {enabled && (
+        <>
+          {/* Allowed tools */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Allowed Tools
+            </label>
+            <p className="text-xs text-gray-500 mb-3">
+              Select which tools this handler can use. Leave all unchecked to allow all registered tools.
+            </p>
+            {loadingTools ? (
+              <p className="text-sm text-gray-400">Loading tools...</p>
+            ) : registeredTools.length === 0 ? (
+              <p className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded p-3">
+                No tools registered. Add a <code className="font-mono">tools.registry</code> section to your config.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {registeredTools.map(tool => (
+                  <label key={tool.name} className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="checkbox"
+                      checked={allowedTools.length === 0 || allowedTools.includes(tool.name)}
+                      onChange={() => toggleTool(tool.name)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-medium text-gray-900">{tool.name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          tool.type === 'mock' ? 'bg-yellow-100 text-yellow-800' :
+                          tool.type === 'builtin' ? 'bg-blue-100 text-blue-800' :
+                          'bg-purple-100 text-purple-800'
+                        }`}>{tool.type}</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{tool.description}</p>
+                    </div>
+                  </label>
+                ))}
+                {allowedTools.length === 0 && registeredTools.length > 0 && (
+                  <p className="text-xs text-blue-600 mt-1">All tools are allowed (none explicitly selected).</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Max iterations override */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Max Iterations <span className="text-gray-400 font-normal">(optional override)</span>
+            </label>
+            <input
+              type="number"
+              value={maxIterations}
+              onChange={(e) => updateTools({ max_iterations: e.target.value ? parseInt(e.target.value) : null })}
+              min="1"
+              max="20"
+              placeholder="Use global default"
+              className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Maximum tool call iterations before stopping. Overrides the global <code className="font-mono">tools.max_iterations</code> setting.
+            </p>
+          </div>
+        </>
+      )}
     </div>
   );
 }

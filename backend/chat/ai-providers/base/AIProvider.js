@@ -124,6 +124,28 @@ class AIProvider {
   }
 
   /**
+   * Log debug information when FLEX_CHAT_DEBUG=1.
+   * Use in generateChat() implementations to log request/response payloads.
+   *
+   * @param {string} label - Short label, e.g. 'request payload' or 'raw response'
+   * @param {*} data - Data to log (will be JSON-stringified if object)
+   */
+  debugLog(label, data) {
+    if (process.env.FLEX_CHAT_DEBUG !== '1') return;
+    const prefix = `\n🐛 [${this.name}] ${label}:`;
+    if (data !== null && data !== undefined && typeof data === 'object') {
+      try {
+        console.log(prefix);
+        console.log(JSON.stringify(data, null, 2));
+      } catch {
+        console.log(prefix, data);
+      }
+    } else {
+      console.log(prefix, data);
+    }
+  }
+
+  /**
    * Helper method to create a ModelInfo object
    * @param {Object} modelData - Model data
    * @returns {ModelInfo} ModelInfo instance

@@ -89,6 +89,13 @@ class OllamaProvider extends AIProvider {
       }
     };
 
+    // Add tools to request when provided (Ollama 0.1.26+)
+    if (options.tools && options.tools.length > 0) {
+      requestData.tools = options.tools;
+    }
+
+    this.debugLog('request payload', requestData);
+
     return await this.withRetry(async () => {
       const response = await axios.post(
         `${this.apiUrl}/api/chat`,
@@ -98,16 +105,28 @@ class OllamaProvider extends AIProvider {
         }
       );
 
-      return {
-        content: response.data.message.content,
+      this.debugLog('raw response', response.data);
+
+      const message = response.data.message;
+      const hasToolCalls = message.tool_calls && message.tool_calls.length > 0;
+
+      const result = {
+        content: message.content,
         model: response.data.model,
-        finish_reason: response.data.done ? 'stop' : 'length',
+        finish_reason: hasToolCalls ? 'tool_calls' : (response.data.done ? 'stop' : 'length'),
         usage: {
           prompt_tokens: response.data.prompt_eval_count || 0,
           completion_tokens: response.data.eval_count || 0,
           total_tokens: (response.data.prompt_eval_count || 0) + (response.data.eval_count || 0)
         }
       };
+
+      // Include tool_calls when present
+      if (hasToolCalls) {
+        result.tool_calls = message.tool_calls;
+      }
+
+      return result;
     });
   }
 

@@ -9,9 +9,13 @@ const { createCollectionsRouter } = require('./routes/collections');
 const { createChatRouter } = require('./routes/chat');
 const connectionsRouter = require('./routes/connections');
 const createConfigRouter = require('./routes/config');
+const { createToolsRouter } = require('./routes/tools');
+const ToolManager = require('./tools/manager');
 
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '.env') });
+
+// Debug mode is enabled via --debug flag or DEBUG=1 env var (applied after arg parsing below)
 
 const app = express();
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -31,6 +35,7 @@ app.use((req, res, next) => {
 let config = null;
 let aiProviders = {};
 let ragProviders = {};
+let toolManager = null;
 
 // Track provider connection status (Phase 1.6.4)
 let providerStatus = {
@@ -45,6 +50,7 @@ let providerStatus = {
 const getConfig = () => config;
 const getProviders = () => ({ aiProviders, ragProviders });
 const getProviderStatus = () => providerStatus;
+const getToolManager = () => toolManager;
 
 /**
  * Parse command line arguments
@@ -57,11 +63,17 @@ function parseArguments() {
   program
     .option('--config <path>', 'Path to configuration file (file or directory)')
     .option('--port <number>', 'Port to listen on', 5005)
+    .option('--debug', 'Enable debug mode: log full request/response payloads')
     .helpOption('-h, --help', 'Display help for command')
 
   program.parse();
 
   const options = program.opts();
+
+  if (options.debug || process.env.DEBUG === '1') {
+    process.env.FLEX_CHAT_DEBUG = '1';
+    console.log('🐛 Debug mode enabled — full request payloads will be logged');
+  }
 
   return options;
 }
@@ -294,6 +306,18 @@ async function initialize() {
     console.log('\n   ℹ️  No RAG services configured (chat-only mode)');
   }
 
+  // Initialize tool manager (opt-in - skipped if no tools config)
+  if (processedConfig.tools) {
+    console.log('\n🔧 Initializing tool manager...');
+    toolManager = new ToolManager(processedConfig.tools);
+    const toolCount = toolManager.loadTools();
+    if (toolCount > 0) {
+      console.log(`   ✅ Tool manager initialized (${toolCount} tools, enabled: ${toolManager.isEnabled()})`);
+    } else {
+      console.log('   ℹ️  No tools configured');
+    }
+  }
+
   console.log('\n✅ Server initialized successfully\n');
 
   // Mount route modules (pass getters for hot-reload support)
@@ -301,7 +325,8 @@ async function initialize() {
   app.use('/api', createCollectionsRouter(getConfig, getProviders, getProviderStatus));
   app.use('/api/connections', connectionsRouter);
   app.use('/api/config', createConfigRouter(getConfig, reinitializeProviders));
-  app.use('/chat', createChatRouter(getConfig, getProviders));
+  app.use('/chat', createChatRouter(getConfig, getProviders, getToolManager));
+  app.use('/api/tools', createToolsRouter(getToolManager, getProviders));
 
   // Start server
   const PORT = options.port;

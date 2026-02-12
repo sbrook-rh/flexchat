@@ -4,6 +4,7 @@ import Home from './Home';
 import Chat from './Chat';
 import CollectionsRouter from './CollectionsRouter';
 import ConfigBuilder from './ConfigBuilder';
+import ToolTesting from './ToolTesting';
 // Note: NavBar.jsx remains but is not used in new architecture
 
 function App() {
@@ -54,6 +55,7 @@ function App() {
         <Route path="/" element={<Home uiConfig={uiConfig} />} />
         <Route path="/chat" element={<Chat uiConfig={uiConfig} />} />
         <Route path="/collections" element={<CollectionsRouter uiConfig={uiConfig} reloadConfig={reloadConfig} />} />
+        <Route path="/tools-testing" element={<ToolTesting uiConfig={uiConfig} />} />
       </Routes>
     </Router>
   );
