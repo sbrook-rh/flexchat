@@ -58,6 +58,8 @@ All AI providers SHALL implement a standardized interface that ensures consisten
 - **WHEN** provider configuration is validated
 - **THEN** it checks required fields and returns validation results with specific error messages
 
+## ADDED Requirements
+
 ### Requirement: OpenAI Provider Tool Calling
 The OpenAI provider SHALL support tool calling using the OpenAI Chat Completions API format.
 
