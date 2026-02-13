@@ -40,9 +40,10 @@ function resolveTopicLLMConfig(config) {
  * Create chat router with dependency injection
  * @param {Function} getConfig - Getter for current config (always up-to-date)
  * @param {Function} getProviders - Getter for current providers (always up-to-date)
+ * @param {Function} getToolManager - Getter for ToolManager instance (optional)
  * @returns {express.Router} Configured chat router
  */
-function createChatRouter(getConfig, getProviders) {
+function createChatRouter(getConfig, getProviders, getToolManager) {
   /**
    * Main chat endpoint
    * POST /chat/api
@@ -99,8 +100,9 @@ function createChatRouter(getConfig, getProviders) {
       // Phase 5: Match response rule
       const responseHandler = findResponseHandler(profile, config.responses);
       
-      // Phase 6: Generate response
-      const responseData = await generateResponse(profile, responseHandler, aiProviders, userMessage, previousMessages);
+      // Phase 6: Generate response (Phase 6b: tool calling if enabled)
+      const toolManager = getToolManager?.();
+      const responseData = await generateResponse(profile, responseHandler, aiProviders, userMessage, previousMessages, toolManager);
 
       res.json({
         response: responseData.content,

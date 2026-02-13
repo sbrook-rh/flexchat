@@ -1,0 +1,37 @@
+{
+  "comment": "Example config demonstrating tool calling. Tools are opt-in: add a name to tools.registry to activate it. Full schemas (parameters, handler) come from the server's builtins manifest — no duplication needed.",
+  "llms": {
+    "chatgpt": {
+      "api_key": "${OPENAI_API_KEY}",
+      "base_url": "https://api.openai.com/v1",
+      "provider": "openai"
+    },
+    "local": {
+      "base_url": "http://localhost:11434",
+      "provider": "ollama"
+    }
+  },
+  "tools": {
+    "enabled": true,
+    "max_iterations": 5,
+    "registry": [
+      { "name": "calculator" },
+      { "name": "get_current_datetime" },
+      { "name": "generate_uuid" }
+    ]
+  },
+  "responses": [
+    {
+      "comment": "Tool-capable handler — all three builtins enabled",
+      "prompt": "You are a helpful assistant with access to tools. Use them when appropriate to answer the user's question accurately.",
+      "llm": "chatgpt",
+      "model": "gpt-4o",
+      "max_tokens": 1000,
+      "tools": {
+        "enabled": true,
+        "allowed_tools": ["calculator", "get_current_datetime", "generate_uuid"],
+        "max_iterations": 3
+      }
+    }
+  ]
+}

@@ -75,3 +75,4 @@ openplan
 .cursor
 backend/loaders/
 .bash_history
+.claude/settings.local.json

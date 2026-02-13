@@ -78,7 +78,7 @@
                 "rag_results": "match",
                 "service": "recipes"
             },
-            "prompt": "You are a helpful cooking assistant. Here are some recipes that might help with the user's query:\n\n{{rag_context}}\n\nUser: {{user_message}}",
+            "prompt": "You are a helpful cooking assistant. Here are some recipes that might help with the user's query:\n\n{{rag_context}}",
             "max_tokens": 1000,
             "llm": "gemini",
             "model": "gemini-2.0-flash-thinking-exp"

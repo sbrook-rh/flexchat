@@ -9,7 +9,7 @@
   "responses": [
     {
       "comment": "Fallback response - no RAG, just chat",
-      "prompt": "You are a helpful AI assistant. Answer the user's question clearly and concisely.\n\nUser question: {{user_message}}",
+      "prompt": "You are a helpful AI assistant. Answer the user's question clearly and concisely.",
       "llm": "local",
       "model": "qwen2.5:7b-instruct",
       "max_tokens": 500

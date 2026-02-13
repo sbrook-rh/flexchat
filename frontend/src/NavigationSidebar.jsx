@@ -60,6 +60,15 @@ function NavigationSidebar({ activeTab, onTabChange, tabStates }) {
       description: 'Response handlers'
     },
     {
+      id: 'tools',
+      label: 'Tools',
+      icon: '🔧',
+      enabled: tabStates.tools?.enabled ?? false,
+      tooltip: (tabStates.tools?.enabled ?? false) ? null : 'Configure at least one LLM Provider first',
+      badge: tabStates.badges.tools,
+      description: 'Builtin tool calling'
+    },
+    {
       id: 'reasoning',
       label: 'Reasoning',
       icon: '🧠',

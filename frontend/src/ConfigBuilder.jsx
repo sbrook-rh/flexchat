@@ -7,6 +7,7 @@ import TopicSection from './sections/TopicSection';
 import IntentSection from './sections/IntentSection';
 import HandlersSection from './sections/HandlersSection';
 import ReasoningSection from './sections/ReasoningSection';
+import ToolsSection from './sections/ToolsSection';
 import LLMWizard from './LLMWizard';
 import RAGWizard from './RAGWizard';
 
@@ -407,20 +408,26 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
     const ragCount = Object.keys(workingConfig.rag_services || {}).length;
     const handlerCount = (workingConfig.responses || []).length;
     
+    const toolCount = (workingConfig.tools?.registry || []).length;
+
     return {
-      topic: { 
-        enabled: llmCount > 0 
+      topic: {
+        enabled: llmCount > 0
       },
-      intent: { 
-        enabled: llmCount > 0 
+      intent: {
+        enabled: llmCount > 0
       },
-      reasoning: { 
-        enabled: handlerCount > 0 
+      tools: {
+        enabled: llmCount > 0
+      },
+      reasoning: {
+        enabled: handlerCount > 0
       },
       badges: {
         llmProviders: llmCount,
         ragServices: ragCount,
-        handlers: handlerCount
+        handlers: handlerCount,
+        tools: toolCount > 0 ? toolCount : null
       }
     };
   };
@@ -614,6 +621,16 @@ function ConfigBuilder({ uiConfig, reloadConfig }) {
             modelsCache={modelsCache}
             setModelsCache={setModelsCache}
             fetchModelsForProvider={fetchModelsForProvider}
+          />
+        );
+      case 'tools':
+        return (
+          <ToolsSection
+            workingConfig={workingConfig}
+            onUpdate={(updatedConfig) => {
+              setWorkingConfig(updatedConfig);
+              setValidationState('dirty');
+            }}
           />
         );
       case 'reasoning':

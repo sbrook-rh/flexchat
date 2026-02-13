@@ -108,6 +108,13 @@ class OpenAIProvider extends AIProvider {
       ...options
     };
 
+    // Add tool_choice when tools are provided
+    if (options.tools && options.tools.length > 0) {
+      requestData.tool_choice = 'auto';
+    }
+
+    this.debugLog('request payload', requestData);
+
     return await this.withRetry(async () => {
       const response = await axios.post(
         `${this.apiUrl}/chat/completions`,
@@ -121,12 +128,22 @@ class OpenAIProvider extends AIProvider {
         }
       );
 
-      return {
-        content: response.data.choices[0].message.content,
+      this.debugLog('raw response', response.data);
+
+      const choice = response.data.choices[0];
+      const result = {
+        content: choice.message.content,
         usage: response.data.usage,
         model: response.data.model,
-        finish_reason: response.data.choices[0].finish_reason
+        finish_reason: choice.finish_reason
       };
+
+      // Include tool_calls when present
+      if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
+        result.tool_calls = choice.message.tool_calls;
+      }
+
+      return result;
     });
   }
 

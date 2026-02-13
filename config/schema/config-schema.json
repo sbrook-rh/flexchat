@@ -102,6 +102,72 @@
         "required": ["type", "url", "collection", "embedding_provider", "embedding_model"]
       }
     },
+    "tools": {
+      "type": "object",
+      "description": "Global tool calling configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable tool calling globally (default: false)",
+          "default": false
+        },
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Maximum tool calling iterations per request (default: 5)",
+          "default": 5
+        },
+        "default_timeout_ms": {
+          "type": "integer",
+          "minimum": 100,
+          "description": "Default timeout per tool execution in milliseconds (default: 30000)",
+          "default": 30000
+        },
+        "registry": {
+          "type": "array",
+          "description": "Tool definitions available for use",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Unique tool identifier (used by models to call the tool)",
+                "pattern": "^[a-z_][a-z0-9_]*$"
+              },
+              "description": {
+                "type": "string",
+                "description": "Human-readable description of what the tool does (shown to the model)"
+              },
+              "type": {
+                "type": "string",
+                "enum": ["mock", "builtin", "internal"],
+                "description": "Tool implementation type: mock (static response), builtin (native JS), internal (Flex Chat service)"
+              },
+              "parameters": {
+                "type": "object",
+                "description": "JSON Schema defining tool input parameters",
+                "properties": {
+                  "type": { "type": "string" },
+                  "properties": { "type": "object" },
+                  "required": { "type": "array", "items": { "type": "string" } }
+                }
+              },
+              "mock_response": {
+                "type": "object",
+                "description": "Static response returned for mock tools"
+              },
+              "timeout_ms": {
+                "type": "integer",
+                "minimum": 100,
+                "description": "Per-tool timeout override in milliseconds"
+              }
+            },
+            "required": ["name", "description", "type", "parameters"]
+          }
+        }
+      }
+    },
     "strategies": {
       "type": "array",
       "description": "Array of strategy configurations",
@@ -169,6 +235,27 @@
               "static_response": {
                 "type": "string",
                 "description": "Static response text (alternative to using LLM)"
+              },
+              "tools": {
+                "type": "object",
+                "description": "Per-handler tool calling configuration (overrides global tools settings)",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean",
+                    "description": "Enable tool calling for this response handler"
+                  },
+                  "allowed_tools": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Allowlist of tool names this handler may use (empty = all tools allowed)"
+                  },
+                  "max_iterations": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20,
+                    "description": "Maximum tool calling iterations for this handler (overrides global)"
+                  }
+                }
               }
             },
             "required": ["max_tokens"]
@@ -178,5 +265,28 @@
       }
     }
   },
-  "required": ["strategies"]
+  "required": ["strategies"],
+  "definitions": {
+    "responseHandlerTools": {
+      "type": "object",
+      "description": "Per-handler tool calling configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable tool calling for this response handler"
+        },
+        "allowed_tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Allowlist of tool names this handler may use (empty = all tools allowed)"
+        },
+        "max_iterations": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Maximum tool calling iterations for this handler (overrides global)"
+        }
+      }
+    }
+  }
 }
