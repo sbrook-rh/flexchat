@@ -56,19 +56,18 @@ If you have an existing `config.json`, the Configuration Builder will load it au
 3. Test Connection (displays available collections)
 4. Name and Save
 
-### Embeddings Configuration
+**Note**: Embedding models are configured in the RAG wrapper (Python) and per collection. When creating collections, you choose an embedding model from the wrapper's available models (see [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md) and [COLLECTION_MANAGEMENT.md](COLLECTION_MANAGEMENT.md)).
 
-**Configure embedding models** for RAG services:
+### Tools Configuration
 
-- **Global Default**: Set a default embedding model for all RAG services
-- **Per-Service Overrides**: Override the default for specific RAG services
-- **Automatic Filtering**: Only embedding-capable models are shown
-- **Visual Indicators**: Clear badges show which services use default vs custom embeddings
+**Enable or disable builtin tools** for response handlers that use tool calling:
 
-**How It Works**:
-- Select an LLM provider and embedding model as the global default
-- RAG services without a custom embedding use the global default
-- Override individual services with different embedding models if needed
+- **Tools Tab**: Appears when at least one LLM provider is configured; shows count of enabled tools in the tab badge
+- **Available Builtins**: Cards for each builtin tool (e.g. from the builtin tools manifest); toggle to enable or disable
+- **Description Override**: Optionally override a tool's description per tool when enabled
+- **Inline Testing**: Test tools against the working config from the Tools section
+
+Tools are stored in config as `tools.registry` (array of `{ name, description? }`). Response handlers can enable tool calling via `tools.enabled` and optionally `tools.max_iterations`. Only models with tool/function-calling capability (🔧 badge) can use tools.
 
 ### Topic Detection Configuration
 
@@ -141,7 +140,7 @@ The Configuration Builder uses a tabbed interface with the following sections:
 |-----|------|-------------|--------------|
 | **LLM Providers** | 🤖 | Manage LLM providers | Always |
 | **RAG Services** | 📚 | Manage RAG services | Always |
-| **Embeddings** | 📦 | Configure embeddings | RAG services exist |
+| **Tools** | 🔧 | Enable/disable builtin tools for tool calling | LLM providers exist |
 | **Topic Detection** | 🎯 | Configure topic detection | LLM providers exist |
 | **Intent** | 🧐 | Configure intent detection | LLM providers exist |
 | **Handlers** | 🎮 | Build response handlers | LLM providers exist |
@@ -179,19 +178,14 @@ The first LLM you add will automatically:
 7. **Name Service**: Give it a unique name
 8. **Save**
 
-### Configuring Embeddings
+### Configuring Tools
 
-1. Navigate to **Embeddings** tab
-2. **Global Default**:
-   - Click **Configure Default Embedding**
-   - Select LLM provider
-   - Select embedding model (automatically filtered)
-   - Model is saved as global default
-3. **Per-Service Overrides** (optional):
-   - Find the RAG service in the list
-   - Click **Add Override** or **Edit Override**
-   - Select different provider/model
-   - Click **Save Override**
+1. Navigate to **Tools** tab (enabled when at least one LLM is configured)
+2. **Enable/Disable**: Toggle each builtin tool on or off; enabled tools appear in `tools.registry`
+3. **Description Override** (optional): For enabled tools, you can set a custom description
+4. **Test**: Use the inline test panel to try tools against the current working config
+
+Handlers that have `tools.enabled` will receive the enabled tools when using a model with tool-calling capability (🔧).
 
 ### Configuring Topic Detection
 
@@ -264,8 +258,7 @@ The first LLM you add will automatically:
 **Validation Checks**:
 - At least one LLM provider configured
 - At least one response handler configured
-- All LLM references are valid (topic, intent, responses, embeddings)
-- RAG services have embeddings configured (warning if missing)
+- All LLM references are valid (topic, intent, responses)
 
 ## Configuration Structure
 
@@ -286,16 +279,15 @@ The Configuration Builder generates JSON with the following structure:
       "provider": "chromadb-wrapper",
       "url": "http://localhost:5006",
       "match_threshold": 0.2,
-      "partial_threshold": 0.45,
-      "embedding": {
-        "llm": "<provider-name>",
-        "model": "nomic-embed-text:latest"
-      }
+      "partial_threshold": 0.45
     }
   },
-  "embedding": {
-    "llm": "<provider-name>",
-    "model": "nomic-embed-text:latest"
+  "tools": {
+    "enabled": true,
+    "max_iterations": 5,
+    "registry": [
+      { "name": "builtin_tool_name" }
+    ]
   },
   "topic": {
     "provider": {
@@ -327,8 +319,8 @@ The Configuration Builder generates JSON with the following structure:
 
 - **Provider Names**: User-defined identifiers for LLM providers (e.g., "local", "production")
 - **Environment Variables**: Secrets referenced as `${VAR_NAME}`, never stored as plaintext
-- **LLM References**: Other sections reference LLMs by their provider name
-- **Global vs Per-Service Embeddings**: Services inherit global embedding unless overridden
+- **LLM References**: Other sections reference LLMs by their provider name (topic, intent, responses)
+- **Embeddings**: Configured in the RAG wrapper and per collection, not in this config
 
 ## Environment Variables
 
@@ -380,9 +372,7 @@ The Configuration Builder caches model lists for performance:
 
 - **Shared Cache**: Models fetched once, shared across all sections
 - **Persistent**: Cache persists when navigating between tabs
-- **Smart Filtering**: Each section filters cached models to show only relevant types
-  - Topic Detection: Chat-capable models only
-  - Embeddings: Embedding-capable models only
+- **Smart Filtering**: Each section filters cached models to show only relevant types (e.g. topic detection: chat-capable models only)
 
 ## API Reference
 
@@ -423,7 +413,6 @@ The Configuration Builder uses the following APIs:
 **Cause**: The provider connection is working but no models match the filter.
 
 **Solutions**:
-- For embeddings: Ensure your provider has embedding models installed
 - For topic detection: Ensure your provider has chat models
 - Check the provider's model list using their native tools (e.g., `ollama list`)
 
@@ -443,7 +432,6 @@ The Configuration Builder uses the following APIs:
 
 **Common Issues**:
 - Topic detection references a deleted LLM provider
-- Embedding references a deleted LLM provider
 - Response handler references a deleted LLM provider
 
 **Solution**: 
@@ -472,12 +460,6 @@ The Configuration Builder uses the following APIs:
 - Use a `.env` file for local development
 - Never commit `.env` files to version control
 
-### Embeddings
-- Configure embeddings BEFORE adding RAG services
-- Use the same embedding model you used to create your vector database
-- Global default is sufficient for most use cases
-- Use per-service overrides only when needed (e.g., different collections use different embeddings)
-
 ### Configuration Management
 - Validate frequently as you make changes
 - Export your configuration periodically as backup
@@ -487,9 +469,9 @@ The Configuration Builder uses the following APIs:
 ### Zero-Config Workflow
 1. Add LLM provider (auto-creates response handler, topic, intent)
 2. Test chat (verify it works)
-3. Add RAG service
-4. Configure embeddings
-5. Test RAG-enhanced chat
+3. Add RAG service (embedding model is chosen per collection in the RAG wrapper)
+4. Optionally enable tools in the Tools tab for handlers that use tool calling
+5. Test RAG-enhanced chat (and tool calling if enabled)
 6. Export configuration as backup
 
 ## See Also

@@ -80,6 +80,7 @@ describe('Model Discovery', () => {
     const embeddingModels = models.filter(m => m.type === 'embedding');
     
     expect(chatModels.length).toBeGreaterThan(0);
+    // Providers may expose embedding models in discovery; RAG wrapper uses embedding models, not Node config
     expect(embeddingModels.length).toBeGreaterThan(0);
   });
 

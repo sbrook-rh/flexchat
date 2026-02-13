@@ -1,8 +1,8 @@
 # Flex Chat - Architecture Overview (v2.0)
 
-**Version**: 2.0.0  
-**Last Updated**: October 19, 2025  
-**Architecture**: Simplified 4-Phase Flow
+**Version**: 2.1.0  
+**Last Updated**: February 13, 2026  
+**Architecture**: 6-Phase Flow (with optional Phase 6b Tool Execution)
 
 ---
 
@@ -14,7 +14,7 @@ A flexible, configurable chat system that can be adapted for different use cases
 - **Simple base**: Forward requests to any AI model service (OpenAI, Ollama, etc.)
 - **Optional RAG**: Add knowledge base retrieval capabilities when needed
 - **Configurable everything**: External configuration files, not hardcoded logic
-- **Linear flow**: Predictable 4-phase request processing
+- **Linear flow**: Predictable 6-phase request processing (plus optional tool execution loop)
 
 ### **System Layers**
 
@@ -130,16 +130,29 @@ All chat requests follow a predictable linear flow through 6 phases:
   1. **Template Substitution**:
      - Replace `{{rag_context}}` with formatted document text
      - Replace `{{intent}}`, `{{topic}}`, etc. from profile
-  2. **LLM Call**:
-     - Call configured LLM provider with system prompt + conversation history
+  2. **LLM Call** (or Tool Loop when tools enabled):
+     - If the response handler has `tools.enabled`, the system enters **Phase 6b** (tool execution loop)
+     - Otherwise: call configured LLM provider with system prompt + conversation history
 - **Output**: 
   ```javascript
   {
     content: "Generated response text",
     service: "ollama",
-    model: "llama3.2:3b"
+    model: "llama3.2:3b",
+    tool_calls: []  // present when tools were used
   }
   ```
+
+### **Phase 6b: Tool Execution** (optional)
+- **Module**: `lib/response-generator.js` (tool loop)
+- **Purpose**: Execute tool calls from the model and continue until a final text response
+- **When**: Response handler has `tools.enabled` and the selected model supports tool/function calling
+- **Input**: Allowed tools (from config `tools.registry`), response rule `tools.max_iterations`
+- **Process**:
+  1. Pass tool definitions to the LLM in provider-specific format
+  2. On each turn: if the model returns tool calls, execute them via the tool registry and append results to the conversation
+  3. Repeat until the model returns a normal stop (no tool calls) or max iterations reached
+- **Output**: Same as Phase 6; `tool_calls` array records executed tools for the response
 
 ---
 
@@ -170,7 +183,7 @@ Main server implementation with Express API:
   - `providers/index.js` - Provider registry
 
 **Main Files**:
-- `server.js` - Express server with 4-phase flow implementation
+- `server.js` - Express server with 6-phase flow implementation
 - `package.json` - Node.js dependencies
 
 ### **2. RAG Service** (`backend/rag/`)
@@ -255,7 +268,8 @@ User Message
 ┌─────────────────────────────────────────────┐
 │  Phase 6: Response Generation              │
 │  - Substitute template variables           │
-│  - Call LLM with system prompt + history  │
+│  - If tools enabled → Phase 6b loop        │
+│  - Else: call LLM with prompt + history   │
 │  → Output: { content, service, model }     │
 └─────────────────────────────────────────────┘
     ↓
@@ -390,8 +404,6 @@ Define RAG/vector database services:
     "recipes_wrapper": {
       "type": "chromadb_wrapper",
       "url": "http://localhost:5006",
-      "embedding_provider": "ollama",
-      "embedding_model": "nomic-embed-text",
       "match_threshold": 0.25,
       "partial_threshold": 0.5,
       "collections": [
@@ -411,10 +423,11 @@ Define RAG/vector database services:
 **Key Fields**:
 - `type`: Provider type (chromadb_wrapper)
 - `url`: RAG service endpoint
-- `embedding_provider`/`embedding_model`: Embeddings config
 - `match_threshold`: Distance threshold for confident matches
 - `partial_threshold`: Distance threshold for candidate results
 - `collections`: Pinned collections (optional, can be dynamic)
+
+**Note**: Embeddings are configured in the RAG wrapper (Python) and per collection (embedding model from wrapper health). The Node config does not define embedding providers or models.
 
 ### **3. Intent Configuration** (`intent`)
 
@@ -571,7 +584,7 @@ See `config/examples/`:
 **Why**: Previous strategy-based architecture was complex and hard to reason about.
 
 **v2.0 Approach**:
-- Linear 4-phase flow: Topic → RAG → Profile → Response
+- Linear 6-phase flow: Topic → RAG → Intent → Profile → Handler Match → Response (with optional Phase 6b tool execution)
 - Each phase has single responsibility
 - Predictable execution path
 - Easier to debug and extend
@@ -755,7 +768,7 @@ See `config/examples/`:
    - Template variable substitution
 
 2. **Integration Tests**:
-   - Full 4-phase flow with mocks
+   - Full 6-phase flow with mocks
    - Collection CRUD operations
    - Multiple RAG services
    - Error scenarios
@@ -899,14 +912,15 @@ pydantic==2.10.2
 - **[TODO.md](../TODO.md)**: Planned features and improvements
 - **[CONFIGURATION.md](CONFIGURATION.md)**: Detailed configuration guide
 - **[COLLECTION_MANAGEMENT.md](COLLECTION_MANAGEMENT.md)**: Collection management guide
-- **[RETRIEVAL_PROVIDERS.md](RETRIEVAL_PROVIDERS.md)**: RAG provider documentation
-- **[REASONING_MODELS.md](REASONING_MODELS.md)**: Reasoning models (legacy, needs update)
+- **[RAG_SERVICES.md](RAG_SERVICES.md)**: RAG provider documentation
+- **[REASONING_MODELS.md](REASONING_MODELS.md)**: Reasoning models
 
 ---
 
 ## Version History
 
-- **v2.0.0** (2025-10-19): Simplified architecture with 4-phase flow
-- **v1.x**: Strategy-based architecture (deprecated)
+- **v2.1.0** (2026-02-13): Phase 6b tool execution, embedding config in RAG wrapper
+- **v2.0.0** (2025-10-19): Simplified architecture with 6-phase flow
+- **v1.x**: Strategy-based architecture
 
 For detailed changes, see [CHANGELOG.md](../CHANGELOG.md).

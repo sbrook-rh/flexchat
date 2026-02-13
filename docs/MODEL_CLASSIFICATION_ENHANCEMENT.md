@@ -31,7 +31,7 @@ Add a provider-specific classification system that outputs standardized characte
     variant: "instruct",  // base, instruct, chat
     generation: "2.5",    // model version/generation
     speed: "fast",        // fast, medium, slow
-    capabilities: ["text"] // text, vision, reasoning, etc.
+    capabilities: ["text"] // text, vision, reasoning, function-calling, etc.
   }
 }
 ```

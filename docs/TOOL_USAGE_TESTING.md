@@ -1,8 +1,8 @@
 # Testing Model Tool Usage with Flex Chat
 
-**Status**: Analysis & Planning Document  
-**Created**: 2025-12-10  
-**Purpose**: Guide for testing whether AI models can effectively use tools/function calling
+**Status**: Living Document  
+**Last Updated**: 2026-02-13  
+**Purpose**: Guide for testing whether AI models can effectively use tools/function calling with Flex Chat
 
 ---
 
@@ -11,22 +11,27 @@
 ### What Flex Chat Has Now
 
 ✅ **Capability Detection**:
-- OpenAI provider tracks `function-calling` as a model capability
+- Providers (OpenAI, Gemini, etc.) track tool/function-calling as a model capability
 - Frontend displays 🔧 badge for models with function-calling support
 - Model metadata includes capabilities array
 
-❌ **No Tool Calling Implementation**:
-- No function/tool definitions in configuration
-- No tool execution in response generation flow
-- No MCP (Model Context Protocol) integration yet
-- Response generation is text-only (no structured tool calls)
+✅ **Tool Calling Implementation**:
+- **Tool registry**: Config defines `tools.registry` (builtin tools); Config Builder has a Tools tab to enable/disable them
+- **Response handler integration**: Handlers can set `tools.enabled` (and optionally `tools.max_iterations`); when matched, Phase 6b runs
+- **Phase 6b**: Response generation extends into a tool execution loop: the system passes tool definitions to the LLM, executes tool calls via the registry, and continues until the model returns a final text response
+- **Builtin tools**: Manifest defines available builtins; tools are executed in Node and results are fed back to the model
+
+❌ **Not yet**:
+- No MCP (Model Context Protocol) integration
+- Custom tool definitions (beyond builtins) are not yet configurable in the UI
 
 ### Architecture Context
 
-Flex Chat uses a **6-phase linear flow**:
-1. Topic Detection → 2. RAG Collection → 3. Intent Detection → 4. Profile Building → 5. Response Handler Matching → 6. Response Generation
+Flex Chat uses a **6-phase linear flow** with an optional **Phase 6b** when tools are enabled:
 
-**Current flow is RAG-focused**, not tool-focused. Tools would need to be integrated into Phase 6 (Response Generation) or as a new phase.
+1. Topic Detection → 2. RAG Collection → 3. Intent Detection → 4. Profile Building → 5. Response Handler Matching → 6. Response Generation (or Phase 6b tool loop)
+
+When a response handler has `tools.enabled` and the selected model supports tool calling, Phase 6 becomes a tool execution loop (Phase 6b) until the model returns a normal stop. See [ARCHITECTURE.md](ARCHITECTURE.md) and [TOOL_CALLING_SPECIFICATION.md](TOOL_CALLING_SPECIFICATION.md).
 
 ---
 

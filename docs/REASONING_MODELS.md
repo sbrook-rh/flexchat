@@ -27,19 +27,19 @@ This separation allows:
 ```
 User Query: "Explain how Kubernetes networking works"
     ↓
-[Phase 1-3: Topic, RAG, Profile Building]
+[Phase 1-4: Topic, RAG, Intent, Profile Building]
     ↓
 Profile: { intent: "kubernetes", reasoning: true, ... }
     ↓
-[Phase 4: Response Handler Matching]
+[Phase 5: Response Handler Matching]
     Match: { intent: "kubernetes", reasoning: true }
     ↓
-[Reasoning Stage]
+[Phase 6: Reasoning Stage (optional)]
     Prompt: reasoning_prompt
     Model: llama3.1:8b (or user-selected reasoning model)
     Output: "Let me think through this step-by-step... [analysis]"
     ↓
-[Response Stage]
+[Phase 6: Response Stage]
     Prompt: prompt (with {{reasoning}} variable populated)
     Model: llama3.2:3b (or response model)
     Input: Reasoning output + original query + RAG context

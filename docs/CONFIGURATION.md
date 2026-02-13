@@ -1,7 +1,7 @@
 # Configuration Guide
 
-**Version**: 2.1  
-**Last Updated**: November 8, 2025
+**Version**: 2.2  
+**Last Updated**: February 13, 2026
 
 This guide explains how to configure Flex Chat for your use case.
 
@@ -46,7 +46,7 @@ Flex Chat supports two ways to create and manage configuration:
 2. [Configuration Structure](#configuration-structure)
 3. [LLMs Section](#llms-section)
 4. [RAG Services Section](#rag-services-section)
-5. [Embedding Section](#embedding-section)
+5. [Embeddings (RAG wrapper)](#embeddings-rag-wrapper)
 6. [Intent Section](#intent-section)
 7. [Responses Section](#responses-section)
 8. [Complete Example](#complete-example)
@@ -134,17 +134,19 @@ If no config path is specified, defaults to:
 
 ## Configuration Structure
 
-A Flex Chat configuration file has **5 main sections**:
+A Flex Chat configuration file has **4 main sections** (plus optional `tools`):
 
 ```json
 {
   "llms": { ... },          // AI/LLM providers (OpenAI, Ollama, etc.)
   "rag_services": { ... },  // RAG/vector database services
-  "embedding": { ... },     // Default embedding configuration
   "intent": { ... },        // Intent detection settings
-  "responses": [ ... ]      // Response handlers (matching & generation rules)
+  "responses": [ ... ],     // Response handlers (matching & generation rules)
+  "tools": { ... }          // Optional: builtin tools registry for tool calling
 }
 ```
+
+Embeddings are **not** configured in the Node.js config. The RAG wrapper (Python) and each collection define which embedding model is used. See [Embeddings (RAG wrapper)](#embeddings-rag-wrapper) and [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md).
 
 **Note**: `responses` may be renamed to `response_handlers` in a future version.
 
@@ -222,7 +224,6 @@ The `OPENAI_API_KEY` environment variable will be substituted at runtime.
 LLM providers are referenced by name in:
 - **Response handlers**: `"llm": "local"`
 - **Intent detection**: `"intent.provider.llm": "chatgpt"`
-- **Embeddings**: `"embedding.llm": "local"`
 
 ---
 
@@ -239,11 +240,7 @@ Define RAG/vector database services for knowledge retrieval.
       "provider": "chromadb-wrapper",
       "url": "http://localhost:5006",
       "match_threshold": 0.25,
-      "partial_threshold": 0.5,
-      "embedding": {
-        "llm": "local",
-        "model": "nomic-embed-text"
-      }
+      "partial_threshold": 0.5
     }
   }
 }
@@ -263,11 +260,7 @@ Define RAG/vector database services for knowledge retrieval.
       "provider": "chromadb-wrapper",
       "url": "http://localhost:5007",
       "match_threshold": 0.2,
-      "partial_threshold": 0.5,
-      "embedding": {
-        "llm": "chatgpt",
-        "model": "text-embedding-ada-002"
-      }
+      "partial_threshold": 0.5
     },
     "tech_docs": {
       "provider": "chromadb-wrapper",
@@ -275,7 +268,6 @@ Define RAG/vector database services for knowledge retrieval.
       "match_threshold": 0.25,
       "partial_threshold": 0.45,
       "intent_identifier": "technical_support"
-      // Uses default embedding (from root "embedding" section)
     }
   }
 }
@@ -289,7 +281,6 @@ Define RAG/vector database services for knowledge retrieval.
 | `url` | Yes | RAG service endpoint |
 | `match_threshold` | No | Distance threshold for confident match (default: 0.25) |
 | `partial_threshold` | No | Distance threshold for partial match (default: 0.5) |
-| `embedding` | No | Service-specific embedding config (overrides default) |
 | `intent_identifier` | No | Intent name when match found (defaults to service name) |
 
 ### Thresholds Explained
@@ -306,61 +297,18 @@ Typical values:
 - `match_threshold`: 0.15 - 0.3 (strict to moderate)
 - `partial_threshold`: 0.4 - 0.6 (moderate to loose)
 
-### Per-Service vs Default Embedding
-
-You can specify embeddings:
-1. **Per-service** (in `rag_services.<name>.embedding`)
-2. **Default** (in root `embedding` section)
-
-If a service doesn't specify embeddings, it uses the default.
-
 ---
 
-## Embedding Section
+## Embeddings (RAG wrapper)
 
-Default embedding configuration for RAG services.
+Embeddings are **not** configured in the Flex Chat Node.js config file. They are configured and generated in the **RAG wrapper** (Python) and **per collection**:
 
-### Structure
+- The RAG wrapper loads embedding models (e.g. via `--embeddings-config`) and exposes them in its health endpoint.
+- When you create a collection (via UI or API), you specify which embedding model from the wrapper to use; that model is stored in the collection's metadata.
+- Document upload sends text only to the wrapper; the wrapper generates embeddings using the collection's embedding model.
+- Queries use the same collection embedding model for query embedding.
 
-```json
-{
-  "embedding": {
-    "llm": "local",
-    "model": "nomic-embed-text"
-  }
-}
-```
-
-### Example: Using OpenAI Embeddings
-
-```json
-{
-  "embedding": {
-    "llm": "chatgpt",
-    "model": "text-embedding-ada-002"
-  }
-}
-```
-
-### Fields
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `llm` | Yes | LLM provider name (must exist in `llms` section) |
-| `model` | Yes | Embedding model name |
-
-### Common Embedding Models
-
-**Ollama (local):**
-- `nomic-embed-text` - Good quality, fast
-- `mxbai-embed-large` - Higher quality, slower
-
-**OpenAI:**
-- `text-embedding-ada-002` - Standard, cost-effective
-- `text-embedding-3-small` - Newer, efficient
-- `text-embedding-3-large` - Highest quality
-
-**Important**: The embedding model must match what was used when documents were added to collections.
+For wrapper embedding setup (Ollama, OpenAI, Gemini providers, model names, dimensions), see [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md) and [RAG_SERVICES.md](RAG_SERVICES.md).
 
 ---
 
@@ -622,17 +570,8 @@ Here's a complete, realistic configuration:
       "provider": "chromadb-wrapper",
       "url": "http://localhost:5006",
       "match_threshold": 0.25,
-      "partial_threshold": 0.45,
-      "embedding": {
-        "llm": "chatgpt",
-        "model": "text-embedding-ada-002"
-      }
+      "partial_threshold": 0.45
     }
-  },
-  
-  "embedding": {
-    "llm": "local",
-    "model": "nomic-embed-text"
   },
   
   "intent": {
@@ -703,10 +642,10 @@ Here's a complete, realistic configuration:
 - `GEMINI_API_KEY` - Google Gemini API key (when implemented)
 - `AZURE_OPENAI_KEY` - Azure OpenAI key (if using Azure)
 
-### RAG Service
+### RAG Service (Python wrapper)
 
-- `EMBEDDING_PROVIDER` - Python RAG wrapper embedding provider
-- `EMBEDDING_MODEL` - Python RAG wrapper embedding model
+Embedding provider and model are configured in the RAG wrapper (e.g. `.env` next to the Python service), not in the Node config. See [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md).
+
 - `OLLAMA_BASE_URL` - Ollama endpoint (if not default)
 
 ### Setting Environment Variables
@@ -803,10 +742,10 @@ See the `config/examples/` directory for complete configuration examples:
 - **Cause**: RAG service URL unreachable or wrong
 - **Fix**: Verify Python RAG service is running on specified URL
 
-### Embeddings don't match
+### RAG results poor or inconsistent
 
-- **Cause**: Documents embedded with different model than queries
-- **Fix**: Use same embedding model for indexing and querying
+- **Cause**: Embedding model used for indexing may differ from the collection's configured model, or collection metadata is missing `embedding_model`
+- **Fix**: Ensure the RAG wrapper has the correct embedding model loaded; create collections with the desired `embedding_model` from the wrapper health list. See [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md) and [COLLECTION_MANAGEMENT.md](COLLECTION_MANAGEMENT.md).
 
 ---
 
@@ -821,5 +760,6 @@ See the `config/examples/` directory for complete configuration examples:
 
 ## Version History
 
+- **v2.2** (2026-02-13): Embeddings documented as RAG wrapper and per-collection only
 - **v2.0** (2025-10-19): Simplified configuration structure
-- **v1.x**: Strategy-based configuration (deprecated)
+- **v1.x**: Strategy-based configuration

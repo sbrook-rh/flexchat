@@ -910,7 +910,7 @@ EMBEDDING_PROVIDER=ollama
 OLLAMA_EMBEDDING_MODEL=nomic-embed-text
 ```
 
-**Flex Chat** (`config.json`):
+**Flex Chat** (`config.json`): only RAG service connection; no embedding section in Node config:
 ```json
 {
   "rag_services": {
@@ -918,26 +918,21 @@ OLLAMA_EMBEDDING_MODEL=nomic-embed-text
       "provider": "chromadb-wrapper",
       "url": "http://localhost:5006"
     }
-  },
-  "embedding": {
-    "llm": "local",
-    "model": "nomic-embed-text"
   }
 }
 ```
 
-**Both must use**: `nomic-embed-text` via Ollama
+Collections specify which embedding model from the wrapper to use (via collection metadata `embedding_model`). Indexing and querying for a collection both use that collection's model.
 
 ### Changing Embedding Models
 
 If you need to change embedding models:
 
-1. **Create new collection** with new name
-2. **Re-index all documents** with new embedding model
-3. **Update Flex Chat config** to use new collection
-4. **Delete old collection** when confident
+1. **Create new collection** with new name and the desired `embedding_model` from the wrapper health list
+2. **Re-index all documents** into the new collection
+3. **Delete old collection** when confident
 
-**Don't**: Change embedding model on existing collection (results will be meaningless)
+**Don't**: Change embedding model on an existing collection that already has documents (results will be meaningless)
 
 ---
 

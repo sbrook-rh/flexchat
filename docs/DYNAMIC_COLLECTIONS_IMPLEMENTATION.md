@@ -10,7 +10,7 @@ We implemented a complete **metadata-driven dynamic collection management system
 
 **New/Enhanced Features:**
 - ✅ Collection management endpoints (list, get, create, delete)
-- ✅ Document upload endpoint with automatic embedding generation
+- ✅ Document upload endpoint; wrapper generates embeddings from document text
 - ✅ Dynamic collection querying with metadata support
 - ✅ CORS support for frontend integration
 - ✅ Health check and readiness endpoints
@@ -111,12 +111,12 @@ We implemented a complete **metadata-driven dynamic collection management system
 - Auto-selects all by default
 - Sends with each chat message
 
-### 7. Frontend - Conditional Navigation (`frontend/src/NavBar.jsx`) ** NOW REMOVED **
+### 7. Frontend - Conditional Navigation (`frontend/src/NavBar.jsx`)
 
 **Features:**
-- ✅ Checks for wrapper provider availability
-- ✅ Only shows "Collections" link if wrapper exists
-- ✅ Dynamic rendering based on backend state
+- Checks for wrapper provider availability
+- Shows "Collections" link when a RAG wrapper is configured
+- Dynamic rendering based on backend state
 
 ### 8. Frontend - Routing (`frontend/src/App.jsx`)
 
@@ -359,7 +359,7 @@ User Query + Selected Collections
 - [ ] Start chat server: `cd backend/chat && node server.js`
 - [ ] Test collection endpoints via Postman/curl
 - [ ] Verify metadata stored in ChromaDB
-- [ ] Test document upload with embeddings
+- [ ] Test document upload (wrapper generates embeddings)
 - [ ] Test query with dynamic collection
 
 ### Frontend Testing

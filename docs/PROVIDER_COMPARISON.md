@@ -6,7 +6,7 @@
 |---------|------------------|-------------------|
 | **Port** | **5006** | **8000** |
 | **Service** | Python FastAPI wrapper | ChromaDB HTTP server |
-| **Embeddings** | Wrapper handles | Chat server handles |
+| **Embeddings** | Wrapper handles | Client/server config |
 | **Start Command** | `python server.py` | `chroma run --port 8000` |
 | **Collection Management UI** | ✅ Yes | ❌ No |
 | **Dynamic Collections** | ✅ Yes | ❌ No |
@@ -40,11 +40,11 @@
 {
   "type": "chromadb",
   "url": "http://localhost:8000",
-  "collection": "openshift_docs",
-  "embedding_provider": "openai",
-  "embedding_model": "text-embedding-3-small"
+  "collection": "openshift_docs"
 }
 ```
+
+Embedding configuration for direct ChromaDB is on the ChromaDB server or the client that indexes/queries it, not in the Flex Chat Node config.
 
 ## When to Use Each
 
@@ -127,8 +127,7 @@
 ```json
 {
   "type": "chromadb",            // Correct!
-  "url": "http://localhost:8000",
-  "embedding_provider": "openai"
+  "url": "http://localhost:8000"
 }
 ```
 
@@ -146,7 +145,7 @@
 - Not using `chromadb-wrapper` type
 - Solution: Change to `chromadb-wrapper` for dynamic collections
 
-**"Embeddings not working"**
-- Direct chromadb missing `embedding_provider`
-- Solution: Add `embedding_provider` and `embedding_model` to config
+**"Embeddings not working" (wrapper)**
+- Wrapper embedding model not loaded or collection missing `embedding_model` in metadata
+- Solution: Configure embedding models in the RAG wrapper (see [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md)); create collections with a valid `embedding_model` from the wrapper health list
 

@@ -7,6 +7,7 @@ This document outlines the comprehensive testing strategy for the Gemini AI prov
 The Gemini provider has been successfully implemented and tested with multiple configurations to ensure:
 - ✅ **Basic functionality** - Chat completion, model discovery, health checks
 - **RAG integration** - Full 6-phase processing with knowledge base retrieval
+- **Tool calling** - Models with function-calling capability (🔧) can use tools when the response handler has `tools.enabled`
 - **Multi-provider setup** - Working alongside OpenAI and Ollama providers
 - **Performance** - Fast response times with Gemini-2.0-flash-exp models
 

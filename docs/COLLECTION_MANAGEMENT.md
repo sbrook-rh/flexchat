@@ -122,8 +122,8 @@ For each discovered field, choose its role:
 
 **Behind the scenes:**
 1. Frontend sends raw documents + transformation schema to backend
-2. Backend transforms each document to `{id, text, metadata}` format
-3. Embeddings generated for the `text` field
+2. Backend transforms each document to `{id, text, metadata}` format and sends text-only to the RAG wrapper
+3. Wrapper generates embeddings for the `text` field using the collection's embedding model
 4. Documents stored in ChromaDB with metadata
 5. Schema saved to collection metadata (if checkbox selected)
 
@@ -145,9 +145,8 @@ For each discovered field, choose its role:
 
 **Processing:**
 1. Frontend sends pre-formatted documents to chat server
-2. Chat server proxies to Python wrapper
-3. Wrapper generates embeddings via OpenAI
-4. Wrapper stores in ChromaDB
+2. Chat server sends text-only documents to the RAG wrapper
+3. Wrapper generates embeddings using the collection's embedding model and stores in ChromaDB
 
 **When to use:**
 - Uploading documentation files (.txt, .md)
@@ -508,9 +507,9 @@ Answer questions.
    - All dynamic collections from same wrapper service
    - Can't span multiple wrapper instances
 
-4. **Embedding Model Fixed**
-   - Uses OpenAI text-embedding-ada-002
-   - Defined in wrapper service
+4. **Embedding Model Per Collection**
+   - Each collection has an `embedding_model` in metadata (from the wrapper's available models)
+   - Defined in the wrapper service and set when the collection is created
 
 ## Troubleshooting
 

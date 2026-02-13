@@ -14,12 +14,12 @@ Topic detection is **Phase 1** of FlexChat's 6-phase chat processing flow. It an
 ### The 6-Phase Flow
 
 ```
-1. Topic Detection    ← You are here
-2. Intent Detection
-3. RAG Retrieval
-4. Reasoning (optional)
-5. Response Generation
-6. Response Formatting
+1. Topic Detection       ← You are here
+2. RAG Collection
+3. Intent Detection
+4. Profile Building
+5. Response Handler Matching
+6. Response Generation   (optional Phase 6b: tool execution when tools enabled)
 ```
 
 Topic detection happens **first**, before any RAG retrieval or response generation, allowing the system to tailor its behavior to what the user is actually asking about.

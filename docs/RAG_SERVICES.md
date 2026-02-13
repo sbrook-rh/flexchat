@@ -104,25 +104,6 @@ RAG services are configured in the `rag_services` section of `config.json`.
 }
 ```
 
-### With Custom Embeddings
-
-```json
-{
-  "rag_services": {
-    "tech_docs": {
-      "provider": "chromadb-wrapper",
-      "url": "http://localhost:5007",
-      "match_threshold": 0.2,
-      "partial_threshold": 0.45,
-      "embedding": {
-        "llm": "chatgpt",
-        "model": "text-embedding-ada-002"
-      }
-    }
-  }
-}
-```
-
 ### Configuration Fields
 
 | Field | Required | Default | Description |
@@ -131,8 +112,9 @@ RAG services are configured in the `rag_services` section of `config.json`.
 | `url` | Yes | - | RAG service endpoint URL |
 | `match_threshold` | No | 0.25 | Distance threshold for confident match |
 | `partial_threshold` | No | 0.5 | Distance threshold for partial match |
-| `embedding` | No | root `embedding` | Embedding configuration (llm + model) |
 | `intent_identifier` | No | service name | Intent name when match found |
+
+Embedding models are configured in the RAG wrapper and per collection (see [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md) and [COLLECTION_MANAGEMENT.md](COLLECTION_MANAGEMENT.md)); they are not set in `rag_services` in the Node config.
 
 ### Thresholds Explained
 
@@ -329,16 +311,9 @@ OPENAI_API_KEY=sk-...
 
 ### Embedding Consistency
 
-**Critical**: The embedding model used for:
-1. **Indexing** (adding documents)
-2. **Querying** (searching for similar documents)
+**Critical**: The embedding model used for indexing (adding documents) and for querying (searching) must be **identical** for each collection. Mismatched embeddings produce meaningless results.
 
-Must be **identical**. Mismatched embeddings produce meaningless results.
-
-**Best practice**: Configure in one place:
-- Set in Python service `.env` (for indexing)
-- Set in Flex Chat `rag_services.<name>.embedding` (for querying)
-- Use same `llm` and `model` in both
+**How it works**: The RAG wrapper loads embedding models (e.g. via `.env` or `--embeddings-config`). Each collection stores an `embedding_model` in its metadata. The wrapper uses that model for both document ingestion and query embedding for that collection.
 
 ### Data Persistence
 
@@ -588,7 +563,7 @@ curl http://localhost:5006/collections
 # (Should show count > 0)
 
 # Verify embedding model matches
-# In Python service .env vs config.json embedding section
+# In Python service .env and collection metadata (embedding_model)
 ```
 
 ### High distances (> 0.5) for relevant queries
@@ -694,5 +669,5 @@ ollama pull nomic-embed-text
 ## Version History
 
 - **v2.0** (2025-10-19): Renamed from RETRIEVAL_PROVIDERS.md, updated for `rag_services`
-- **v1.x**: Used `knowledge_bases` terminology (deprecated)
+- **v1.x**: Used `knowledge_bases` terminology
 

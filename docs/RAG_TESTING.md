@@ -30,9 +30,7 @@ POST http://localhost:5005/chat/api
   "selectedCollections": [
     {
       "service": "recipes",
-      "name": "fancy-desserts",
-      "embedding_connection": "local",
-      "embedding_model": "all-minilm:latest"
+      "name": "fancy-desserts"
     }
   ],
   "topic": ""
@@ -44,12 +42,12 @@ POST http://localhost:5005/chat/api
 - `selectedCollections` (array): Collections to query, each with:
   - `service`: RAG service name (from config)
   - `name`: Collection name
-  - `embedding_connection`: LLM connection ID for embeddings
-  - `embedding_model`: Model name from LLM config
 
 **Optional fields**:
 - `previousMessages`: Conversation history for context
 - `topic`: Previous topic (empty string for first message)
+
+The RAG wrapper generates query embeddings using each collection's configured `embedding_model`; no embedding parameters are sent in the request.
 
 ### Example: Using curl
 
@@ -60,9 +58,7 @@ curl -X POST http://localhost:5005/chat/api \
     "prompt": "How do I make sticky toffee pudding?",
     "selectedCollections": [{
       "service": "recipes",
-      "name": "fancy-desserts",
-      "embedding_connection": "local",
-      "embedding_model": "all-minilm:latest"
+      "name": "fancy-desserts"
     }],
     "previousMessages": [],
     "topic": ""
