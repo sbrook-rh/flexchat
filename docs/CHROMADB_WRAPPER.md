@@ -12,9 +12,9 @@ This document explains how to set up and run the ChromaDB wrapper service.
 
 The ChromaDB wrapper is a Python FastAPI service that provides:
 - Vector database storage with ChromaDB
-- Multiple embedding providers (Ollama, OpenAI, Gemini)
-- RESTful API for collection management
-- Document upload and querying
+- Embedding models loaded from a YAML config (HuggingFace or local paths)
+- Optional cross-encoder reranking for relevance
+- RESTful API for collection management, document upload, and querying
 - Multiple isolated instances (different ports/databases)
 
 ---
@@ -28,107 +28,121 @@ cd backend/rag
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment
+### 2. Embedding Models (Required)
 
-Create `.env` file in `backend/rag/`:
+Embedding models are configured via a **YAML file** and passed with `--embeddings-config`. The server will not start without it. Example configs in this repo: `embeddings-fast.yml`, `embeddings-standard.yml`, `embeddings.yml.example`.
+
+Copy or edit one, then pass it when starting:
 
 ```bash
-# Embedding provider: ollama, openai, or gemini
-EMBEDDING_PROVIDER=ollama
-
-# Ollama configuration (if using ollama)
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text
-
-# OpenAI configuration (if using openai)
-# OPENAI_API_KEY=sk-...
-# OPENAI_EMBEDDING_MODEL=text-embedding-ada-002
-
-# Gemini configuration (if using gemini)
-# GEMINI_API_KEY=AI...
-# GEMINI_EMBEDDING_MODEL=models/embedding-001
+python server.py --embeddings-config embeddings-fast.yml
 ```
 
 ### 3. Start the Service
 
-**Default** (port 5006, default chroma_db location):
+**Minimal** (default port 5006, default `./chroma_db`):
 ```bash
-python3 server.py
+python server.py --embeddings-config embeddings-fast.yml
 ```
 
-**Custom port and database**:
+**Typical** (custom path, port, cross-encoder reranker):
 ```bash
-python3 server.py --chroma-path ./chroma_db/recipes --port 5007
+python server.py --chroma-path chroma_db/cooking --port 5007 \
+  --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2 \
+  --embeddings-config embeddings-fast.yml
 ```
+
+**All options:** run `python server.py --help`:
+- `--chroma-path` — ChromaDB storage directory (default: `./chroma_db`)
+- `--port` — Server port (default: 5006)
+- `--cross-encoder` — HuggingFace cross-encoder model for reranking (optional)
+- `--cross-encoder-path` — Local path to cross-encoder (overrides `--cross-encoder`)
+- `--embeddings-config` — Path to embeddings YAML (required)
+- `--list-reranker-models` — List suggested reranker models and exit
+- `--download-models` — Download embedding models from config and exit (no server)
 
 ### 4. Verify It's Running
 
 ```bash
-curl http://localhost:5006/health
-# Should return: {"status": "healthy"}
+curl http://localhost:5007/health
+# Returns status, collection count, and loaded embedding_models when present
 ```
 
 ---
 
 ## Command-Line Arguments
 
-### `--chroma-path`
+Run `python server.py --help` for the full list. Summary:
 
-Path to ChromaDB storage directory.
-
-**Default**: `./chroma_db`
-
-**Examples**:
-```bash
-# Use default location
-python3 server.py
-
-# Use custom location
-python3 server.py --chroma-path ./chroma_db/recipes
-
-# Use absolute path
-python3 server.py --chroma-path /data/chromadb/tech_docs
-```
-
-**Note**: Each path is a separate ChromaDB instance with its own collections.
-
-### `--port`
-
-Server port number.
-
-**Default**: `5006`
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--chroma-path` | `./chroma_db` | Path to ChromaDB storage directory (each path is a separate instance). |
+| `--port` | `5006` | Server port. |
+| `--embeddings-config` | *(required)* | Path to YAML file defining embedding models (e.g. `embeddings-fast.yml`). |
+| `--cross-encoder` | — | HuggingFace model name for reranking (e.g. `cross-encoder/ms-marco-MiniLM-L-6-v2`, `BAAI/bge-reranker-base`). |
+| `--cross-encoder-path` | — | Local path to cross-encoder model (overrides `--cross-encoder`). |
+| `--list-reranker-models` | — | List suggested reranker models and exit. |
+| `--download-models` | — | Download embedding models from config and exit (no server start). |
 
 **Examples**:
 ```bash
-# Default port
-python3 server.py
+# Custom path and port
+python server.py --embeddings-config embeddings-fast.yml --chroma-path ./chroma_db/recipes --port 5007
 
-# Custom port
-python3 server.py --port 5007
-
-# Different databases on different ports
-python3 server.py --chroma-path ./chroma_db/recipes --port 5007 &
-python3 server.py --chroma-path ./chroma_db/tech_docs --port 5008 &
+# With cross-encoder; pre-download models only
+python server.py --download-models --embeddings-config embeddings-fast.yml
+python server.py --chroma-path chroma_db/cooking --port 5007 \
+  --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2 --embeddings-config embeddings-fast.yml
 ```
+
+---
+
+## Embedding Models (YAML Config)
+
+The file passed to `--embeddings-config` defines which models the wrapper loads. Each entry has an `id` (alias used in collection metadata and health) and a `path` (HuggingFace model ID or local path). Example:
+
+```yaml
+embeddings:
+  - id: minilm
+    path: sentence-transformers/all-MiniLM-L6-v2
+  - id: nomic
+    path: nomic-ai/nomic-embed-text-v1
+```
+
+See `embeddings-fast.yml`, `embeddings-standard.yml`, and `embeddings.yml.example` in `backend/rag/`. Models are downloaded from HuggingFace on first use and cached; use `--download-models` to pre-download without starting the server.
+
+---
+
+## Optional Environment Variables
+
+You can override or supply config via environment variables instead of CLI:
+
+- **`EMBEDDINGS_CONFIG`** — Path to embeddings YAML (if not using `--embeddings-config`).
+- **`CROSS_ENCODER_MODEL`** — HuggingFace cross-encoder model name.
+- **`CROSS_ENCODER_PATH`** — Local path to cross-encoder model.
+
+Example: `EMBEDDINGS_CONFIG=embeddings-fast.yml python server.py --port 5007`
+
+See `env.example` in `backend/rag/` for a template. No `.env` is required for embedding provider/model; those are defined in the YAML.
 
 ---
 
 ## Running Multiple Instances
 
-You can run multiple wrapper instances for different purposes:
-
-### Example: Two Separate Databases
+Run multiple wrapper instances for different databases or ports. Each must have its own `--chroma-path` and `--port`; each can use the same or a different `--embeddings-config`.
 
 **Terminal 1** (recipes on port 5007):
 ```bash
 cd backend/rag
-python3 server.py --chroma-path ./chroma_db/recipes --port 5007
+python server.py --chroma-path ./chroma_db/recipes --port 5007 \
+  --embeddings-config embeddings-fast.yml
 ```
 
 **Terminal 2** (technical docs on port 5006):
 ```bash
 cd backend/rag
-python3 server.py --chroma-path ./chroma_db/red_hat_products --port 5006
+python server.py --chroma-path ./chroma_db/red_hat_products --port 5006 \
+  --embeddings-config embeddings-fast.yml
 ```
 
 ### Configure in Flex Chat
@@ -152,99 +166,10 @@ python3 server.py --chroma-path ./chroma_db/red_hat_products --port 5006
 
 ### Why Multiple Instances?
 
-- **Different embedding models**: Each instance can use a different embedding provider
 - **Isolation**: Separate databases for different domains
 - **Performance**: Distribute load across instances
+- **Different embedding configs**: Each instance can use a different `--embeddings-config` if needed
 - **Development**: Test configurations without affecting production
-
----
-
-## Environment Variables
-
-### Embedding Provider Selection
-
-**`EMBEDDING_PROVIDER`**
-
-Which embedding provider to use.
-
-**Options**: `ollama`, `openai`, `gemini`  
-**Default**: `ollama`
-
-```bash
-EMBEDDING_PROVIDER=ollama
-```
-
-### Ollama Configuration
-
-**`OLLAMA_BASE_URL`**
-
-Ollama server endpoint.
-
-**Default**: `http://localhost:11434`
-
-```bash
-OLLAMA_BASE_URL=http://localhost:11434
-```
-
-**`OLLAMA_EMBEDDING_MODEL`**
-
-Ollama embedding model name.
-
-**Default**: `nomic-embed-text`
-
-**Popular models**:
-- `nomic-embed-text` - Good quality, fast
-- `mxbai-embed-large` - Higher quality, slower
-- `all-minilm` - Lightweight, fast
-
-```bash
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text
-```
-
-### OpenAI Configuration
-
-**`OPENAI_API_KEY`**
-
-OpenAI API key (**required** for OpenAI).
-
-```bash
-OPENAI_API_KEY=sk-...
-```
-
-**`OPENAI_EMBEDDING_MODEL`**
-
-OpenAI embedding model name.
-
-**Default**: `text-embedding-ada-002`
-
-**Options**:
-- `text-embedding-ada-002` - Standard, cost-effective
-- `text-embedding-3-small` - Newer, efficient
-- `text-embedding-3-large` - Highest quality
-
-```bash
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-```
-
-### Gemini Configuration
-
-**`GEMINI_API_KEY`**
-
-Google Gemini API key (**required** for Gemini).
-
-```bash
-GEMINI_API_KEY=AI...
-```
-
-**`GEMINI_EMBEDDING_MODEL`**
-
-Gemini embedding model name.
-
-**Default**: `models/embedding-001`
-
-```bash
-GEMINI_EMBEDDING_MODEL=models/embedding-001
-```
 
 ---
 
@@ -402,7 +327,7 @@ The wrapper service supports optional cross-encoder reranking for improved relev
 
 **List available models**:
 ```bash
-python3 server.py --list-reranker-models
+python server.py --embeddings-config embeddings-fast.yml --list-reranker-models
 ```
 
 Output:
@@ -424,22 +349,18 @@ High-accuracy requirements:
 
 **Start with cross-encoder from HuggingFace**:
 ```bash
-python3 server.py --cross-encoder BAAI/bge-reranker-base
+python server.py --embeddings-config embeddings-fast.yml --cross-encoder BAAI/bge-reranker-base
 ```
 
 **Start with local cross-encoder model**:
 ```bash
-python3 server.py --cross-encoder-path /models/bge-reranker-base
+python server.py --embeddings-config embeddings-fast.yml --cross-encoder-path /models/bge-reranker-base
 ```
 
-**Using environment variables**:
+**Using environment variables** (optional override for cross-encoder):
 ```bash
 export CROSS_ENCODER_MODEL=BAAI/bge-reranker-base
-python3 server.py
-
-# Or local path
-export CROSS_ENCODER_PATH=/models/bge-reranker-base
-python3 server.py
+python server.py --embeddings-config embeddings-fast.yml
 ```
 
 ### Command-Line Flags
@@ -454,7 +375,7 @@ python3 server.py
 
 **First run** (HuggingFace model):
 ```bash
-python3 server.py --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2
+python server.py --embeddings-config embeddings-fast.yml --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2
 ```
 
 Output:
@@ -584,12 +505,13 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server.py .
-COPY .env .
+COPY embeddings-fast.yml .
 
 EXPOSE 5006
 
 # Model downloads on first run
 CMD ["python3", "server.py", \
+     "--embeddings-config", "embeddings-fast.yml", \
      "--chroma-path", "/data/chromadb", \
      "--cross-encoder", "BAAI/bge-reranker-base"]
 ```
@@ -625,11 +547,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN python3 -c "from sentence_transformers import CrossEncoder; CrossEncoder('BAAI/bge-reranker-base')"
 
 COPY server.py .
-COPY .env .
+COPY embeddings-fast.yml .
 
 EXPOSE 5006
 
 CMD ["python3", "server.py", \
+     "--embeddings-config", "embeddings-fast.yml", \
      "--chroma-path", "/data/chromadb", \
      "--cross-encoder", "BAAI/bge-reranker-base"]
 ```
@@ -748,6 +671,7 @@ WorkingDirectory=/opt/flex-chat/backend/rag
 Environment="PATH=/opt/flex-chat/venv/bin"
 Environment="HF_HOME=/var/cache/huggingface"
 ExecStart=/opt/flex-chat/venv/bin/python3 server.py \
+  --embeddings-config /opt/flex-chat/backend/rag/embeddings-fast.yml \
   --chroma-path /data/chromadb \
   --port 5006 \
   --cross-encoder BAAI/bge-reranker-base
@@ -798,7 +722,7 @@ curl https://huggingface.co
 # Browse: https://huggingface.co/models?pipeline_tag=text-classification&search=cross-encoder
 
 # Try different model
-python3 server.py --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2
+python server.py --embeddings-config embeddings-fast.yml --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2
 ```
 
 **Slow startup (model download)**
@@ -826,7 +750,7 @@ python3 server.py --cross-encoder cross-encoder/ms-marco-MiniLM-L-6-v2
 **Solution**:
 ```bash
 # Restart with cross-encoder enabled
-python3 server.py --cross-encoder BAAI/bge-reranker-base
+python server.py --embeddings-config embeddings-fast.yml --cross-encoder BAAI/bge-reranker-base
 ```
 
 ---
@@ -837,7 +761,7 @@ python3 server.py --cross-encoder BAAI/bge-reranker-base
 
 ```
 backend/rag/
-  ├── chroma_db/              # Default storage directory
+  ├── chroma_db/              # Default storage (or path given by --chroma-path)
   │   ├── recipes/            # Collection data
   │   │   ├── data_level0.bin
   │   │   ├── header.bin
@@ -847,7 +771,8 @@ backend/rag/
   │   └── chroma.sqlite3      # ChromaDB metadata
   ├── server.py
   ├── requirements.txt
-  └── .env
+  ├── embeddings-fast.yml    # Example embeddings config (required at runtime)
+  └── env.example            # Optional env overrides (e.g. EMBEDDINGS_CONFIG)
 ```
 
 ### Custom Paths
@@ -855,7 +780,7 @@ backend/rag/
 When using `--chroma-path`, the structure is the same:
 
 ```bash
-python3 server.py --chroma-path /data/my_chromadb
+python server.py --embeddings-config embeddings-fast.yml --chroma-path /data/my_chromadb
 ```
 
 Creates:
@@ -891,23 +816,20 @@ scp chroma_backup.tar.gz user@newserver:/path/
 
 # On new server
 tar -xzf chroma_backup.tar.gz
-python3 server.py --chroma-path /path/backend/rag/chroma_db
+python server.py --embeddings-config embeddings-fast.yml --chroma-path /path/backend/rag/chroma_db
 ```
 
 ---
 
 ## Embedding Consistency
 
-**Critical**: The embedding model must be **identical** for:
-1. Adding documents (indexing)
-2. Querying documents (search)
+**Critical**: The embedding model must be **identical** for adding documents and for querying. The wrapper loads models from the `--embeddings-config` YAML; each collection stores an `embedding_model` (one of the YAML `id` values) in its metadata. Indexing and querying for that collection both use that model.
 
 ### Example Configuration
 
-**Python service** (`.env`):
+**Python service** (start with embeddings YAML):
 ```bash
-EMBEDDING_PROVIDER=ollama
-OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+python server.py --embeddings-config embeddings-fast.yml --chroma-path ./chroma_db/recipes --port 5006
 ```
 
 **Flex Chat** (`config.json`): only RAG service connection; no embedding section in Node config:
@@ -948,35 +870,24 @@ If you need to change embedding models:
 lsof -i :5006
 
 # Kill the process or use different port
-python3 server.py --port 5007
+python server.py --embeddings-config embeddings-fast.yml --port 5007
 ```
 
-### "OPENAI_API_KEY is not set"
+### "FATAL: No embeddings config specified"
 
-**Cause**: Missing API key when using OpenAI embeddings
+**Cause**: Server requires an embeddings YAML file.
 
 **Solution**:
 ```bash
-# Add to .env file
-echo "OPENAI_API_KEY=sk-..." >> .env
-
-# Or set in environment
-export OPENAI_API_KEY=sk-...
-python3 server.py
+python server.py --embeddings-config embeddings-fast.yml
+# Or set env: EMBEDDINGS_CONFIG=embeddings-fast.yml python server.py
 ```
 
-### "Ollama model not found"
+### "Embedding model failed to load"
 
-**Cause**: Embedding model not pulled in Ollama
+**Cause**: Model in YAML not found or download failed (e.g. HuggingFace).
 
-**Solution**:
-```bash
-# Pull the model
-ollama pull nomic-embed-text
-
-# Verify it's available
-ollama list
-```
+**Solution**: Check network; use `--download-models` to pre-download; verify `path` in YAML (HuggingFace ID or valid local path).
 
 ### High memory usage
 
@@ -1065,7 +976,7 @@ Type=simple
 User=flexchat
 WorkingDirectory=/opt/flex-chat/backend/rag
 Environment="PATH=/opt/flex-chat/venv/bin"
-ExecStart=/opt/flex-chat/venv/bin/python3 server.py --chroma-path /data/chromadb/recipes --port 5007
+ExecStart=/opt/flex-chat/venv/bin/python3 server.py --embeddings-config /opt/flex-chat/backend/rag/embeddings-fast.yml --chroma-path /data/chromadb/recipes --port 5007
 Restart=always
 RestartSec=10
 
@@ -1093,11 +1004,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY server.py .
-COPY .env .
+COPY embeddings-fast.yml .
 
 EXPOSE 5006
 
-CMD ["python3", "server.py", "--chroma-path", "/data/chromadb"]
+CMD ["python3", "server.py", "--embeddings-config", "embeddings-fast.yml", "--chroma-path", "/data/chromadb"]
 ```
 
 Build and run:
@@ -1106,7 +1017,6 @@ docker build -t chromadb-wrapper .
 docker run -d \
   -p 5006:5006 \
   -v /data/chromadb:/data/chromadb \
-  -e EMBEDDING_PROVIDER=ollama \
   chromadb-wrapper
 ```
 
