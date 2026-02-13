@@ -136,6 +136,8 @@ Tools are stored in config as `tools.registry` (array of `{ name, description? }
 
 The Configuration Builder uses a tabbed interface with the following sections:
 
+![Configuration Builder tabs](screenshots/config_builder_tabs.png)
+
 | Tab | Icon | Description | Enabled When |
 |-----|------|-------------|--------------|
 | **LLM Providers** | 🤖 | Manage LLM providers | Always |
@@ -147,6 +149,8 @@ The Configuration Builder uses a tabbed interface with the following sections:
 | **Reasoning** | 💭 | Configure reasoning models | Coming soon |
 
 ### Adding an LLM Provider
+
+![LLM Provider wizard](screenshots/config_builder_llm_wizard.png)
 
 1. Navigate to **LLM Providers** tab
 2. Click **Add LLM Provider**
@@ -180,6 +184,8 @@ The first LLM you add will automatically:
 
 ### Configuring Tools
 
+![Tools section](screenshots/config_builder_tools.png)
+
 1. Navigate to **Tools** tab (enabled when at least one LLM is configured)
 2. **Enable/Disable**: Toggle each builtin tool on or off; enabled tools appear in `tools.registry`
 3. **Description Override** (optional): For enabled tools, you can set a custom description
@@ -212,6 +218,8 @@ Handlers that have `tools.enabled` will receive the enabled tools when using a m
 ### Building Response Handlers
 
 **Response Handlers** determine which LLM and prompt to use for a query based on match criteria. Handlers are evaluated top-to-bottom, and the **first match wins**.
+
+![Handlers list](screenshots/config_builder_handlers.png)
 
 1. Navigate to **Handlers** tab
 2. **View Existing Handlers**: See all handlers in execution order (numbered)

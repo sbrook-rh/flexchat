@@ -25,11 +25,15 @@ cd ../rag && pip install -r requirements.txt   # optional, for RAG
 ```
 Then open **http://localhost:5173** — use the welcome screen to set up providers, or go to **Chat** if config is already in place.
 
+![Welcome screen (zero config)](docs/screenshots/welcome_zero_config.png)
+
 **Other start options:** [tmux](#option-b--tmux-recommended-for-development) · [individual terminals](#option-c--individual-terminals)
 
 ---
 
 ## What You Get
+
+![Chat with message](docs/screenshots/chat_with_message.png)
 
 - **Multi-provider AI** — OpenAI, Gemini, Ollama; switch via config; per-message model transparency
 - **RAG + dynamic collections** — Topic-aware retrieval; create collections and upload docs in the UI; no config edits for new collections

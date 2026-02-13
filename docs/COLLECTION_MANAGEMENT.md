@@ -30,6 +30,8 @@ Chat Server (Node.js)
 
 Users can create new collections via `/collections` page:
 
+![Create Collection modal](screenshots/collection_create_modal.png)
+
 **Collection Metadata:**
 - `name` - Collection identifier
 - `description` - What the collection is about
@@ -156,6 +158,8 @@ For each discovered field, choose its role:
 ### 3. Collection Selection (Chat UI)
 
 In the chat interface, users see all available collections:
+
+![Collections list](screenshots/collections_list.png)
 
 ```
 Search In:
