@@ -25,7 +25,7 @@ cd ../rag && pip install -r requirements.txt   # optional, for RAG
 ```
 Then open **http://localhost:5173** — use the welcome screen to set up providers, or go to **Chat** if config is already in place.
 
-**Other start options:** [tmux](#option-b---tmux-recommended-for-development) · [individual terminals](#option-c---individual-terminals)
+**Other start options:** [tmux](#option-b--tmux-recommended-for-development) · [individual terminals](#option-c--individual-terminals)
 
 ---
 
