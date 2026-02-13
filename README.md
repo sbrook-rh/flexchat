@@ -98,45 +98,69 @@ See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for JSON schema reference o
 
 ### 3. Start Services
 
-**Option A - All-in-One (Recommended):**
+Three ways to start, depending on your setup:
+
+**Option A - All-in-One script:**
 ```bash
-# Start with default config
+# Start with default config (config/config.json)
 ./start.sh
 
-# Or with custom config
+# Or with a specific config
 ./start.sh --config config/examples/chat-only-ollama.json
-
-# Get help
-./start.sh --help
 ```
+Starts the RAG wrapper (if needed), chat server, and frontend as background processes. `Ctrl+C` stops everything.
 
-**Option B - Individual Services:**
+**Option B - tmux (recommended for development):**
 
-**Terminal 1 - RAG Wrapper (if using RAG services):**
+A `flex-chat.yml` tmuxp layout is included. It opens all services in named windows with live logs:
+```bash
+tmuxp load flex-chat.yml
+```
+Edit `flex-chat.yml` to customise which RAG services start and with what options (see Option C below for the full parameter set). The included layout starts three RAG services on ports 5006–5008 as an example.
+
+**Option C - Individual terminals:**
+
+**RAG Wrapper** — one instance per knowledge base, each on its own port and data directory:
 ```bash
 cd backend/rag
+
+# Basic — default port 5006, data in ./chroma_db
 python3 server.py
-# Runs on http://localhost:5006 by default
-# Or specify custom port and data path:
-python3 server.py --chroma-path ./chroma_db/my_data --port 5007
+
+# Custom data directory and port
+python3 server.py --chroma-path ./chroma_db/products --port 5006
+
+# With a cross-encoder reranker for better relevance scoring
+python3 server.py --chroma-path ./chroma_db/docs --port 5007 \
+  --cross-encoder BAAI/bge-reranker-base
+
+# Multiple services for multiple knowledge bases:
+python3 server.py --chroma-path ./chroma_db/products --port 5006 &
+python3 server.py --chroma-path ./chroma_db/support  --port 5007 &
+python3 server.py --chroma-path ./chroma_db/internal --port 5008 &
 ```
 
-See [`docs/CHROMADB_WRAPPER.md`](docs/CHROMADB_WRAPPER.md) for full service documentation.
+Each RAG service instance is then referenced independently in your config:
+```json
+"rag_services": {
+  "products":  { "base_url": "http://localhost:5006", "match_threshold": 0.3 },
+  "support":   { "base_url": "http://localhost:5007", "match_threshold": 0.4 },
+  "internal":  { "base_url": "http://localhost:5008", "match_threshold": 0.35 }
+}
+```
 
-**Terminal 2 - Chat Server:**
+See [`docs/CHROMADB_WRAPPER.md`](docs/CHROMADB_WRAPPER.md) for full RAG service documentation.
+
+**Chat Server:**
 ```bash
 cd backend/chat
 node server.js
 # Runs on http://localhost:5005
 
-# Or with custom config:
 node server.js --config ../../config/examples/chat-only-ollama.json
-
-# Get help:
-node server.js --help
 ```
 
-**Terminal 3 - Frontend:**
+**Frontend:**
 ```bash
 cd frontend
 npm run dev
