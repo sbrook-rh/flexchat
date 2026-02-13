@@ -2,513 +2,183 @@
 
 A configuration-driven, AI-powered chat application with topic-aware RAG (Retrieval-Augmented Generation), builtin tool calling, dynamic knowledge base management, and transparent multi-model support.
 
-- see [`PROJECT_STATUS.md`]
+**[Project status](PROJECT_STATUS.md)**
 
-## Key Features
-
-### 🤖 **Multi-Provider AI Support**
-- Support for multiple AI providers (OpenAI, Gemini, Ollama)
-- Switch models and providers via configuration
-- Unified interface for all providers
-- Per-message model and service transparency
-
-### 📚 **Dynamic RAG Services**
-- Topic-aware retrieval from multiple collections
-- Create and manage collections via UI
-- No configuration file changes needed
-- Metadata-driven behavior (system prompts, thresholds)
-- Upload documents through web interface
-
-### 🎯 **7-Phase Processing Flow**
-1. **Topic Detection** - Extract user intent as a topic
-2. **RAG Collection** - Query relevant knowledge bases with normalized envelope
-3. **Intent Detection** - Detect user intent with fast path for matches
-4. **Profile Building** - Construct context from RAG results and intent
-5. **Response Handler Matching** - Find first matching response rule
-6. **Response Generation** - Generate final response using matched handler
-7. **Tool Execution** - Iterative tool calling loop (calculator, datetime, UUID, and more)
-
-### 🔧 **Builtin Tool Calling**
-- Calculator, current datetime (with timezone), and UUID generation out of the box
-- Enable tools per-handler or globally via a single toggle
-- Integrated test panel in Config Builder — test against unapplied working config
-- Iterative tool loop with configurable max iterations
-
-### ⚙️ **Flexible Configuration**
-- **Visual Configuration Builder** - Zero-config startup with guided wizards
-- **JSON Configuration** - File-based for automation and version control
-- Response handlers with flexible match criteria
-- Environment variable substitution for secrets
-- Import/export configurations with clipboard support
-- Full documentation in [`docs/CONFIGURATION_BUILDER.md`](docs/CONFIGURATION_BUILDER.md) and [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md)
+---
 
 ## Quick Start
 
-### Prerequisites
+**Prerequisites:** Node.js 18+, Python 3.8+ (for RAG), and an API key (OpenAI, Gemini, or use Ollama locally).
 
-- Node.js 18+
-- Python 3.8+ (for ChromaDB wrapper)
-- OpenAI API key (or other AI provider)
-
-### 1. Install Dependencies
-
+**1. Install**
 ```bash
-# Frontend
-cd frontend
-npm install
-
-# Backend
-cd ../backend/chat
-npm install
-
-# RAG Wrapper (optional, for dynamic collections)
-cd ../rag
-pip install -r requirements.txt
+cd frontend && npm install
+cd ../backend/chat && npm install
+cd ../rag && pip install -r requirements.txt   # optional, for RAG
 ```
 
-### 2. Configure
+**2. Configure** — Either use the **Configuration Builder** (no file needed: run `./start.sh`, then open the UI), or copy an example: `cp config/examples/01-chat-only.json config/config.json` and set `OPENAI_API_KEY` (or use another provider).
 
-**Option A - Configuration Builder UI (Recommended):**
-
-No configuration file needed! Just start the application and use the visual Configuration Builder:
-
+**3. Start**
 ```bash
-# Set your API key
-export OPENAI_API_KEY="your-key-here"
-
-# Start the app (jump to step 3)
 ./start.sh
 ```
+Then open **http://localhost:5173** — use the welcome screen to set up providers, or go to **Chat** if config is already in place.
 
-Then navigate to the Configuration Builder from the welcome screen to set up providers through the UI.
+**Other start options:** [tmux](#option-b---tmux-recommended-for-development) · [individual terminals](#option-c---individual-terminals)
 
-**Option B - JSON Configuration File (Traditional):**
+---
 
+## What You Get
+
+- **Multi-provider AI** — OpenAI, Gemini, Ollama; switch via config; per-message model transparency
+- **RAG + dynamic collections** — Topic-aware retrieval; create collections and upload docs in the UI; no config edits for new collections
+- **6-phase flow + tool execution** — Topic → RAG → Intent → Profile → Handler match → Response (with optional Phase 6b tool loop when tools enabled)
+- **Builtin tools** — Calculator, current datetime (timezone-aware), UUID; enable per-handler or globally; test in Config Builder
+- **Visual Config Builder** — Zero-config startup, wizards, import/export; or edit JSON for automation
+
+**Key links:** [Configuration](docs/CONFIGURATION_BUILDER.md) · [Architecture](docs/ARCHITECTURE.md) · [RAG & collections](docs/RAG_SERVICES.md) · [Troubleshooting](#troubleshooting)
+
+---
+
+## More: Start Options
+
+### Option A — All-in-One script
 ```bash
-# Copy an example configuration
-cp config/examples/01-chat-only.json config/config.json
-
-# Edit config.json and add your API keys
-# Or set environment variables:
-export OPENAI_API_KEY="your-key-here"
-export FLEX_CHAT_CONFIG_FILE="01-chat-only.json"
-```
-
-See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for JSON schema reference or [`docs/CONFIGURATION_BUILDER.md`](docs/CONFIGURATION_BUILDER.md) for UI guide.
-
-### 3. Start Services
-
-Three ways to start, depending on your setup:
-
-**Option A - All-in-One script:**
-```bash
-# Start with default config (config/config.json)
 ./start.sh
-
-# Or with a specific config
-./start.sh --config config/examples/chat-only-ollama.json
+# Or: ./start.sh --config config/examples/chat-only-ollama.json
 ```
-Starts the RAG wrapper (if needed), chat server, and frontend as background processes. `Ctrl+C` stops everything.
+Starts RAG wrapper (if needed), chat server, and frontend. `Ctrl+C` stops all.
 
-**Option B - tmux (recommended for development):**
-
-A `flex-chat.yml` tmuxp layout is included. It opens all services in named windows with live logs:
+### Option B — tmux (recommended for development)
 ```bash
 tmuxp load flex-chat.yml
 ```
-Edit `flex-chat.yml` to customise which RAG services start and with what options (see Option C below for the full parameter set). The included layout starts three RAG services on ports 5006–5008 as an example.
+Opens all services in named windows with live logs. Edit `flex-chat.yml` to customise RAG services (ports, options).
 
-**Option C - Individual terminals:**
+### Option C — Individual terminals
 
-**RAG Wrapper** — one instance per knowledge base, each on its own port and data directory:
+**RAG Wrapper** (one per knowledge base, own port and data dir):
 ```bash
 cd backend/rag
-
-# Basic — default port 5006, data in ./chroma_db
 python3 server.py
-
-# Custom data directory and port
-python3 server.py --chroma-path ./chroma_db/products --port 5006
-
-# With a cross-encoder reranker for better relevance scoring
-python3 server.py --chroma-path ./chroma_db/docs --port 5007 \
-  --cross-encoder BAAI/bge-reranker-base
-
-# Multiple services for multiple knowledge bases:
-python3 server.py --chroma-path ./chroma_db/products --port 5006 &
-python3 server.py --chroma-path ./chroma_db/support  --port 5007 &
-python3 server.py --chroma-path ./chroma_db/internal --port 5008 &
+# Or: python3 server.py --chroma-path ./chroma_db/products --port 5006
+# With reranker: python3 server.py --chroma-path ./chroma_db/docs --port 5007 --cross-encoder BAAI/bge-reranker-base
 ```
 
-Each RAG service instance is then referenced independently in your config:
-```json
-"rag_services": {
-  "products":  { "base_url": "http://localhost:5006", "match_threshold": 0.3 },
-  "support":   { "base_url": "http://localhost:5007", "match_threshold": 0.4 },
-  "internal":  { "base_url": "http://localhost:5008", "match_threshold": 0.35 }
-}
-```
+**Chat server:** `cd backend/chat && node server.js` (port 5005)  
+**Frontend:** `cd frontend && npm run dev` (port 5173)
 
-See [`docs/CHROMADB_WRAPPER.md`](docs/CHROMADB_WRAPPER.md) for full RAG service documentation.
+**URLs:** Home `http://localhost:5173/` · Chat `http://localhost:5173/chat` · Collections `http://localhost:5173/collections`
 
-**Chat Server:**
-```bash
-cd backend/chat
-node server.js
-# Runs on http://localhost:5005
+See [docs/CHROMADB_WRAPPER.md](docs/CHROMADB_WRAPPER.md) for full RAG options.
 
-node server.js --config ../../config/examples/chat-only-ollama.json
-```
-
-**Frontend:**
-```bash
-cd frontend
-npm run dev
-# Runs on http://localhost:5173
-```
-
-### 4. Use the System
-
-- **Home:** `http://localhost:5173/`
-- **Chat:** `http://localhost:5173/chat`
-- **Collections:** `http://localhost:5173/collections` (if wrapper configured)
+---
 
 ## Architecture
 
-### High-Level Overview
+6-phase processing flow (with optional **Phase 6b** when tools are enabled):
+
+1. **Topic Detection** — Extract topic from message and history  
+2. **RAG Collection** — Query selected collections; wrapper generates query embedding  
+3. **Intent Detection** — Classify intent (fast path when RAG match)  
+4. **Profile Building** — Build context from RAG results and intent  
+5. **Response Handler Matching** — First matching rule wins  
+6. **Response Generation** — LLM generates response; if handler has tools enabled → **Phase 6b** tool loop (iterate until model returns final text)
 
 ```
-┌─────────────────────────────────────────┐
-│      Frontend (React + Vite)            │
-│  /        /chat       /collections      │
-│  - Topic-aware UI                       │
-│  - Model transparency per message       │
-└────────────────┬────────────────────────┘
-                 │
-                 ▼
-┌─────────────────────────────────────────┐
-│    Chat Server (Node.js + Express)      │
-│  ┌───────────────────────────────────┐  │
-│  │ 7-Phase Processing Flow:          │  │
-│  │ 1. Topic Detection                │  │
-│  │ 2. RAG Collection                 │  │
-│  │ 3. Intent Detection               │  │
-│  │ 4. Profile Building               │  │
-│  │ 5. Response Handler Matching      │  │
-│  │ 6. Response Generation            │  │
-│  │ 7. Tool Execution (iterative)     │  │
-│  └───────────────────────────────────┘  │
-│  - AI Provider Abstraction              │
-│  - RAG Service Abstraction              │
-│  - Tool Calling Pipeline                │
-│  - Collection Management API            │
-└────────────┬────────────────────────────┘
-             │
-             ├─────────────────┐
-             ▼                 ▼
-    ┌──────────────┐  ┌───────────────────┐
-    │ AI Providers │  │ ChromaDB Wrapper  │
-    │ (OpenAI,     │  │ (Python FastAPI)  │
-    │  Gemini,     │  │ - Collection Mgmt │
-    │  Ollama)     │  │ - Embeddings      │
-                      │ - Document Upload │
-                      └─────────┬─────────┘
-                                │
-                                ▼
-                        ┌──────────────┐
-                        │   ChromaDB   │
-                        │ (Persistent) │
-                        └──────────────┘
+Frontend (React) → Chat Server (Node) → AI Providers (OpenAI, Gemini, Ollama)
+                            ↘ ChromaDB Wrapper (Python) → ChromaDB
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for detailed architecture documentation.
+Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+
+---
 
 ## Configuration
 
-Flex Chat uses a JSON configuration file to define:
-- **LLMs** - AI providers and their connection details
-- **RAG Services** - Vector databases and embeddings
-- **Embedding** - Default embedding configuration
-- **Intent** - Intent detection settings
-- **Responses** - Response handlers with match criteria
+Config is JSON. Main sections: **LLMs**, **RAG Services** (vector DB connections), **Intent**, **Responses** (handlers). Embeddings are configured in the RAG wrapper and per collection, not in the Node config. See [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
-### Example Configurations
+**Example configs** (`config/examples/`): `01-chat-only.json`, `02-single-rag-dynamic.json`, `04-multi-rag-multi-llm.json`, `08-tool-calling.json`
 
-Located in `config/examples/`:
-- **`01-chat-only.json`** - Simple conversational bot without RAG
-- **`02-single-rag-dynamic.json`** - Single RAG service with dynamic collections
-- **`03-single-rag-pinned.json`** - Single RAG service with pinned collection
-- **`04-multi-rag-multi-llm.json`** - Multiple RAG services and LLMs
-- **`08-tool-calling.json`** - Tool calling with calculator, datetime, and UUID builtins
-
-### Specifying Config File
-
-```bash
-# Via CLI argument
-node server.js --config config/examples/01-chat-only.json
-
-# Via environment variable (filename only, searches config/examples/)
-export FLEX_CHAT_CONFIG_FILE="01-chat-only.json"
-
-# Via environment variable (directory)
-export FLEX_CHAT_CONFIG_DIR="/path/to/config/directory"
-```
-
-**📖 Full Configuration Guide:** See [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) for complete documentation.
-
-## Key Concepts
+**Specifying config:** `node server.js --config path/to/config.json` · or `FLEX_CHAT_CONFIG_FILE` / `FLEX_CHAT_CONFIG_DIR`
 
 ### Response Handlers
 
-Response handlers define how to match and respond to queries:
-
-```json
-{
-  "match": {
-    "service": "recipes",
-    "intent_regexp": "/(recipe|cooking)/"
-  },
-  "llm": "local",
-  "model": "llama3.2:3b",
-  "prompt": "You are a helpful cooking assistant...\n\n{{rag_context}}\n\nUser: {{user_message}}",
-  "max_tokens": 500
-}
-```
-
-**Match Criteria:**
-- `service` - RAG service name that provided context
-- `intent_regexp` - Regular expression to match detected intent
-- `reasoning` - Whether reasoning model should be used
-- First matching handler wins
+Match criteria (e.g. `service`, `intent_regexp`, `rag_results`, `reasoning`); first match wins. Prompt supports `{{rag_context}}`, `{{topic}}`, `{{intent}}`, etc.
 
 ### Tool Calling
 
-Enable builtin tools in the `tools` section. Tools are activated by name — full schemas live in the server's manifest:
-
-```json
-{
-  "tools": {
-    "apply_globally": true,
-    "max_iterations": 5,
-    "registry": [
-      { "name": "calculator" },
-      { "name": "get_current_datetime" },
-      { "name": "generate_uuid" }
-    ]
-  }
-}
-```
-
-**Available builtins:** `calculator`, `get_current_datetime` (timezone-aware), `generate_uuid`
-
-**`apply_globally`:** When `true`, all enabled tools are offered to every response handler automatically. When `false` (default), only handlers with `tools: { enabled: true }` in their rule use tools — useful when some handlers use models that don't support function calling.
-
-Configure and test tools visually in **Config Builder → Tools** without applying the config first.
+Enable builtins in the `tools` section; optionally set `tools.enabled` per handler. Builtins: `calculator`, `get_current_datetime`, `generate_uuid`. Configure and test in **Config Builder → Tools**.
 
 ### RAG Services
 
-RAG services connect to vector databases:
-
 ```json
-{
-  "rag_services": {
-    "recipes": {
-      "base_url": "http://localhost:5006",
-      "match_threshold": 0.3,
-      "partial_threshold": 0.5
-    }
+"rag_services": {
+  "recipes": {
+    "provider": "chromadb-wrapper",
+    "url": "http://localhost:5006",
+    "match_threshold": 0.3,
+    "partial_threshold": 0.5
   }
 }
 ```
 
-**Thresholds:**
-- `match_threshold` - Distance threshold for "match" result
-- `partial_threshold` - Distance threshold for "partial" result
-- Beyond partial: "none" (no RAG context provided)
+Collections are created in the UI; each has an `embedding_model` from the wrapper’s available models. [docs/COLLECTION_MANAGEMENT.md](docs/COLLECTION_MANAGEMENT.md) · [docs/RAG_SERVICES.md](docs/RAG_SERVICES.md)
 
-### Dynamic Collections
-
-**Create collections via UI:**
-1. Navigate to `/collections`
-2. Click "Create New Collection"
-3. Define metadata (name, system prompt, thresholds)
-4. Upload documents (text files, PDFs, etc.)
-5. Collections are immediately available in chat!
-
-**No config changes needed!** Collection metadata drives behavior.
-
-See [`docs/COLLECTION_MANAGEMENT.md`](docs/COLLECTION_MANAGEMENT.md) and [`docs/RAG_SERVICES.md`](docs/RAG_SERVICES.md) for details.
+---
 
 ## Documentation
 
-### Core Documentation
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System architecture and processing flow
-- **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Complete configuration guide
-- **[docs/RAG_SERVICES.md](docs/RAG_SERVICES.md)** - RAG service configuration and providers
-- **[docs/CHROMADB_WRAPPER.md](docs/CHROMADB_WRAPPER.md)** - Python ChromaDB wrapper service guide
-- **[docs/REASONING_MODELS.md](docs/REASONING_MODELS.md)** - Using reasoning models (DeepSeek R1, etc.)
+| Doc | Description |
+|-----|-------------|
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and 6-phase flow |
+| [CONFIGURATION.md](docs/CONFIGURATION.md) · [CONFIGURATION_BUILDER.md](docs/CONFIGURATION_BUILDER.md) | Config reference and UI guide |
+| [RAG_SERVICES.md](docs/RAG_SERVICES.md) · [CHROMADB_WRAPPER.md](docs/CHROMADB_WRAPPER.md) | RAG and wrapper setup |
+| [COLLECTION_MANAGEMENT.md](docs/COLLECTION_MANAGEMENT.md) | Dynamic collections |
+| [REASONING_MODELS.md](docs/REASONING_MODELS.md) | Reasoning models (e.g. DeepSeek R1) |
+| [CHANGELOG.md](CHANGELOG.md) · [TODO.md](TODO.md) · [CONTRIBUTING.md](CONTRIBUTING.md) | Project docs |
 
-### Feature Documentation
-- **[docs/COLLECTION_MANAGEMENT.md](docs/COLLECTION_MANAGEMENT.md)** - Dynamic collection management
-- **[docs/DYNAMIC_COLLECTIONS_IMPLEMENTATION.md](docs/DYNAMIC_COLLECTIONS_IMPLEMENTATION.md)** - Implementation details
-- **[docs/PROVIDER_COMPARISON.md](docs/PROVIDER_COMPARISON.md)** - Provider comparison and selection
-
-### Project Documentation
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history and changes
-- **[TODO.md](TODO.md)** - Planned features and improvements
-- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Contribution guidelines
+---
 
 ## Development
 
-### Project Structure
+**Structure:** `frontend/` (React + Vite), `backend/chat/` (Node server, `lib/` = phase modules, `tools/` = tool pipeline, `ai-providers/`, `retrieval-providers/`), `backend/rag/` (Python FastAPI wrapper), `config/examples/`, `docs/`.
 
-```
-flex-chat/
-├── frontend/               # React frontend (Vite)
-│   └── src/
-│       ├── App.jsx         # Main app with routing
-│       ├── Chat.jsx        # Chat interface (topic-aware)
-│       ├── ConfigBuilder.jsx # Visual configuration builder
-│       ├── Home.jsx        # Landing page
-│       ├── hooks/          # React hooks (model validation, etc.)
-│       └── sections/       # Config Builder tab sections
-│           └── ToolsSection.jsx  # Tool configuration + inline testing
-├── backend/
-│   ├── chat/              # Node.js chat server
-│   │   ├── server.js      # Main server with 7-phase flow
-│   │   ├── lib/           # Core processing modules
-│   │   │   ├── topic-detector.js      # Phase 1: Topic detection
-│   │   │   ├── rag-collector.js       # Phase 2: RAG collection
-│   │   │   ├── intent-detector.js     # Phase 3: Intent detection
-│   │   │   ├── profile-builder.js     # Phase 4: Profile building
-│   │   │   ├── response-matcher.js    # Phase 5: Handler matching
-│   │   │   └── response-generator.js  # Phase 6+7: Generation + tools
-│   │   ├── tools/         # Tool calling pipeline
-│   │   │   ├── builtins-manifest.js   # Static definitions for all builtins
-│   │   │   ├── manager.js             # Tool lifecycle and config
-│   │   │   ├── registry.js            # Tool registration and lookup
-│   │   │   ├── executor.js            # Tool execution with timeout
-│   │   │   └── handlers.js            # Builtin implementations
-│   │   ├── ai-providers/  # AI provider abstraction
-│   │   └── retrieval-providers/ # RAG service abstraction
-│   └── rag/               # Python ChromaDB wrapper
-│       └── server.py      # FastAPI service
-├── config/                # Configuration files
-│   ├── examples/          # Example configurations
-│   └── schema/            # JSON schema for validation
-└── docs/                  # Documentation
-```
+**Adding an AI provider:** Create a provider in `backend/chat/ai-providers/providers/` extending `AIProvider`; implement `generateChat()` (and optionally `generateEmbeddings()` if the provider is used for non-RAG embedding); register in `providers/index.js`.
 
-### Adding New Providers
+**Adding a RAG provider:** Create a provider in `backend/chat/retrieval-providers/providers/` extending `RetrievalProvider`; implement `query()` and collection methods; register in `providers/index.js`. [docs/RAG_SERVICES.md](docs/RAG_SERVICES.md)
 
-**AI Provider:**
-1. Create provider class in `backend/chat/ai-providers/providers/`
-2. Extend `AIProvider` base class
-3. Implement `generateResponse()` and `generateEmbedding()` methods
-4. Register in `providers/index.js`
-
-**RAG Service Provider:**
-1. Create provider class in `backend/chat/retrieval-providers/providers/`
-2. Extend `RetrievalProvider` or `VectorProvider` base class
-3. Implement `query()` and collection management methods
-4. Register in `providers/index.js`
-
-See [`docs/RAG_SERVICES.md`](docs/RAG_SERVICES.md) for detailed provider documentation.
+---
 
 ## Testing
 
-### End-to-End Test
+Start all services, create a collection in the UI (e.g. "test_knowledge"), upload a document, open Chat, select the collection, and ask a question that should use the document. Confirm the response uses your system prompt and RAG context.
 
-1. Start all services (wrapper, chat server, frontend)
-2. Create a test collection:
-   - Name: "test_knowledge"
-   - System Prompt: "You are a helpful test assistant"
-   - Threshold: 0.3
-3. Upload test document with known content
-4. Go to chat, select the collection
-5. Ask question about the document
-6. Verify response uses your system prompt and document context
+---
 
 ## Deployment
 
-### Docker (Coming Soon)
+**Kubernetes/OpenShift:** Build frontend (React → nginx), chat server (Node), RAG wrapper (Python). Use a ConfigMap for `config.json`; set `OPENAI_API_KEY` (or equivalent) and config path. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for patterns.
 
-### Kubernetes/OpenShift
-
-1. **Build containers:**
-   - Frontend: React build → nginx
-   - Chat server: Node.js app
-   - RAG wrapper: Python FastAPI
-
-2. **Create ConfigMap:**
-   ```bash
-   kubectl create configmap chat-config --from-file=config.json
-   ```
-
-3. **Mount in deployments:**
-   ```yaml
-   volumes:
-     - name: config
-       configMap:
-         name: chat-config
-   ```
-
-4. **Environment variables:**
-   - `OPENAI_API_KEY`
-   - `CHAT_CONFIG_PATH`
-
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for deployment patterns.
+---
 
 ## Troubleshooting
 
-### Collections not showing
-- Verify RAG service configured in `rag_services` section
-- Check wrapper service running: `python3 backend/rag/server.py`
-- Check browser console for errors
-- Verify `base_url` matches wrapper service port
+| Issue | Checks |
+|-------|--------|
+| **Collections not showing** | RAG service in config; wrapper running (`python3 backend/rag/server.py`); `url` in `rag_services` matches wrapper port |
+| **Connection refused** | 5006 → wrapper; 5005 → chat server; 5173 → frontend (`npm run dev` in frontend/) |
+| **No RAG results** | Collections have documents; lower `match_threshold`; wrapper has embedding models loaded and collection has `embedding_model` set |
+| **LLM errors** | API keys (env or config); provider running (e.g. `ollama list`); rate limits; chat server logs |
+| **Topic detection** | Intent/topic configured; LLM for detection accessible |
 
-### Connection refused errors
-- **Port 5006:** Start RAG wrapper - `python3 backend/rag/server.py`
-- **Port 5005:** Start chat server - `node backend/chat/server.js`
-- **Port 5173:** Start frontend - `npm run dev` (in frontend/)
-- Check firewall settings if running on different hosts
+More: [docs/CONFIGURATION.md](docs/CONFIGURATION.md) · [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
-### No RAG results / Always fallback response
-- Check collections have documents uploaded
-- Lower `match_threshold` in RAG service config
-- Verify embedding provider (Ollama/OpenAI) is accessible
-- Check chat server logs for RAG query results
+---
 
-### LLM errors
-- Verify API keys set correctly (env vars or config)
-- Check provider is running (Ollama: `ollama list`)
-- Review rate limits for commercial APIs
-- Check chat server logs for detailed error messages
+## Contributing · License · Support
 
-### Topic detection not working
-- Verify intent detection is configured
-- Check that LLM used for detection is accessible
-- Review `intent` section in configuration
+[CONTRIBUTING.md](CONTRIBUTING.md) · MIT (see LICENSE) · Issues and Discussions: use the GitHub repo.
 
-For more help, see [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) and [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
-## Contributing
-
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for guidelines.
-
-## License
-
-MIT License - see LICENSE file for details.
-
-## Support
-
-- **Issues:** Open an issue on GitHub
-- **Discussions:** Use GitHub Discussions
-- **Documentation:** Check the `docs/` directory
-
-## Acknowledgments
-
-- OpenAI for GPT models and embeddings
-- ChromaDB for vector database
-- React and Vite for frontend framework
-- FastAPI for Python wrapper service
+**Acknowledgments:** OpenAI, ChromaDB, React, Vite, FastAPI.
