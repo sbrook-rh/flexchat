@@ -19,7 +19,8 @@ class ToolHandlers {
    */
   _registerBuiltins() {
     this.register('math_eval', this._mathEval);
-    this.register('echo', this._echo);
+    this.register('get_current_datetime', this._getCurrentDatetime);
+    this.register('generate_uuid', this._generateUuid);
   }
 
   /**
@@ -76,14 +77,62 @@ class ToolHandlers {
   }
 
   /**
-   * Built-in: echo
-   * Returns the input parameters as-is. Useful for testing tool calling.
+   * Built-in: get_current_datetime
+   * Returns the current date and time, optionally in a requested timezone.
    *
-   * @param {Object} params - Any parameters
-   * @returns {Object} { echoed: params }
+   * @param {Object} params
+   * @param {string} [params.timezone] - IANA timezone name (e.g. "Europe/London"). Defaults to UTC.
+   * @returns {Object} { iso, date, time, timezone }
    */
-  async _echo(params) {
-    return { echoed: params };
+  async _getCurrentDatetime(params) {
+    const { timezone } = params || {};
+    const tz = timezone || 'UTC';
+
+    let resolvedTz = 'UTC';
+    try {
+      // Validate timezone by attempting to use it — throws RangeError if invalid
+      Intl.DateTimeFormat('en', { timeZone: tz });
+      resolvedTz = tz;
+    } catch {
+      // Fall back to UTC silently
+    }
+
+    const now = new Date();
+
+    const dateParts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: resolvedTz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(now);
+
+    const timeParts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: resolvedTz,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    }).formatToParts(now);
+
+    const date = `${dateParts.find(p => p.type === 'year').value}-${dateParts.find(p => p.type === 'month').value}-${dateParts.find(p => p.type === 'day').value}`;
+    const time = `${timeParts.find(p => p.type === 'hour').value}:${timeParts.find(p => p.type === 'minute').value}:${timeParts.find(p => p.type === 'second').value}`;
+
+    return {
+      iso: now.toISOString(),
+      date,
+      time,
+      timezone: resolvedTz
+    };
+  }
+
+  /**
+   * Built-in: generate_uuid
+   * Returns a cryptographically random UUID v4.
+   *
+   * @returns {Object} { uuid }
+   */
+  async _generateUuid() {
+    return { uuid: crypto.randomUUID() };
   }
 }
 

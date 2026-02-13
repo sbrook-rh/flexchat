@@ -16,22 +16,10 @@ function createTestApp(toolManager, aiProviders = {}) {
 }
 
 const TOOL_CONFIG = {
-  enabled: true,
   max_iterations: 3,
   registry: [
-    {
-      name: 'echo',
-      description: 'Echo the input',
-      type: 'builtin',
-      parameters: { type: 'object', properties: { message: { type: 'string' } } }
-    },
-    {
-      name: 'get_weather',
-      description: 'Get weather',
-      type: 'mock',
-      parameters: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
-      mock_response: { temperature: 20 }
-    }
+    { name: 'calculator' },
+    { name: 'get_current_datetime' }
   ]
 };
 
@@ -51,8 +39,8 @@ describe('GET /api/tools/list', () => {
     const res = await request(app).get('/api/tools/list');
     expect(res.status).toBe(200);
     expect(res.body.count).toBe(2);
-    expect(res.body.tools.map(t => t.name)).toContain('echo');
-    expect(res.body.tools.map(t => t.name)).toContain('get_weather');
+    expect(res.body.tools.map(t => t.name)).toContain('calculator');
+    expect(res.body.tools.map(t => t.name)).toContain('get_current_datetime');
     expect(res.body.enabled).toBe(true);
     expect(res.body.max_iterations).toBe(3);
   });
@@ -63,9 +51,31 @@ describe('GET /api/tools/list', () => {
     const app = createTestApp(manager);
 
     const res = await request(app).get('/api/tools/list');
-    const echoTool = res.body.tools.find(t => t.name === 'echo');
-    expect(echoTool.type).toBe('builtin');
-    expect(echoTool.description).toBe('Echo the input');
+    const calcTool = res.body.tools.find(t => t.name === 'calculator');
+    expect(calcTool.type).toBe('builtin');
+    expect(calcTool.description).toBeTruthy();
+  });
+});
+
+describe('GET /api/tools/available', () => {
+  it('returns all manifest builtins regardless of config', async () => {
+    const app = createTestApp(null); // No tool manager
+    const res = await request(app).get('/api/tools/available');
+    expect(res.status).toBe(200);
+    expect(res.body.tools.length).toBe(3);
+    expect(res.body.tools.map(t => t.name)).toContain('calculator');
+    expect(res.body.tools.map(t => t.name)).toContain('get_current_datetime');
+    expect(res.body.tools.map(t => t.name)).toContain('generate_uuid');
+    expect(res.body.count).toBe(3);
+  });
+
+  it('returns same builtins even when some are configured', async () => {
+    const manager = new ToolManager({ registry: [{ name: 'calculator' }] });
+    manager.loadTools();
+    const app = createTestApp(manager);
+    const res = await request(app).get('/api/tools/available');
+    expect(res.status).toBe(200);
+    expect(res.body.tools.length).toBe(3); // All builtins, not just active
   });
 });
 
@@ -89,7 +99,7 @@ describe('POST /api/tools/test', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when llm is missing', async () => {
+  it('returns 400 when llm is missing (named-provider mode)', async () => {
     const manager = new ToolManager(TOOL_CONFIG);
     manager.loadTools();
     const app = createTestApp(manager);
@@ -98,7 +108,7 @@ describe('POST /api/tools/test', () => {
     expect(res.status).toBe(400);
   });
 
-  it('returns 400 when no tool manager', async () => {
+  it('returns 400 when no tool manager (named-provider mode)', async () => {
     const app = createTestApp(null);
     const res = await request(app).post('/api/tools/test').send({ query: 'test', model: 'gpt-4o', llm: 'chatgpt' });
     expect(res.status).toBe(400);

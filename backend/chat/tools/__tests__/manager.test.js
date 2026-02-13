@@ -3,23 +3,11 @@
 const ToolManager = require('../manager');
 
 const TOOL_CONFIG = {
-  enabled: true,
   max_iterations: 3,
   default_timeout_ms: 10000,
   registry: [
-    {
-      name: 'echo',
-      description: 'Echo tool',
-      type: 'builtin',
-      parameters: { type: 'object', properties: {} }
-    },
-    {
-      name: 'get_weather',
-      description: 'Get weather',
-      type: 'mock',
-      parameters: { type: 'object', properties: { city: { type: 'string' } }, required: ['city'] },
-      mock_response: { temperature: 20 }
-    }
+    { name: 'calculator' },
+    { name: 'get_current_datetime' }
   ]
 };
 
@@ -41,46 +29,70 @@ describe('ToolManager', () => {
   });
 
   describe('loadTools()', () => {
-    it('loads tools from config registry', () => {
+    it('loads tools from manifest via name-only registry entries', () => {
       const manager = new ToolManager(TOOL_CONFIG);
       const count = manager.loadTools();
       expect(count).toBe(2);
-      expect(manager.registry.has('echo')).toBe(true);
-      expect(manager.registry.has('get_weather')).toBe(true);
+      expect(manager.registry.has('calculator')).toBe(true);
+      expect(manager.registry.has('get_current_datetime')).toBe(true);
     });
 
     it('returns 0 when no registry in config', () => {
-      const manager = new ToolManager({ enabled: true });
+      const manager = new ToolManager({});
       const count = manager.loadTools();
       expect(count).toBe(0);
     });
 
-    it('skips invalid tools and continues loading valid ones', () => {
+    it('skips unknown tool names with a warning', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
       const manager = new ToolManager({
         registry: [
-          { name: 'http_tool', description: 'x', type: 'http', parameters: {} }, // Invalid: HTTP
-          { name: 'valid', description: 'Valid tool', type: 'mock', parameters: {}, mock_response: {} }
+          { name: 'unknown_tool' },
+          { name: 'calculator' }
         ]
       });
       const count = manager.loadTools();
       expect(count).toBe(1);
-      expect(manager.registry.has('valid')).toBe(true);
-      expect(manager.registry.has('http_tool')).toBe(false);
+      expect(manager.registry.has('calculator')).toBe(true);
+      expect(manager.registry.has('unknown_tool')).toBe(false);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('unknown_tool'));
+      warnSpy.mockRestore();
+    });
+
+    it('applies description override from registry entry', () => {
+      const manager = new ToolManager({
+        registry: [{ name: 'calculator', description: 'Custom calculator description' }]
+      });
+      manager.loadTools();
+      const tool = manager.registry.get('calculator');
+      expect(tool.description).toBe('Custom calculator description');
+    });
+
+    it('warns on deprecated extra fields in registry entry', () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const manager = new ToolManager({
+        registry: [{ name: 'calculator', type: 'builtin', parameters: {}, builtin_handler: 'math_eval' }]
+      });
+      manager.loadTools();
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('deprecated fields'));
+      warnSpy.mockRestore();
     });
   });
 
   describe('isEnabled()', () => {
-    it('returns true when enabled: true', () => {
-      const manager = new ToolManager({ enabled: true });
+    it('returns true when tools are loaded', () => {
+      const manager = new ToolManager(TOOL_CONFIG);
+      manager.loadTools();
       expect(manager.isEnabled()).toBe(true);
     });
 
-    it('returns false when enabled: false', () => {
-      const manager = new ToolManager({ enabled: false });
+    it('returns false when registry is empty', () => {
+      const manager = new ToolManager({ registry: [] });
+      manager.loadTools();
       expect(manager.isEnabled()).toBe(false);
     });
 
-    it('returns false when enabled not set', () => {
+    it('returns false when no config', () => {
       const manager = new ToolManager({});
       expect(manager.isEnabled()).toBe(false);
     });
@@ -107,6 +119,23 @@ describe('ToolManager', () => {
     it('returns default 30000 when not configured', () => {
       const manager = new ToolManager({});
       expect(manager.getDefaultTimeout()).toBe(30000);
+    });
+  });
+
+  describe('isGlobal()', () => {
+    it('returns true when apply_globally: true', () => {
+      const manager = new ToolManager({ apply_globally: true });
+      expect(manager.isGlobal()).toBe(true);
+    });
+
+    it('returns false when apply_globally: false', () => {
+      const manager = new ToolManager({ apply_globally: false });
+      expect(manager.isGlobal()).toBe(false);
+    });
+
+    it('returns false when apply_globally not set', () => {
+      const manager = new ToolManager({});
+      expect(manager.isGlobal()).toBe(false);
     });
   });
 });

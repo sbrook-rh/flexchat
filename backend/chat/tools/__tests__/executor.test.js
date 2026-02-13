@@ -115,7 +115,6 @@ describe('ToolExecutor', () => {
   describe('execute() - builtin tools', () => {
     beforeEach(() => {
       registry.register(CALCULATOR_TOOL);
-      registry.register(ECHO_TOOL);
     });
 
     it('executes math_eval via builtin handler', async () => {
@@ -133,10 +132,17 @@ describe('ToolExecutor', () => {
       expect(result.result).toBe(7);
     });
 
-    it('executes echo builtin', async () => {
-      const result = await executor.execute('echo', { message: 'hello' });
+    it('executes generate_uuid builtin', async () => {
+      const generateUuidTool = {
+        name: 'generate_uuid',
+        description: 'Generate UUID',
+        type: 'builtin',
+        parameters: { type: 'object', properties: {}, required: [] }
+      };
+      registry.register(generateUuidTool);
+      const result = await executor.execute('generate_uuid', {});
       expect(result.success).toBe(true);
-      expect(result.echoed).toEqual({ message: 'hello' });
+      expect(result.uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
     });
 
     it('returns failure when no handler registered for builtin', async () => {

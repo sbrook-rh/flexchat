@@ -167,6 +167,15 @@ async function reinitializeProviders(newRawConfig) {
       }
     }
 
+    // Reinitialize tool manager
+    toolManager = new ToolManager(processedConfig.tools || {});
+    const toolCount = toolManager.loadTools();
+    if (toolCount > 0) {
+      console.log(`   🔧 Tool manager reloaded (${toolCount} tool(s): ${toolManager.registry.list().map(t => t.name).join(', ')})`);
+    } else {
+      console.log('   🔧 Tool manager reloaded (no tools configured)');
+    }
+
     // Update global config reference
     config = newRawConfig;
 
@@ -306,16 +315,11 @@ async function initialize() {
     console.log('\n   ℹ️  No RAG services configured (chat-only mode)');
   }
 
-  // Initialize tool manager (opt-in - skipped if no tools config)
-  if (processedConfig.tools) {
-    console.log('\n🔧 Initializing tool manager...');
-    toolManager = new ToolManager(processedConfig.tools);
-    const toolCount = toolManager.loadTools();
-    if (toolCount > 0) {
-      console.log(`   ✅ Tool manager initialized (${toolCount} tools, enabled: ${toolManager.isEnabled()})`);
-    } else {
-      console.log('   ℹ️  No tools configured');
-    }
+  // Initialize tool manager (always — so /api/tools/available works even with no tools config)
+  toolManager = new ToolManager(processedConfig.tools || {});
+  const toolCount = toolManager.loadTools();
+  if (toolCount > 0) {
+    console.log(`\n🔧 Tool manager initialized (${toolCount} tool(s): ${toolManager.registry.list().map(t => t.name).join(', ')})`);
   }
 
   console.log('\n✅ Server initialized successfully\n');

@@ -3,18 +3,25 @@
 const ToolRegistry = require('./registry');
 const ToolExecutor = require('./executor');
 const ToolHandlers = require('./handlers');
+const BUILTINS_MANIFEST = require('./builtins-manifest');
+
+// Build a lookup map from the manifest for fast name resolution
+const MANIFEST_BY_NAME = new Map(BUILTINS_MANIFEST.map(t => [t.name, t]));
 
 /**
  * ToolManager - Coordinates tool registry, handlers, and executor.
  *
  * Responsibilities:
- * - Loads tool definitions from config.tools.registry
- * - Exposes global tool settings (enabled, max_iterations, timeout)
+ * - Loads tool definitions from the builtins manifest, activated by name in config
+ * - Applies optional description overrides from config
+ * - Exposes global tool settings (max_iterations, timeout)
  * - Provides a single entry point for tool operations
+ *
+ * Always initialises (even with no config) so /api/tools/available is always available.
  */
 class ToolManager {
   /**
-   * @param {Object} toolsConfig - The `tools` section from the processed config
+   * @param {Object} toolsConfig - The `tools` section from the processed config (may be empty)
    */
   constructor(toolsConfig) {
     this._config = toolsConfig || {};
@@ -25,18 +32,45 @@ class ToolManager {
 
   /**
    * Load tools from the config's registry array.
-   * Skips tools with errors and logs warnings.
+   * Each entry is a name-only activation: { name, description? }.
+   * Full schema is resolved from the builtins manifest.
+   * Skips unknown names with a warning. Warns on deprecated extra fields.
    */
   loadTools() {
-    const toolDefs = this._config.registry || [];
+    const configEntries = this._config.registry || [];
     let loaded = 0;
 
-    for (const toolDef of toolDefs) {
+    for (const entry of configEntries) {
+      const { name, description, ...extra } = entry;
+
+      if (!name) {
+        console.warn('⚠️  ToolManager: Skipping registry entry with no name');
+        continue;
+      }
+
+      const manifestDef = MANIFEST_BY_NAME.get(name);
+      if (!manifestDef) {
+        console.warn(`⚠️  ToolManager: Unknown builtin "${name}" — not in manifest, skipping`);
+        continue;
+      }
+
+      // Warn about deprecated extra fields (old full-definition format)
+      const extraKeys = Object.keys(extra);
+      if (extraKeys.length > 0) {
+        console.warn(`⚠️  ToolManager: Registry entry "${name}" contains deprecated fields: ${extraKeys.join(', ')}. These are ignored — schemas come from the manifest.`);
+      }
+
+      // Build the tool definition: manifest base + optional description override
+      const toolDef = { ...manifestDef };
+      if (description) {
+        toolDef.description = description;
+      }
+
       try {
         this.registry.register(toolDef);
         loaded++;
       } catch (err) {
-        console.warn(`⚠️  ToolManager: Failed to register tool "${toolDef.name || '(unnamed)'}": ${err.message}`);
+        console.warn(`⚠️  ToolManager: Failed to register tool "${name}": ${err.message}`);
       }
     }
 
@@ -48,12 +82,23 @@ class ToolManager {
   }
 
   /**
-   * Check if tool calling is globally enabled.
+   * Check if tool calling is enabled (at least one tool registered).
    *
    * @returns {boolean}
    */
   isEnabled() {
-    return this._config.enabled === true;
+    return this.registry.list().length > 0;
+  }
+
+  /**
+   * Check if global opt-in is active.
+   * When true, all configured tools are offered to every response rule
+   * regardless of whether the rule has tools.enabled: true.
+   *
+   * @returns {boolean}
+   */
+  isGlobal() {
+    return this._config.apply_globally === true;
   }
 
   /**

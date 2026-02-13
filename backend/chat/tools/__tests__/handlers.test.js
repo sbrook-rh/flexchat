@@ -10,9 +10,10 @@ describe('ToolHandlers', () => {
   });
 
   describe('registration', () => {
-    it('registers math_eval and echo builtins by default', () => {
+    it('registers math_eval, get_current_datetime, and generate_uuid builtins by default', () => {
       expect(handlers.has('math_eval')).toBe(true);
-      expect(handlers.has('echo')).toBe(true);
+      expect(handlers.has('get_current_datetime')).toBe(true);
+      expect(handlers.has('generate_uuid')).toBe(true);
     });
 
     it('registers a custom handler', () => {
@@ -76,22 +77,63 @@ describe('ToolHandlers', () => {
     });
   });
 
-  describe('echo handler', () => {
-    let echo;
+  describe('get_current_datetime handler', () => {
+    let getDatetime;
 
     beforeEach(() => {
-      echo = handlers.get('echo');
+      getDatetime = handlers.get('get_current_datetime');
     });
 
-    it('echoes back the params', async () => {
-      const params = { message: 'hello', value: 42 };
-      const result = await echo(params);
-      expect(result).toEqual({ echoed: params });
+    it('returns iso, date, time, and timezone fields', async () => {
+      const result = await getDatetime({});
+      expect(result).toHaveProperty('iso');
+      expect(result).toHaveProperty('date');
+      expect(result).toHaveProperty('time');
+      expect(result).toHaveProperty('timezone');
     });
 
-    it('echoes empty params', async () => {
-      const result = await echo({});
-      expect(result).toEqual({ echoed: {} });
+    it('defaults to UTC when no timezone given', async () => {
+      const result = await getDatetime({});
+      expect(result.timezone).toBe('UTC');
+    });
+
+    it('uses the requested timezone', async () => {
+      const result = await getDatetime({ timezone: 'Asia/Tokyo' });
+      expect(result.timezone).toBe('Asia/Tokyo');
+    });
+
+    it('falls back to UTC for invalid timezone', async () => {
+      const result = await getDatetime({ timezone: 'Not/ATimezone' });
+      expect(result.timezone).toBe('UTC');
+    });
+
+    it('returns a valid ISO date string', async () => {
+      const result = await getDatetime({});
+      expect(result.iso).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/);
+    });
+  });
+
+  describe('generate_uuid handler', () => {
+    let generateUuid;
+
+    beforeEach(() => {
+      generateUuid = handlers.get('generate_uuid');
+    });
+
+    it('returns a uuid field', async () => {
+      const result = await generateUuid({});
+      expect(result).toHaveProperty('uuid');
+    });
+
+    it('returns a valid UUID v4 format', async () => {
+      const result = await generateUuid({});
+      expect(result.uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    });
+
+    it('generates unique UUIDs on each call', async () => {
+      const r1 = await generateUuid({});
+      const r2 = await generateUuid({});
+      expect(r1.uuid).not.toBe(r2.uuid);
     });
   });
 });

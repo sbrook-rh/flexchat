@@ -100,14 +100,6 @@ const Home = ({ uiConfig }) => {
                 📚 Manage Collections
               </Link>
             )}
-
-            {/* Tool Testing button */}
-            <Link
-              to="/tools-testing"
-              className="inline-block bg-purple-500 hover:bg-purple-600 text-white font-bold py-4 px-8 rounded-lg text-lg transition-colors"
-            >
-              🔧 Tool Testing
-            </Link>
           </div>
         </div>
       </div>

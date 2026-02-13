@@ -1,5 +1,5 @@
 {
-  "comment": "Example config demonstrating tool calling with mock and builtin tool types",
+  "comment": "Example config demonstrating tool calling. Tools are opt-in: add a name to tools.registry to activate it. Full schemas (parameters, handler) come from the server's builtins manifest — no duplication needed.",
   "llms": {
     "chatgpt": {
       "api_key": "${OPENAI_API_KEY}",
@@ -14,66 +14,22 @@
   "tools": {
     "enabled": true,
     "max_iterations": 5,
-    "default_timeout_ms": 30000,
     "registry": [
-      {
-        "comment": "Mock tool - returns static data, useful for testing or prototyping",
-        "name": "get_weather",
-        "description": "Get the current weather for a city. Returns temperature, conditions, and humidity.",
-        "type": "mock",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "city": {
-              "type": "string",
-              "description": "The city name to get weather for"
-            },
-            "units": {
-              "type": "string",
-              "enum": ["celsius", "fahrenheit"],
-              "description": "Temperature units"
-            }
-          },
-          "required": ["city"]
-        },
-        "mock_response": {
-          "city": "London",
-          "temperature": 18,
-          "units": "celsius",
-          "conditions": "Partly cloudy",
-          "humidity": 65,
-          "wind_speed_kmh": 12
-        }
-      },
-      {
-        "comment": "Builtin tool - uses mathjs library for safe math evaluation",
-        "name": "calculator",
-        "description": "Evaluate a mathematical expression and return the result. Supports arithmetic, algebra, and basic statistics.",
-        "type": "builtin",
-        "builtin_handler": "math_eval",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "expression": {
-              "type": "string",
-              "description": "The mathematical expression to evaluate (e.g., '2 + 2', 'sqrt(16)', 'sin(pi/2)')"
-            }
-          },
-          "required": ["expression"]
-        }
-      }
+      { "name": "calculator" },
+      { "name": "get_current_datetime" },
+      { "name": "generate_uuid" }
     ]
   },
   "responses": [
     {
-      "comment": "Tool-capable handler - allows weather and calculator tools",
+      "comment": "Tool-capable handler — all three builtins enabled",
       "prompt": "You are a helpful assistant with access to tools. Use them when appropriate to answer the user's question accurately.",
       "llm": "chatgpt",
       "model": "gpt-4o",
       "max_tokens": 1000,
       "tools": {
         "enabled": true,
-        "allowed_tools": ["get_weather", "calculator"],
+        "allowed_tools": ["calculator", "get_current_datetime", "generate_uuid"],
         "max_iterations": 3
       }
     }

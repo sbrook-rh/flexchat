@@ -235,9 +235,12 @@ async function generateResponse(profile, responseRule, aiProviders, userMessage,
   };
 
   // Phase 6b: Tool calling path
+  // Tools are enabled if: tool manager has tools registered, AND either:
+  //   - global opt-in is active (tools.apply_globally: true), OR
+  //   - this specific response rule has tools.enabled: true
   const toolsEnabled = toolManager &&
     toolManager.isEnabled() &&
-    responseRule.tools?.enabled === true;
+    (toolManager.isGlobal() || responseRule.tools?.enabled === true);
 
   if (toolsEnabled) {
     console.log(`   🔧 Tool calling enabled for this handler`);

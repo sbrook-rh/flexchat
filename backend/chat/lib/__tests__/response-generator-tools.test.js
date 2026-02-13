@@ -23,7 +23,7 @@ const BASE_RULE = {
   max_tokens: 500,
   tools: {
     enabled: true,
-    allowed_tools: ['echo'],
+    allowed_tools: ['generate_uuid'],
     max_iterations: 3
   }
 };
@@ -35,16 +35,8 @@ describe('Response Generator - Tool Calling', () => {
 
   beforeEach(() => {
     toolManager = new ToolManager({
-      enabled: true,
       max_iterations: 5,
-      registry: [
-        {
-          name: 'echo',
-          description: 'Echo tool',
-          type: 'builtin',
-          parameters: { type: 'object', properties: { message: { type: 'string' } } }
-        }
-      ]
+      registry: [{ name: 'generate_uuid' }]
     });
     toolManager.loadTools();
   });
@@ -118,18 +110,18 @@ describe('Response Generator - Tool Calling', () => {
         finish_reason: 'tool_calls',
         tool_calls: [{
           id: 'call_1',
-          function: { name: 'echo', arguments: JSON.stringify({ message: 'test' }) }
+          function: { name: "generate_uuid", arguments: "{}" }
         }]
       };
       const finalResponse = { content: 'Tool executed!', finish_reason: 'stop' };
 
       const provider = createMockProvider([toolCallResponse, finalResponse]);
-      const messages = [{ role: 'user', content: 'echo test' }];
+      const messages = [{ role: 'user', content: "generate uuid" }];
 
       const result = await _generateWithTools(provider, BASE_RULE, messages, {}, toolManager);
       expect(result.content).toBe('Tool executed!');
       expect(result.toolCalls).toHaveLength(1);
-      expect(result.toolCalls[0].tool_name).toBe('echo');
+      expect(result.toolCalls[0].tool_name).toBe('generate_uuid');
       expect(result.toolCalls[0].iteration).toBe(1);
       expect(result.max_iterations_reached).toBe(false);
 
@@ -147,7 +139,7 @@ describe('Response Generator - Tool Calling', () => {
           finish_reason: 'tool_calls',
           tool_calls: [{
             id: 'call_1',
-            function: { name: 'echo', arguments: JSON.stringify({ message: 'loop' }) }
+            function: { name: "generate_uuid", arguments: "{}" }
           }]
         }))
       };
@@ -179,7 +171,7 @@ describe('Response Generator - Tool Calling', () => {
           finish_reason: 'tool_calls',
           tool_calls: [{
             id: 'call_1',
-            function: { name: 'echo', arguments: 'invalid json{{{' }
+            function: { name: "generate_uuid", arguments: 'invalid json{{{' }
           }]
         },
         { content: 'Done', finish_reason: 'stop' }
@@ -199,7 +191,7 @@ describe('Response Generator - Tool Calling', () => {
           finish_reason: 'tool_calls',
           tool_calls: [{
             id: 'call_abc',
-            function: { name: 'echo', arguments: '{"message":"hello"}' }
+            function: { name: "generate_uuid", arguments: "{}" }
           }]
         },
         { content: 'Got it', finish_reason: 'stop' }
@@ -211,7 +203,7 @@ describe('Response Generator - Tool Calling', () => {
       const toolResultMsg = messages.find(m => m.role === 'tool');
       expect(toolResultMsg).toBeDefined();
       expect(toolResultMsg.tool_call_id).toBe('call_abc');
-      expect(toolResultMsg.name).toBe('echo');
+      expect(toolResultMsg.name).toBe('generate_uuid');
       expect(typeof toolResultMsg.content).toBe('string');
     });
   });
@@ -224,7 +216,7 @@ describe('Response Generator - Tool Calling', () => {
           finish_reason: 'tool_calls',
           tool_calls: [{
             id: 'call_1',
-            function: { name: 'echo', arguments: '{"message":"test"}' }
+            function: { name: "generate_uuid", arguments: "{}" }
           }]
         },
         { content: 'All done', finish_reason: 'stop' }
