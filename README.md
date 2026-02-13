@@ -1,13 +1,13 @@
 # Flex Chat
 
-A configuration-driven, AI-powered chat application with topic-aware RAG (Retrieval-Augmented Generation), dynamic knowledge base management, and transparent multi-model support.
+A configuration-driven, AI-powered chat application with topic-aware RAG (Retrieval-Augmented Generation), builtin tool calling, dynamic knowledge base management, and transparent multi-model support.
 
 - see [`PROJECT_STATUS.md`]
 
 ## Key Features
 
 ### 🤖 **Multi-Provider AI Support**
-- Support for multiple AI providers (OpenAI, Ollama)
+- Support for multiple AI providers (OpenAI, Gemini, Ollama)
 - Switch models and providers via configuration
 - Unified interface for all providers
 - Per-message model and service transparency
@@ -19,15 +19,22 @@ A configuration-driven, AI-powered chat application with topic-aware RAG (Retrie
 - Metadata-driven behavior (system prompts, thresholds)
 - Upload documents through web interface
 
-### 🎯 **6-Phase Processing Flow**
+### 🎯 **7-Phase Processing Flow**
 1. **Topic Detection** - Extract user intent as a topic
 2. **RAG Collection** - Query relevant knowledge bases with normalized envelope
 3. **Intent Detection** - Detect user intent with fast path for matches
 4. **Profile Building** - Construct context from RAG results and intent
 5. **Response Handler Matching** - Find first matching response rule
 6. **Response Generation** - Generate final response using matched handler
+7. **Tool Execution** - Iterative tool calling loop (calculator, datetime, UUID, and more)
 
-### 🔧 **Flexible Configuration**
+### 🔧 **Builtin Tool Calling**
+- Calculator, current datetime (with timezone), and UUID generation out of the box
+- Enable tools per-handler or globally via a single toggle
+- Integrated test panel in Config Builder — test against unapplied working config
+- Iterative tool loop with configurable max iterations
+
+### ⚙️ **Flexible Configuration**
 - **Visual Configuration Builder** - Zero-config startup with guided wizards
 - **JSON Configuration** - File-based for automation and version control
 - Response handlers with flexible match criteria
@@ -158,16 +165,18 @@ npm run dev
 ┌─────────────────────────────────────────┐
 │    Chat Server (Node.js + Express)      │
 │  ┌───────────────────────────────────┐  │
-│  │ 6-Phase Processing Flow:          │  │
+│  │ 7-Phase Processing Flow:          │  │
 │  │ 1. Topic Detection                │  │
 │  │ 2. RAG Collection                 │  │
 │  │ 3. Intent Detection               │  │
 │  │ 4. Profile Building               │  │
 │  │ 5. Response Handler Matching      │  │
 │  │ 6. Response Generation            │  │
+│  │ 7. Tool Execution (iterative)     │  │
 │  └───────────────────────────────────┘  │
 │  - AI Provider Abstraction              │
 │  - RAG Service Abstraction              │
+│  - Tool Calling Pipeline                │
 │  - Collection Management API            │
 └────────────┬────────────────────────────┘
              │
@@ -176,8 +185,8 @@ npm run dev
     ┌──────────────┐  ┌───────────────────┐
     │ AI Providers │  │ ChromaDB Wrapper  │
     │ (OpenAI,     │  │ (Python FastAPI)  │
-    │  Ollama)     │  │ - Collection Mgmt │
-    └──────────────┘  │ - Embeddings      │
+    │  Gemini,     │  │ - Collection Mgmt │
+    │  Ollama)     │  │ - Embeddings      │
                       │ - Document Upload │
                       └─────────┬─────────┘
                                 │
@@ -206,6 +215,7 @@ Located in `config/examples/`:
 - **`02-single-rag-dynamic.json`** - Single RAG service with dynamic collections
 - **`03-single-rag-pinned.json`** - Single RAG service with pinned collection
 - **`04-multi-rag-multi-llm.json`** - Multiple RAG services and LLMs
+- **`08-tool-calling.json`** - Tool calling with calculator, datetime, and UUID builtins
 
 ### Specifying Config File
 
@@ -247,6 +257,30 @@ Response handlers define how to match and respond to queries:
 - `reasoning` - Whether reasoning model should be used
 - First matching handler wins
 
+### Tool Calling
+
+Enable builtin tools in the `tools` section. Tools are activated by name — full schemas live in the server's manifest:
+
+```json
+{
+  "tools": {
+    "apply_globally": true,
+    "max_iterations": 5,
+    "registry": [
+      { "name": "calculator" },
+      { "name": "get_current_datetime" },
+      { "name": "generate_uuid" }
+    ]
+  }
+}
+```
+
+**Available builtins:** `calculator`, `get_current_datetime` (timezone-aware), `generate_uuid`
+
+**`apply_globally`:** When `true`, all enabled tools are offered to every response handler automatically. When `false` (default), only handlers with `tools: { enabled: true }` in their rule use tools — useful when some handlers use models that don't support function calling.
+
+Configure and test tools visually in **Config Builder → Tools** without applying the config first.
+
 ### RAG Services
 
 RAG services connect to vector databases:
@@ -284,7 +318,7 @@ See [`docs/COLLECTION_MANAGEMENT.md`](docs/COLLECTION_MANAGEMENT.md) and [`docs/
 ## Documentation
 
 ### Core Documentation
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System architecture and 4-phase flow
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** - System architecture and processing flow
 - **[docs/CONFIGURATION.md](docs/CONFIGURATION.md)** - Complete configuration guide
 - **[docs/RAG_SERVICES.md](docs/RAG_SERVICES.md)** - RAG service configuration and providers
 - **[docs/CHROMADB_WRAPPER.md](docs/CHROMADB_WRAPPER.md)** - Python ChromaDB wrapper service guide
@@ -308,20 +342,29 @@ See [`docs/COLLECTION_MANAGEMENT.md`](docs/COLLECTION_MANAGEMENT.md) and [`docs/
 flex-chat/
 ├── frontend/               # React frontend (Vite)
 │   └── src/
-│       ├── App.jsx        # Main app with routing
-│       ├── Chat.jsx       # Chat interface (topic-aware)
-│       ├── Collections.jsx # Collection management
-│       └── Home.jsx       # Landing page
+│       ├── App.jsx         # Main app with routing
+│       ├── Chat.jsx        # Chat interface (topic-aware)
+│       ├── ConfigBuilder.jsx # Visual configuration builder
+│       ├── Home.jsx        # Landing page
+│       ├── hooks/          # React hooks (model validation, etc.)
+│       └── sections/       # Config Builder tab sections
+│           └── ToolsSection.jsx  # Tool configuration + inline testing
 ├── backend/
 │   ├── chat/              # Node.js chat server
-│   │   ├── server.js      # Main server with 6-phase flow
+│   │   ├── server.js      # Main server with 7-phase flow
 │   │   ├── lib/           # Core processing modules
 │   │   │   ├── topic-detector.js      # Phase 1: Topic detection
 │   │   │   ├── rag-collector.js       # Phase 2: RAG collection
 │   │   │   ├── intent-detector.js     # Phase 3: Intent detection
 │   │   │   ├── profile-builder.js     # Phase 4: Profile building
 │   │   │   ├── response-matcher.js    # Phase 5: Handler matching
-│   │   │   └── response-generator.js  # Phase 6: Response generation
+│   │   │   └── response-generator.js  # Phase 6+7: Generation + tools
+│   │   ├── tools/         # Tool calling pipeline
+│   │   │   ├── builtins-manifest.js   # Static definitions for all builtins
+│   │   │   ├── manager.js             # Tool lifecycle and config
+│   │   │   ├── registry.js            # Tool registration and lookup
+│   │   │   ├── executor.js            # Tool execution with timeout
+│   │   │   └── handlers.js            # Builtin implementations
 │   │   ├── ai-providers/  # AI provider abstraction
 │   │   └── retrieval-providers/ # RAG service abstraction
 │   └── rag/               # Python ChromaDB wrapper
