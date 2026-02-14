@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Builtin Tool Calling**
+  - Builtin tools manifest — tool schemas defined in server code; config uses name-only activation via `tools.registry`
+  - Builtins: `calculator`, `get_current_datetime` (IANA timezone-aware), `generate_uuid`
+  - `tools.apply_globally` — offer all enabled tools to every response handler without per-handler config
+  - Per-handler `tools.enabled`, `allowed_tools`, and `max_iterations` overrides
+  - Phase 6b tool loop — model invokes tools and iterates until final response or `max_iterations` cap
+  - Config Builder Tools tab: toggle cards, optional description overrides, inline test panel (test without applying)
+  - Tools API: `GET /api/tools/list`, `GET /api/tools/available`, `POST /api/tools/test`, `GET /api/tools/validation`
+
+### Changed
+
+- `reinitializeProviders()` now reloads ToolManager on config apply
+
+### Removed
+
+- Standalone Tool Testing page (`/tools-testing` route and `ToolTesting.jsx`) — replaced by Config Builder inline test panel
+
 - **Configuration Builder System** ✅ COMPLETE
   - **Zero-Config Startup**: Start Flex Chat without any configuration file
   - **Visual Configuration Management**: Complete UI for creating and managing configurations

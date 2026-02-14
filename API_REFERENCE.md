@@ -691,3 +691,153 @@ const transformed = transformDocuments(documents, schema);
 - **Null/undefined/empty values**: Filtered out automatically
 - **ID generation**: Uses `crypto.randomUUID()` when `id_field` missing or field value absent
 - **Pure function**: No side effects, I/O operations, or external state dependencies
+
+## Tools API
+
+These endpoints are served by the chat server (port 5005).
+
+### GET /api/tools/list
+
+**Purpose**: Return the tools active in the currently running configuration.
+
+**Response**:
+```json
+{
+  "tools": [
+    { "name": "calculator", "description": "Evaluate mathematical expressions." },
+    { "name": "get_current_datetime", "description": "Return current date and time." }
+  ],
+  "count": 2,
+  "enabled": true,
+  "apply_globally": false,
+  "max_iterations": 5
+}
+```
+
+**Notes**:
+- Reflects the live running config (not any unsaved draft in the Config Builder).
+- `enabled` is `false` and `tools` is empty when no tools are registered.
+
+---
+
+### GET /api/tools/available
+
+**Purpose**: Return all builtin tools defined in the server manifest, regardless of config.
+
+**Response**:
+```json
+{
+  "tools": [
+    {
+      "name": "calculator",
+      "description": "Evaluate mathematical expressions.",
+      "parameters": { ... }
+    },
+    {
+      "name": "get_current_datetime",
+      "description": "Return the current date and time in the specified timezone.",
+      "parameters": { ... }
+    },
+    {
+      "name": "generate_uuid",
+      "description": "Generate a random UUID v4.",
+      "parameters": { ... }
+    }
+  ],
+  "count": 3
+}
+```
+
+**Notes**:
+- Always returns HTTP 200 — does not depend on config state.
+- Use this to populate the Config Builder's Tools tab or build custom tool pickers.
+
+---
+
+### POST /api/tools/test
+
+**Purpose**: Test tool calling without applying config changes. Supports two request modes.
+
+#### Mode 1 — Inline provider config (no apply needed)
+
+**Request Body**:
+```json
+{
+  "provider_config": {
+    "provider": "openai",
+    "api_key": "${OPENAI_API_KEY}",
+    "base_url": "https://api.openai.com/v1"
+  },
+  "model": "gpt-4o-mini",
+  "query": "What is 42 * 7?",
+  "registry": [
+    { "name": "calculator" }
+  ]
+}
+```
+
+#### Mode 2 — Named provider from running config
+
+**Request Body**:
+```json
+{
+  "llm": "local",
+  "model": "qwen2.5:7b-instruct",
+  "query": "What time is it in Tokyo?"
+}
+```
+
+**Response**:
+```json
+{
+  "content": "The result is 294.",
+  "model": "gpt-4o-mini",
+  "service": "openai",
+  "tool_calls": [
+    {
+      "tool": "calculator",
+      "input": { "expression": "42 * 7" },
+      "output": "294",
+      "duration_ms": 12
+    }
+  ],
+  "max_iterations_reached": false,
+  "validation": {
+    "supported": true,
+    "model": "gpt-4o-mini",
+    "provider": "openai"
+  }
+}
+```
+
+**Notes**:
+- Mode 1 uses `provider_config` inline — useful for testing before applying config.
+- Mode 2 requires the named `llm` to be present in the running config.
+- `registry` defaults to all tools in the running config when omitted in Mode 2.
+- Returns `max_iterations_reached: true` when the tool loop hit the iteration cap.
+
+**Error Responses**:
+- `400`: Missing required fields or invalid request body.
+- `422`: Model does not support function calling.
+- `500`: Provider connection failed or tool execution error.
+
+---
+
+### GET /api/tools/validation
+
+**Purpose**: Return per-model tool-calling validation history from this server session.
+
+**Response**:
+```json
+{
+  "statuses": {
+    "gpt-4o-mini": { "supported": true, "provider": "openai", "checked_at": "2026-02-14T10:00:00.000Z" },
+    "llama3.2:3b": { "supported": false, "provider": "ollama", "checked_at": "2026-02-14T10:01:00.000Z" }
+  }
+}
+```
+
+**Notes**:
+- Populated as models are tested via the Tools test panel or `POST /api/tools/test`.
+- Resets on server restart.
+- Used by the Config Builder to show the 🔧 badge on compatible models.

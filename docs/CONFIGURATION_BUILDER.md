@@ -64,6 +64,7 @@ If you have an existing `config.json`, the Configuration Builder will load it au
 
 - **Tools Tab**: Appears when at least one LLM provider is configured; shows count of enabled tools in the tab badge
 - **Available Builtins**: Cards for each builtin tool (e.g. from the builtin tools manifest); toggle to enable or disable
+- **Apply Globally toggle**: When on, all enabled tools are offered to every response handler automatically — no need to configure `tools.enabled` per handler. When off (default), only handlers that explicitly have `tools.enabled: true` use tools (useful when some handlers use models that don't support function calling).
 - **Description Override**: Optionally override a tool's description per tool when enabled
 - **Inline Testing**: Test tools against the working config from the Tools section
 

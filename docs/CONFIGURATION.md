@@ -49,8 +49,9 @@ Flex Chat supports two ways to create and manage configuration:
 5. [Embeddings (RAG wrapper)](#embeddings-rag-wrapper)
 6. [Intent Section](#intent-section)
 7. [Responses Section](#responses-section)
-8. [Complete Example](#complete-example)
-9. [Environment Variables](#environment-variables)
+8. [Tools Section](#tools-section)
+9. [Complete Example](#complete-example)
+10. [Environment Variables](#environment-variables)
 
 ---
 
@@ -174,7 +175,7 @@ Define AI/LLM providers available for chat, reasoning, and intent detection.
 
 - **`ollama`**: Local Ollama models
 - **`openai`**: OpenAI API (GPT models)
-- **`gemini`**: Google Gemini (not yet implemented)
+- **`gemini`**: Google Gemini
 
 ### Example: Multiple LLM Providers
 
@@ -541,6 +542,75 @@ Available variables in prompts:
 
 ---
 
+## Tools Section
+
+The `tools` section activates builtin tool calling. When tools are enabled, an LLM that supports function calling can invoke builtin tools (calculator, datetime, UUID) during response generation and loop until it produces a final text response. Tool schemas live in server code — the config only names which tools to activate.
+
+### Structure
+
+```json
+{
+  "tools": {
+    "apply_globally": false,
+    "max_iterations": 5,
+    "default_timeout_ms": 30000,
+    "registry": [
+      { "name": "calculator" },
+      { "name": "get_current_datetime" },
+      { "name": "generate_uuid", "description": "Generate a unique ID" }
+    ]
+  }
+}
+```
+
+### Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `apply_globally` | boolean | `false` | When `true`, all enabled tools are offered to every response handler automatically. When `false`, only handlers with `tools.enabled: true` use tools. |
+| `max_iterations` | integer | `5` | Maximum number of tool-call/response cycles before stopping. |
+| `default_timeout_ms` | integer | `30000` | Per-tool call timeout in milliseconds. |
+| `registry` | array | `[]` | Tools to activate. Each entry is `{ "name": "<builtin_name>", "description"?: "..." }`. |
+
+### Available Builtins
+
+| Name | Description |
+|------|-------------|
+| `calculator` | Evaluate mathematical expressions. |
+| `get_current_datetime` | Return current date and time; accepts optional `timezone` param (IANA format, e.g. `"America/New_York"`). |
+| `generate_uuid` | Generate a random UUID v4. |
+
+### Per-Handler Override
+
+Individual response handlers can opt in to tool calling (or override iteration limits) regardless of `apply_globally`:
+
+```json
+{
+  "responses": [
+    {
+      "llm": "local",
+      "model": "qwen2.5:7b-instruct",
+      "prompt": "You are a helpful assistant with access to tools.",
+      "tools": {
+        "enabled": true,
+        "allowed_tools": ["calculator", "get_current_datetime"],
+        "max_iterations": 3
+      }
+    }
+  ]
+}
+```
+
+| Handler `tools` field | Description |
+|-----------------------|-------------|
+| `enabled` | `true` to enable tools for this handler (required unless `apply_globally` is set). |
+| `allowed_tools` | Array of tool names to restrict which tools this handler may use. Omit to allow all enabled tools. |
+| `max_iterations` | Per-handler override for maximum tool loop iterations. |
+
+**Note**: Only models with function-calling capability support tool use. The Config Builder shows a 🔧 badge on compatible models. See [Config Builder — Tools](./CONFIGURATION_BUILDER.md) for visual management.
+
+---
+
 ## Complete Example
 
 Here's a complete, realistic configuration:
@@ -574,6 +644,15 @@ Here's a complete, realistic configuration:
     }
   },
   
+  "tools": {
+    "apply_globally": false,
+    "max_iterations": 5,
+    "registry": [
+      { "name": "calculator" },
+      { "name": "get_current_datetime" }
+    ]
+  },
+
   "intent": {
     "provider": {
       "llm": "local",
@@ -585,7 +664,7 @@ Here's a complete, realistic configuration:
       "general": "General conversation or greetings"
     }
   },
-  
+
   "responses": [
     {
       "match": {
@@ -636,10 +715,22 @@ Here's a complete, realistic configuration:
 - `FLEX_CHAT_CONFIG_FILE_PATH` - Alternative to above
 - `FLEX_CHAT_CONFIG_DIR` - Directory containing config.json
 
+### Custom Variables — `FLEX_CHAT_` Prefix
+
+The env var system uses an allowlist. Any variable starting with `FLEX_CHAT_` (or `FC_`) is automatically whitelisted and available in the Config Builder's env var picker. This is the recommended prefix for custom API keys or secrets you want to reference in config:
+
+```bash
+export FLEX_CHAT_MY_SERVICE_KEY="secret123"
+```
+
+Then in config: `"api_key": "${FLEX_CHAT_MY_SERVICE_KEY}"`
+
+Known provider patterns (`OPENAI`, `GEMINI`, `ANTHROPIC`, `OLLAMA`, `CHROMA`) are also whitelisted by name. Everything else is filtered out for security. Implementation: `backend/chat/ai-providers/services/EnvVarManager.js`.
+
 ### Provider API Keys (N.B. You can specify your own)
 
 - `OPENAI_API_KEY` - OpenAI API key
-- `GEMINI_API_KEY` - Google Gemini API key (when implemented)
+- `GEMINI_API_KEY` - Google Gemini API key
 - `AZURE_OPENAI_KEY` - Azure OpenAI key (if using Azure)
 
 ### RAG Service (Python wrapper)
