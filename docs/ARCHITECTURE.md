@@ -4,6 +4,8 @@
 **Last Updated**: February 13, 2026  
 **Architecture**: 6-Phase Flow (with optional Phase 6b Tool Execution)
 
+For motivation and design philosophy, see [VISION.md](VISION.md).
+
 ---
 
 ## System Vision

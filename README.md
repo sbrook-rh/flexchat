@@ -6,7 +6,13 @@ A configuration-driven, AI-powered chat application with topic-aware RAG (Retrie
 
 ---
 
-## Quick Start
+## Why FlexChat
+
+Motivation, design philosophy, and long-term direction are described in **[docs/VISION.md](docs/VISION.md)**. That document covers the rationale for profile-driven behaviour, RAG as first-class infrastructure, topic awareness, tool calling as a testbed, and design principles (transparency, adapters, evidence over assumptions). It is not duplicated here.
+
+---
+
+## Getting Started
 
 **Prerequisites:** Node.js 18+, Python 3.8+ (for RAG), and an API key (OpenAI, Gemini, or use Ollama locally).
 
@@ -41,7 +47,21 @@ Then open **http://localhost:5173** — use the welcome screen to set up provide
 - **Builtin tools** — Calculator, current datetime (timezone-aware), UUID; enable per-handler or globally; test in Config Builder
 - **Visual Config Builder** — Zero-config startup, wizards, import/export; or edit JSON for automation
 
-**Key links:** [Configuration](docs/CONFIGURATION_BUILDER.md) · [Architecture](docs/ARCHITECTURE.md) · [RAG & collections](docs/RAG_SERVICES.md) · [Troubleshooting](#troubleshooting)
+---
+
+## Documentation
+
+| Document | Purpose |
+|----------|---------|
+| [docs/VISION.md](docs/VISION.md) | Motivation, philosophy, and direction |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and 6-phase flow |
+| [docs/CONFIGURATION.md](docs/CONFIGURATION.md) · [docs/CONFIGURATION_BUILDER.md](docs/CONFIGURATION_BUILDER.md) | Config reference and UI guide |
+| [docs/RAG_SERVICES.md](docs/RAG_SERVICES.md) · [docs/CHROMADB_WRAPPER.md](docs/CHROMADB_WRAPPER.md) | RAG and wrapper setup |
+| [docs/COLLECTION_MANAGEMENT.md](docs/COLLECTION_MANAGEMENT.md) | Dynamic collections |
+| [docs/REASONING_MODELS.md](docs/REASONING_MODELS.md) | Reasoning models (e.g. DeepSeek R1) |
+| [CHANGELOG.md](CHANGELOG.md) · [TODO.md](TODO.md) · [CONTRIBUTING.md](CONTRIBUTING.md) | Project and contributing |
+
+[Troubleshooting](#troubleshooting) is summarised below.
 
 ---
 
@@ -95,7 +115,7 @@ Frontend (React) → Chat Server (Node) → AI Providers (OpenAI, Gemini, Ollama
                             ↘ ChromaDB Wrapper (Python) → ChromaDB
 ```
 
-Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+Full detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ---
 
@@ -129,19 +149,6 @@ Enable builtins in the `tools` section; optionally set `tools.enabled` per handl
 ```
 
 Collections are created in the UI; each has an `embedding_model` from the wrapper’s available models. [docs/COLLECTION_MANAGEMENT.md](docs/COLLECTION_MANAGEMENT.md) · [docs/RAG_SERVICES.md](docs/RAG_SERVICES.md)
-
----
-
-## Documentation
-
-| Doc | Description |
-|-----|-------------|
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and 6-phase flow |
-| [CONFIGURATION.md](docs/CONFIGURATION.md) · [CONFIGURATION_BUILDER.md](docs/CONFIGURATION_BUILDER.md) | Config reference and UI guide |
-| [RAG_SERVICES.md](docs/RAG_SERVICES.md) · [CHROMADB_WRAPPER.md](docs/CHROMADB_WRAPPER.md) | RAG and wrapper setup |
-| [COLLECTION_MANAGEMENT.md](docs/COLLECTION_MANAGEMENT.md) | Dynamic collections |
-| [REASONING_MODELS.md](docs/REASONING_MODELS.md) | Reasoning models (e.g. DeepSeek R1) |
-| [CHANGELOG.md](CHANGELOG.md) · [TODO.md](TODO.md) · [CONTRIBUTING.md](CONTRIBUTING.md) | Project docs |
 
 ---
 
