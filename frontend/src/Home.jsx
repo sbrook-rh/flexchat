@@ -66,10 +66,10 @@ const Home = ({ uiConfig }) => {
             </div>
             
             <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="text-3xl mb-3">⚙️</div>
-              <h3 className="text-lg font-semibold mb-2">Fully Configurable</h3>
+              <div className="text-3xl mb-3">🔧</div>
+              <h3 className="text-lg font-semibold mb-2">Builtin Tools</h3>
               <p className="text-gray-600 text-sm">
-                Build and manage your configuration through the UI
+                Calculator, datetime, and UUID tools — enable per handler or globally, and test across models in the Config Builder
               </p>
             </div>
           </div>
