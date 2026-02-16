@@ -918,8 +918,8 @@ python server.py --embeddings-config embeddings-fast.yml
 The server logs all operations to console:
 
 ```
-🔧 Embedding provider: ollama
-✅ Ollama configured at http://localhost:11434 with model: nomic-embed-text
+🔄 Loading embedding models from embeddings-fast.yml...
+✅ Loaded embedding model: minilm (sentence-transformers/all-MiniLM-L6-v2)
 🚀 Starting server on port 5006...
 INFO:     Started server process [12345]
 INFO:     Waiting for application startup.

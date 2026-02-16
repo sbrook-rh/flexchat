@@ -295,25 +295,13 @@ The Python service provides these endpoints:
 }
 ```
 
-**Python service environment** (`.env`):
-```
-EMBEDDING_PROVIDER=ollama
-EMBEDDING_MODEL=nomic-embed-text
-OLLAMA_BASE_URL=http://localhost:11434
-```
-
-Or for OpenAI embeddings:
-```
-EMBEDDING_PROVIDER=openai
-EMBEDDING_MODEL=text-embedding-ada-002
-OPENAI_API_KEY=sk-...
-```
+**RAG wrapper**: Embedding models are configured via `--embeddings-config` YAML (see [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md)). Start the wrapper with an embeddings config; collections use an `embedding_model` id from that config.
 
 ### Embedding Consistency
 
 **Critical**: The embedding model used for indexing (adding documents) and for querying (searching) must be **identical** for each collection. Mismatched embeddings produce meaningless results.
 
-**How it works**: The RAG wrapper loads embedding models (e.g. via `.env` or `--embeddings-config`). Each collection stores an `embedding_model` in its metadata. The wrapper uses that model for both document ingestion and query embedding for that collection.
+**How it works**: The RAG wrapper loads embedding models from the `--embeddings-config` YAML. Each collection stores an `embedding_model` (one of the YAML `id` values) in its metadata. The wrapper uses that model for both document ingestion and query embedding for that collection.
 
 ### Data Persistence
 
@@ -563,7 +551,7 @@ curl http://localhost:5006/collections
 # (Should show count > 0)
 
 # Verify embedding model matches
-# In Python service .env and collection metadata (embedding_model)
+# In wrapper embeddings config (YAML) and collection metadata (embedding_model)
 ```
 
 ### High distances (> 0.5) for relevant queries
@@ -575,7 +563,7 @@ curl http://localhost:5006/collections
 
 **Solutions:**
 1. **Check embedding consistency**: Indexing and querying must use same model
-2. **Try better embedding model**: `text-embedding-3-large` > `text-embedding-ada-002`
+2. **Try a different model** from your embeddings YAML (e.g. higher-quality model id)
 3. **Improve document quality**: More context, better chunking
 4. **Adjust thresholds**: Raise partial_threshold if needed
 
@@ -601,24 +589,15 @@ cat config/config.json | jq '.rag_services'
 ### "Embedding model not found"
 
 **Causes:**
-- Model not available in provider
-- Wrong model name
-- Provider not initialized
+- Model id in collection metadata not in the wrapper's loaded config
+- Wrong or missing `path` in embeddings YAML
+- Model download failed (HuggingFace or local path)
 
 **Solutions:**
-
-**For Ollama:**
-```bash
-# List available models
-ollama list
-
-# Pull embedding model
-ollama pull nomic-embed-text
-```
-
-**For OpenAI:**
-- Verify model name: `text-embedding-ada-002` or `text-embedding-3-small`
-- Check API key is valid
+- Ensure the wrapper was started with `--embeddings-config` and the YAML defines a model with that `id`
+- Run `curl http://localhost:5006/health` and check `embedding_models`; collection `embedding_model` must match one of those ids
+- Pre-download models: `python server.py --download-models --embeddings-config embeddings-fast.yml`
+- See [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md) for YAML format and startup
 
 ---
 
@@ -628,7 +607,7 @@ ollama pull nomic-embed-text
 
 - ✅ **Do**: Use same embedding model for indexing and querying
 - ✅ **Do**: Choose model based on language and domain
-- ✅ **Do**: Use local models (Ollama) for privacy and cost
+- ✅ **Do**: Choose models appropriate for your data (see CHROMADB_WRAPPER for YAML options)
 - ❌ **Don't**: Mix embedding models (produces meaningless results)
 - ❌ **Don't**: Change embedding model without re-indexing
 

@@ -254,7 +254,7 @@ Here are some recipies that might help with the user's query:
 
 **Date**: 2025-11-12  
 **Collection**: fancy-desserts (54 recipes)  
-**Embedding model**: all-minilm:latest (local Ollama)
+**Embedding model**: e.g. minilm (id from wrapper embeddings YAML)
 
 ### Query 1: Specific Recipe
 

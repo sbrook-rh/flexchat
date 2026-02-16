@@ -309,7 +309,7 @@ Embeddings are **not** configured in the Flex Chat Node.js config file. They are
 - Document upload sends text only to the wrapper; the wrapper generates embeddings using the collection's embedding model.
 - Queries use the same collection embedding model for query embedding.
 
-For wrapper embedding setup (Ollama, OpenAI, Gemini providers, model names, dimensions), see [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md) and [RAG_SERVICES.md](RAG_SERVICES.md).
+For wrapper embedding setup (YAML config, model ids, dimensions), see [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md) and [RAG_SERVICES.md](RAG_SERVICES.md).
 
 ---
 
@@ -735,9 +735,7 @@ Known provider patterns (`OPENAI`, `GEMINI`, `ANTHROPIC`, `OLLAMA`, `CHROMA`) ar
 
 ### RAG Service (Python wrapper)
 
-Embedding provider and model are configured in the RAG wrapper (e.g. `.env` next to the Python service), not in the Node config. See [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md).
-
-- `OLLAMA_BASE_URL` - Ollama endpoint (if not default)
+Embedding models are configured in the RAG wrapper via `--embeddings-config` YAML, not in the Node config. See [CHROMADB_WRAPPER.md](CHROMADB_WRAPPER.md). Optional env overrides (e.g. `EMBEDDINGS_CONFIG`) are in `backend/rag/env.example`.
 
 ### Setting Environment Variables
 
