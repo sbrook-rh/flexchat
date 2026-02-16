@@ -296,7 +296,7 @@ No `reasoning` configured = simple single-stage response.
 
 - **[ARCHITECTURE.md](ARCHITECTURE.md)**: Response handler matching and generation
 - **[CONFIGURATION.md](CONFIGURATION.md)**: Complete configuration reference
-- **[TODO.md](../TODO.md)**: Streaming responses implementation plan
+- **PROJECT_STATUS.md**: Roadmap; streaming responses are listed under current priorities
 
 ---
 

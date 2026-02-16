@@ -457,6 +457,8 @@ Provided recipes:
 - **Hierarchy reconstruction**: Gather related chunks for context
 - **ProfileBuilder UI**: User-configurable retrieval strategies + schema design
 
+See [ADVANCED_RAG_RETRIEVAL_PATH.md](ADVANCED_RAG_RETRIEVAL_PATH.md) for the synthesised path from experiments 01–07 to multi-step retrieval and pipeline design.
+
 ### Validated Priorities (from Experiment 0)
 
 **High Priority** (blocks effective use):
@@ -475,11 +477,9 @@ Provided recipes:
 
 ## 📚 Related Documentation
 
-- Architecture: `docs/ARCHITECTURE.md`
-- Collection Management: `docs/COLLECTION_MANAGEMENT.md`
-- Advanced RAG Epic: `openplan/data/epics/advanced-rag-retrieval.md`
-- Experiment 0 Task: `openplan/data/tasks/load-recipe-baseline.md`
-- Chat Endpoint Testing: `openplan/data/testing/chat-endpoint-quick-reference.md`
+- **Advanced RAG path (multi-step retrieval):** [ADVANCED_RAG_RETRIEVAL_PATH.md](ADVANCED_RAG_RETRIEVAL_PATH.md) — Synthesises experiments 01–07 and path to pipeline-based retrieval
+- Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
+- Collection Management: [COLLECTION_MANAGEMENT.md](COLLECTION_MANAGEMENT.md)
 
 ---
 

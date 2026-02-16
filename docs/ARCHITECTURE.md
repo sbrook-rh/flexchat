@@ -794,13 +794,13 @@ See `config/examples/`:
 - Server-Sent Events (SSE) for real-time streaming
 - Reasoning model "thinking" phase visibility
 - Progress indicators ("Detecting topic...", "Searching knowledge...")
-- See `TODO.md` for detailed implementation plan
+- See `PROJECT_STATUS.md` for roadmap and implementation priorities
 
 ### **Source Attribution** (Planned)
 - Format RAG context with collection headers
 - Enable LLM citations ("According to X collection...")
 - Clickable citations in UI
-- See `TODO.md` for format options and implementation plan
+- See `PROJECT_STATUS.md` for roadmap and implementation priorities
 
 ### **Topic Interaction** (Planned)
 - Edit and resubmit with topic override
@@ -911,7 +911,7 @@ pydantic==2.10.2
 ## Additional Resources
 
 - **[CHANGELOG.md](../CHANGELOG.md)**: Version history and changes
-- **[TODO.md](../TODO.md)**: Planned features and improvements
+- **[PROJECT_STATUS.md](../PROJECT_STATUS.md)**: Roadmap, priorities, and current status
 - **[CONFIGURATION.md](CONFIGURATION.md)**: Detailed configuration guide
 - **[COLLECTION_MANAGEMENT.md](COLLECTION_MANAGEMENT.md)**: Collection management guide
 - **[RAG_SERVICES.md](RAG_SERVICES.md)**: RAG provider documentation

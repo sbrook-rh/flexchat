@@ -425,7 +425,7 @@ Returns: object with 'temperature', 'condition', 'humidity' fields
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture and 6-phase flow
 - [CONFIGURATION.md](CONFIGURATION.md) - Configuration system
 - [REASONING_MODELS.md](REASONING_MODELS.md) - Two-stage generation (similar pattern to tool calling)
-- [PROJECT.md](../openplan/data/PROJECT.md) - Vision including MCP integration
+- [PROJECT_STATUS.md](../PROJECT_STATUS.md) - Roadmap and vision (including MCP integration)
 
 ---
 

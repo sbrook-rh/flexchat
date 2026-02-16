@@ -135,7 +135,8 @@ The full pipeline is stored as configuration, not code.
 
 ### 2. Advanced RAG Retrieval
 
-- 8 experiments completed (cross-encoder, ranking, classification)
+- 8+ experiments completed (cross-encoder, ranking, classification, sibling gathering, reranking)
+- Synthesised path to multi-step retrieval: [docs/ADVANCED_RAG_RETRIEVAL_PATH.md](docs/ADVANCED_RAG_RETRIEVAL_PATH.md)
 - RAG Pipeline System Architecture is written (1,328 lines)
 - Cross-encoder categorization is **20–50x faster than LLMs**
 - Ready to split work into implementation tasks

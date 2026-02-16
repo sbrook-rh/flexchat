@@ -12,13 +12,12 @@ Read this first to understand:
 - Git safety rules (atomic commits, no `git add .`)
 - Change planning guidelines
 
-### 2. TODO.md - What Needs Doing
+### 2. PROJECT_STATUS.md - Current Priorities and Status
 Read this to see:
-- **Current Focus section** (if present) - What we're actively working on
-- **Recent Accomplishments** - What was just completed
-- Completed items (✅) - What's already done
-- Pending items (☐) - What's left to do
-- HIGH PRIORITY items - What's most important
+- **What we're working on right now** - ETL, advanced RAG, pipeline system
+- **Roadmap** - Phase 1–4 and strategic priorities
+- **Ready for production** vs **on hold** - What's done and what's waiting
+- **Tech stack and direction** - Profile system, cross-encoder, hierarchical metadata
 
 ### 3. README.md - Project Overview
 Skim this for:
@@ -103,7 +102,7 @@ Before starting work, ask the user:
 - **Chat History**: Backend storage with abstraction layer
 - **Document Ingestion**: PDF, HTML, URL support
 - **Configuration Wizard**: CLI tool for setup
-- **New Features**: From TODO.md or user request
+- **New Features**: From PROJECT_STATUS.md or user request
 - **Bug Fixes**: From user reports or testing
 - **Documentation**: Updates or new guides
 
@@ -119,13 +118,13 @@ Once you understand the task:
 
 ### If Continuing Testing Work
 1. Check `backend/chat/__tests__/` for existing tests
-2. Review `TODO.md` → Testing & Validation section
+2. Review `PROJECT_STATUS.md` for testing priorities
 3. Look at `strategy-detection.test.js` for outlined tests
 4. Reference `strategy-detection-example.test.js` for patterns
 5. Run `npm test` to see current state
 
 ### If Starting New Feature
-1. Check if it's in TODO.md (use that priority/structure)
+1. Check PROJECT_STATUS.md for roadmap and priorities
 2. Use "Complex Logic Flow Debugging" methodology from CONTEXT.md:
    - Walk through current flow
    - Real-world scenario analysis
@@ -145,7 +144,7 @@ Once you understand the task:
 | File | Purpose | When to Check |
 |------|---------|---------------|
 | `CONTEXT.md` | Working practices, guidelines | Start of every session |
-| `TODO.md` | Task list and priorities | Start of every session |
+| `PROJECT_STATUS.md` | Roadmap, priorities, status | Start of every session |
 | `README.md` | Project overview | When unclear on architecture |
 | `docs/ARCHITECTURE.md` | v2.0 architecture, 4-phase flow | When working on core logic |
 | `docs/CONFIGURATION.md` | Complete config guide | When working with config |
@@ -177,7 +176,7 @@ cd frontend && npm run dev  # Frontend dev server (port 5173)
 At the start of each session, complete this checklist:
 
 - [ ] Read CONTEXT.md (working practices)
-- [ ] Read TODO.md (current focus and status)
+- [ ] Read PROJECT_STATUS.md (current focus and status)
 - [ ] Skim README.md (architecture refresh)
 - [ ] Check `git log --oneline -10` (recent work)
 - [ ] Check `git status` (uncommitted changes)
@@ -192,7 +191,7 @@ At the start of each session, complete this checklist:
 When the user says **"Follow NEW_SESSION instructions"** or **"Start new session"**:
 
 1. Acknowledge and begin: "Starting new session - reading context files..."
-2. Execute Step 1: Read CONTEXT.md, TODO.md, README.md (mention key findings)
+2. Execute Step 1: Read CONTEXT.md, PROJECT_STATUS.md, README.md (mention key findings)
 3. Execute Step 2: Check git log and status (report findings)
 4. Execute Step 3: Confirm understanding of project structure and current state
 5. Execute Step 4: Ask clarifying questions about today's focus

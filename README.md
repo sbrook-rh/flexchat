@@ -57,9 +57,10 @@ Then open **http://localhost:5173** — use the welcome screen to set up provide
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and 6-phase flow |
 | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) · [docs/CONFIGURATION_BUILDER.md](docs/CONFIGURATION_BUILDER.md) | Config reference and UI guide |
 | [docs/RAG_SERVICES.md](docs/RAG_SERVICES.md) · [docs/CHROMADB_WRAPPER.md](docs/CHROMADB_WRAPPER.md) | RAG and wrapper setup |
+| [docs/ADVANCED_RAG_RETRIEVAL_PATH.md](docs/ADVANCED_RAG_RETRIEVAL_PATH.md) | Path to multi-step RAG (experiments synthesis) |
 | [docs/COLLECTION_MANAGEMENT.md](docs/COLLECTION_MANAGEMENT.md) | Dynamic collections |
 | [docs/REASONING_MODELS.md](docs/REASONING_MODELS.md) | Reasoning models (e.g. DeepSeek R1) |
-| [CHANGELOG.md](CHANGELOG.md) · [TODO.md](TODO.md) · [CONTRIBUTING.md](CONTRIBUTING.md) | Project and contributing |
+| [CHANGELOG.md](CHANGELOG.md) · [CONTRIBUTING.md](CONTRIBUTING.md) | Project and contributing |
 
 [Troubleshooting](#troubleshooting) is summarised below.
 
