@@ -67,7 +67,7 @@ const Home = ({ uiConfig }) => {
             
             <div className="bg-white p-6 rounded-lg shadow-md">
               <div className="text-3xl mb-3">🔧</div>
-              <h3 className="text-lg font-semibold mb-2">Test Tool Calling</h3>
+              <h3 className="text-lg font-semibold mb-2">Tool Calling</h3>
               <p className="text-gray-600 text-sm">
                 Try function calling against any configured model without applying changes — find out which providers and models truly support it
               </p>
