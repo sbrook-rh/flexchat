@@ -159,9 +159,9 @@ class ToolExecutor {
    * @returns {Promise<Object>} Handler result
    */
   async _executeBuiltin(tool, params) {
-    // builtin_handler lets a tool use a named handler (e.g. "calculator" -> "math_eval")
+    // tool.handler maps tool name to its handler (e.g. "calculator" -> "math_eval")
     // Falls back to tool.name for backward compatibility
-    const handlerName = tool.builtin_handler || tool.name;
+    const handlerName = tool.handler || tool.name;
     const handler = this._handlers.get(handlerName);
     if (!handler) {
       throw new Error(`No builtin handler registered for tool "${tool.name}" (handler: "${handlerName}")`);
